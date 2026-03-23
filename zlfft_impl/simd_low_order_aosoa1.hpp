@@ -69,14 +69,13 @@ namespace zlfft {
                     width = width << 2;
                 }
             } else {
-                const size_t vlanes = hn::Lanes(hn::ScalableTag<F>());
                 size_t num_twiddle_elements = 0;
                 size_t sim_width = (stages_[0] == common::StageType::kRadix4FirstPass) ? 4 : 8;
 
                 for (size_t i = 1; i < stages_.size(); ++i) {
                     const auto stage = stages_[i];
                     if (stage == common::StageType::kRadix4Width4) {
-                        num_twiddle_elements += 24;
+                        num_twiddle_elements += 6 * std::max(static_cast<size_t>(4), vlanes);
                         sim_width = sim_width << 2;
                     } else if (stage == common::StageType::kRadix4 || stage == common::StageType::kRadix4LastPass) {
                         size_t num_blocks = std::max<size_t>(1, sim_width / vlanes);
@@ -97,7 +96,8 @@ namespace zlfft {
                     const auto stage = stages_[i];
                     if (stage == common::StageType::kRadix4Width4) {
                         const double angle_step = -2.0 * std::numbers::pi / static_cast<double>(gen_width << 2);
-                        for (int l = 0; l < 4; ++l) {
+
+                        for (int l = 0; l < std::max(static_cast<size_t>(4), vlanes); ++l) {
                             const double angle = static_cast<double>(l) * angle_step;
                             twiddles_aosoa_[offset + l]      = static_cast<F>(std::cos(angle * 1));
                             twiddles_aosoa_[offset + 4 + l]  = static_cast<F>(std::sin(angle * 1));

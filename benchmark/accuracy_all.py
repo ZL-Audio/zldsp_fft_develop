@@ -4,47 +4,35 @@ import os
 import sys
 import platform
 import shutil
-import json
 import time
 
 from build_config import build_benchmark
 
 
 def run_benchmark(exe_path, n0, n1, algorithm):
-    print(f"Running throughput benchmark for {algorithm} from order {n0} to {n1}...")
-    cmd = [exe_path, str(n0), str(n1), "--benchmark_format=json"]
-
-    try:
-        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-    except subprocess.CalledProcessError as e:
-        print(f"Benchmark failed for {algorithm}.\nSTDOUT: {e.stdout}\nSTDERR: {e.stderr}")
-        return None
-
-    try:
-        data = json.loads(result.stdout)
-    except json.JSONDecodeError:
-        print(f"Failed to parse JSON output for {algorithm}.")
-        return None
-
-    throughputs = []
-    for bench in data.get("benchmarks", []):
-        name = bench["name"]
+    print(f"Running accuracy benchmark for {algorithm} from order {n0} to {n1}...")
+    
+    mses = []
+    for n in range(n0, n1 + 1):
+        cmd = [exe_path, str(n)]
+        
         try:
-            n = int(name.split('/')[-1])
+            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+            # Parse the float output from stdout
+            mse = float(result.stdout.strip())
+            mses.append(mse)
+        except subprocess.CalledProcessError as e:
+            print(f"Benchmark failed for {algorithm} at order {n}.\nSTDOUT: {e.stdout}\nSTDERR: {e.stderr}")
+            return None
         except ValueError:
-            continue
+            print(f"Failed to parse MSE output for {algorithm} at order {n}. Output: {result.stdout}")
+            return None
 
-        cpu_time_us = bench["cpu_time"] * 0.5
-
-        ops = 5 * (2 ** n) * n
-        throughput = ops / cpu_time_us
-        throughputs.append(throughput)
-
-    return throughputs
+    return mses
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Batch Throughput Benchmark for FFT Algorithms")
+    parser = argparse.ArgumentParser(description="Batch Accuracy Benchmark for FFT Algorithms")
     parser.add_argument("n0", type=int, help="Start FFT order (size 2^n)")
     parser.add_argument("n1", type=int, help="End FFT order (size 2^n)")
     parser.add_argument("--avx2", action="store_true", help="Enable AVX2 architecture")
@@ -67,33 +55,33 @@ def main():
     results = {}
 
     for i, algo in enumerate(algorithms):
-        if i > 0:
-            print("\nSleeping 10 seconds to let the CPU cool down...")
-            time.sleep(10)
-            
         print(f"\n[{i+1}/{len(algorithms)}] Building {algo}...")
         
         try:
-            exe_path = build_benchmark(algo, "throughput", use_avx2=args.avx2)
-            time.sleep(10)
-            throughput_data = run_benchmark(exe_path, args.n0, args.n1, algo)
+            exe_path = build_benchmark(algo, "accuracy", use_avx2=args.avx2)
+            time.sleep(1)
+            accuracy_data = run_benchmark(exe_path, args.n0, args.n1, algo)
             
-            if throughput_data is not None:
-                results[algo] = throughput_data
+            if accuracy_data is not None:
+                results[algo] = accuracy_data
             else:
                 print(f"Skipping {algo} due to execution failure.")
                 
         except Exception as e:
             print(f"Error building or running benchmark for {algo}: {e}")
             continue
-    shutil.rmtree("build_fft")
+
+    if os.path.exists("build_fft"):
+        shutil.rmtree("build_fft")
+        
     print("\n" + "="*50)
-    print("FINAL BENCHMARK RESULTS")
+    print("FINAL ACCURACY RESULTS (MSE)")
     print("="*50)
     r = {}
+
     for key, value in results.items():
-        if key == "fftw3":
-            r["fftw3 measure"] = value
+        if key == "fftw3": 
+            r["fftw3 measure"] = value 
         elif key == "fftw3_estimate":
             r["fftw3 estimate"] = value
         elif key == "simd_low_order_opt1":
@@ -106,6 +94,7 @@ def main():
             r["radix-8 AoSoA"] = value
         else:
             r[key] = value
+            
     print(str(r).replace("],", "],\n"))
 
 
