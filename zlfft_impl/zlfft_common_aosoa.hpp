@@ -50,12 +50,12 @@ namespace zlfft::common {
             const size_t k = i & mask;
             const size_t w_offset = k * 6;
 
-            const auto w1_r = hn::LoadU(d, w_ptr + w_offset);
-            const auto w1_i = hn::LoadU(d, w_ptr + w_offset + lanes);
-            const auto w2_r = hn::LoadU(d, w_ptr + w_offset + lanes * 2);
-            const auto w2_i = hn::LoadU(d, w_ptr + w_offset + lanes * 3);
-            const auto w3_r = hn::LoadU(d, w_ptr + w_offset + lanes * 4);
-            const auto w3_i = hn::LoadU(d, w_ptr + w_offset + lanes * 5);
+            const auto w1_r = hn::Load(d, w_ptr + w_offset);
+            const auto w1_i = hn::Load(d, w_ptr + w_offset + lanes);
+            const auto w2_r = hn::Load(d, w_ptr + w_offset + lanes * 2);
+            const auto w2_i = hn::Load(d, w_ptr + w_offset + lanes * 3);
+            const auto w3_r = hn::Load(d, w_ptr + w_offset + lanes * 4);
+            const auto w3_i = hn::Load(d, w_ptr + w_offset + lanes * 5);
 
             const auto t1_r = hn::NegMulAdd(i1, w1_i, hn::Mul(r1, w1_r));
             const auto t1_i = hn::MulAdd(i1, w1_r, hn::Mul(r1, w1_i));
@@ -166,12 +166,12 @@ namespace zlfft::common {
         static constexpr hn::ScalableTag<F> d;
         static constexpr size_t lanes = hn::Lanes(d);
 
-        const auto w1_r = hn::LoadU(d, w_ptr);
-        const auto w1_i = hn::LoadU(d, w_ptr + lanes);
-        const auto w2_r = hn::LoadU(d, w_ptr + lanes * 2);
-        const auto w2_i = hn::LoadU(d, w_ptr + lanes * 3);
-        const auto w3_r = hn::LoadU(d, w_ptr + lanes * 4);
-        const auto w3_i = hn::LoadU(d, w_ptr + lanes * 5);
+        const auto w1_r = hn::Load(d, w_ptr);
+        const auto w1_i = hn::Load(d, w_ptr + lanes);
+        const auto w2_r = hn::Load(d, w_ptr + lanes * 2);
+        const auto w2_i = hn::Load(d, w_ptr + lanes * 3);
+        const auto w3_r = hn::Load(d, w_ptr + lanes * 4);
+        const auto w3_i = hn::Load(d, w_ptr + lanes * 5);
 
         for (size_t j = 0; j < quarter_n; j += lanes) {
             const auto i1 = hn::Load(d, in_aosoa + 2 * (j + quarter_n) + lanes);
@@ -241,12 +241,12 @@ namespace zlfft::common {
             const size_t k = i & mask;
             const size_t w_offset = k * 6;
 
-            const auto w1_r = hn::LoadU(d, w_ptr + w_offset);
-            const auto w1_i = hn::LoadU(d, w_ptr + w_offset + lanes);
-            const auto w2_r = hn::LoadU(d, w_ptr + w_offset + lanes * 2);
-            const auto w2_i = hn::LoadU(d, w_ptr + w_offset + lanes * 3);
-            const auto w3_r = hn::LoadU(d, w_ptr + w_offset + lanes * 4);
-            const auto w3_i = hn::LoadU(d, w_ptr + w_offset + lanes * 5);
+            const auto w1_r = hn::Load(d, w_ptr + w_offset);
+            const auto w1_i = hn::Load(d, w_ptr + w_offset + lanes);
+            const auto w2_r = hn::Load(d, w_ptr + w_offset + lanes * 2);
+            const auto w2_i = hn::Load(d, w_ptr + w_offset + lanes * 3);
+            const auto w3_r = hn::Load(d, w_ptr + w_offset + lanes * 4);
+            const auto w3_i = hn::Load(d, w_ptr + w_offset + lanes * 5);
 
             const auto t1_r = hn::NegMulAdd(i1, w1_i, hn::Mul(r1, w1_r));
             const auto t1_i = hn::MulAdd(i1, w1_r, hn::Mul(r1, w1_i));
@@ -301,8 +301,8 @@ namespace zlfft::common {
             auto load_twiddle_mul = [&](size_t in_offset, size_t m_idx, auto& r_out, auto& i_out) {
                 const auto r_in = hn::Load(d, in_aosoa + 2 * (in_offset + i));
                 const auto i_in = hn::Load(d, in_aosoa + 2 * (in_offset + i) + lanes);
-                const auto w_r = hn::LoadU(d, w_ptr + w_offset + 2 * m_idx * lanes);
-                const auto w_i = hn::LoadU(d, w_ptr + w_offset + (2 * m_idx + 1) * lanes);
+                const auto w_r = hn::Load(d, w_ptr + w_offset + 2 * m_idx * lanes);
+                const auto w_i = hn::Load(d, w_ptr + w_offset + (2 * m_idx + 1) * lanes);
                 r_out = hn::NegMulAdd(i_in, w_i, hn::Mul(r_in, w_r));
                 i_out = hn::MulAdd(i_in, w_r, hn::Mul(r_in, w_i));
             };
