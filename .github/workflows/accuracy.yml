@@ -57,26 +57,26 @@ jobs:
         run: |
           nuget install intelipp.static.win-x64 -Version 2022.3.0.387
           
-      - name: Throughput Test AVX2 (Linux)
+      - name: Accuracy Test AVX2 (Linux)
         if: runner.os == 'Linux'
         shell: bash
         run: |
           source /opt/intel/oneapi/setvars.sh
           python -u benchmark/accuracy_all.py 5 25 --avx2
 
-      - name: Throughput Test (Linux)
+      - name: Accuracy Test (Linux)
         if: runner.os == 'Linux'
         shell: bash
         run: |
           source /opt/intel/oneapi/setvars.sh
           python -u benchmark/accuracy_all.py 5 25
 
-      - name: Throughput Test (Windows)
+      - name: Accuracy Test (Windows)
         if: runner.os == 'Windows'
         shell: bash
         run: python -u benchmark/accuracy_all.py 5 25
 
-      - name: Throughput Test (macOS)
+      - name: Accuracy Test (macOS)
         if: runner.os == 'macOS'
         shell: bash
         run: python -u benchmark/accuracy_all.py 5 25

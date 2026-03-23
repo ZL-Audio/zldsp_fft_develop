@@ -41,13 +41,13 @@ def main():
 
     if platform.system() == "Darwin":
         algorithms = [
-            "fftw3", "fftw3_estimate", "kfr", "vdsp", "pffft", 
+            "kfr",
             "simd_low_order_opt1", "simd_low_order_opt2", 
             "simd_low_order_aosoa1", "simd_low_order_aosoa2"
         ]
     else:
         algorithms = [
-            "fftw3", "fftw3_estimate", "kfr", "ipp", "pffft", 
+            "kfr",
             "simd_low_order_opt1", "simd_low_order_opt2", 
             "simd_low_order_aosoa1", "simd_low_order_aosoa2"
         ]
