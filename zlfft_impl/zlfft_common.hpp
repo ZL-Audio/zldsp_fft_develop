@@ -476,11 +476,38 @@ namespace zlfft::common {
             const auto upper_i3 = hn::InterleaveUpper(d, z03_i, z13_i);
 
             const size_t out_offset = j << 3;
-            hn::StoreInterleaved4(lower_r0, lower_r1, lower_r2, lower_r3, d, out_r + out_offset);
-            hn::StoreInterleaved4(upper_r0, upper_r1, upper_r2, upper_r3, d, out_r + out_offset + (lanes << 2));
+            if constexpr (lanes <= 4) {
+                hn::StoreInterleaved4(lower_r0, lower_r1, lower_r2, lower_r3, d, out_r + out_offset);
+                hn::StoreInterleaved4(upper_r0, upper_r1, upper_r2, upper_r3, d, out_r + out_offset + (lanes << 2));
+                hn::StoreInterleaved4(lower_i0, lower_i1, lower_i2, lower_i3, d, out_i + out_offset);
+                hn::StoreInterleaved4(upper_i0, upper_i1, upper_i2, upper_i3, d, out_i + out_offset + (lanes << 2));
+            } else {
+                const auto store0_r0 = hn::ConcatLowerLower(d, upper_r0, lower_r0);
+                const auto store0_r1 = hn::ConcatLowerLower(d, upper_r1, lower_r1);
+                const auto store0_r2 = hn::ConcatLowerLower(d, upper_r2, lower_r2);
+                const auto store0_r3 = hn::ConcatLowerLower(d, upper_r3, lower_r3);
 
-            hn::StoreInterleaved4(lower_i0, lower_i1, lower_i2, lower_i3, d, out_i + out_offset);
-            hn::StoreInterleaved4(upper_i0, upper_i1, upper_i2, upper_i3, d, out_i + out_offset + (lanes << 2));
+                const auto store1_r0 = hn::ConcatUpperUpper(d, upper_r0, lower_r0);
+                const auto store1_r1 = hn::ConcatUpperUpper(d, upper_r1, lower_r1);
+                const auto store1_r2 = hn::ConcatUpperUpper(d, upper_r2, lower_r2);
+                const auto store1_r3 = hn::ConcatUpperUpper(d, upper_r3, lower_r3);
+
+                const auto store0_i0 = hn::ConcatLowerLower(d, upper_i0, lower_i0);
+                const auto store0_i1 = hn::ConcatLowerLower(d, upper_i1, lower_i1);
+                const auto store0_i2 = hn::ConcatLowerLower(d, upper_i2, lower_i2);
+                const auto store0_i3 = hn::ConcatLowerLower(d, upper_i3, lower_i3);
+
+                const auto store1_i0 = hn::ConcatUpperUpper(d, upper_i0, lower_i0);
+                const auto store1_i1 = hn::ConcatUpperUpper(d, upper_i1, lower_i1);
+                const auto store1_i2 = hn::ConcatUpperUpper(d, upper_i2, lower_i2);
+                const auto store1_i3 = hn::ConcatUpperUpper(d, upper_i3, lower_i3);
+
+                hn::StoreInterleaved4(store0_r0, store0_r1, store0_r2, store0_r3, d, out_r + out_offset);
+                hn::StoreInterleaved4(store1_r0, store1_r1, store1_r2, store1_r3, d, out_r + out_offset + (lanes << 2));
+
+                hn::StoreInterleaved4(store0_i0, store0_i1, store0_i2, store0_i3, d, out_i + out_offset);
+                hn::StoreInterleaved4(store1_i0, store1_i1, store1_i2, store1_i3, d, out_i + out_offset + (lanes << 2));
+            }
         }
     }
 

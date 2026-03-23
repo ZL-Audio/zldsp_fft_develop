@@ -202,15 +202,46 @@ namespace zlfft::common {
             const auto s1_r = hn::Sub(r0, t2_r);
             const auto s1_i = hn::Sub(i0, t2_i);
 
+            const auto out0_r = hn::Add(s0_r, s2_r);
+            const auto out0_i = hn::Add(s0_i, s2_i);
+            const auto out1_r = hn::Add(s1_r, s3_i);
+            const auto out1_i = hn::Sub(s1_i, s3_r);
+            const auto out2_r = hn::Sub(s0_r, s2_r);
+            const auto out2_i = hn::Sub(s0_i, s2_i);
+            const auto out3_r = hn::Sub(s1_r, s3_i);
+            const auto out3_i = hn::Add(s1_i, s3_r);
+
             F* __restrict out_shift = out_aosoa + (j << 3);
-            hn::Store(hn::Add(s0_r, s2_r), d, out_shift);
-            hn::Store(hn::Add(s0_i, s2_i), d, out_shift + lanes);
-            hn::Store(hn::Add(s1_r, s3_i), d, out_shift + lanes * 2);
-            hn::Store(hn::Sub(s1_i, s3_r), d, out_shift + lanes * 3);
-            hn::Store(hn::Sub(s0_r, s2_r), d, out_shift + lanes * 4);
-            hn::Store(hn::Sub(s0_i, s2_i), d, out_shift + lanes * 5);
-            hn::Store(hn::Sub(s1_r, s3_i), d, out_shift + lanes * 6);
-            hn::Store(hn::Add(s1_i, s3_r), d, out_shift + lanes * 7);
+
+            if constexpr (lanes == 8) {
+                const auto out01_r_lo = hn::ConcatLowerLower(d, out1_r, out0_r);
+                const auto out01_i_lo = hn::ConcatLowerLower(d, out1_i, out0_i);
+                const auto out23_r_lo = hn::ConcatLowerLower(d, out3_r, out2_r);
+                const auto out23_i_lo = hn::ConcatLowerLower(d, out3_i, out2_i);
+
+                const auto out01_r_hi = hn::ConcatUpperUpper(d, out1_r, out0_r);
+                const auto out01_i_hi = hn::ConcatUpperUpper(d, out1_i, out0_i);
+                const auto out23_r_hi = hn::ConcatUpperUpper(d, out3_r, out2_r);
+                const auto out23_i_hi = hn::ConcatUpperUpper(d, out3_i, out2_i);
+
+                hn::Store(out01_r_lo, d, out_shift);
+                hn::Store(out01_i_lo, d, out_shift + lanes);
+                hn::Store(out23_r_lo, d, out_shift + lanes * 2);
+                hn::Store(out23_i_lo, d, out_shift + lanes * 3);
+                hn::Store(out01_r_hi, d, out_shift + lanes * 4);
+                hn::Store(out01_i_hi, d, out_shift + lanes * 5);
+                hn::Store(out23_r_hi, d, out_shift + lanes * 6);
+                hn::Store(out23_i_hi, d, out_shift + lanes * 7);
+            } else {
+                hn::Store(out0_r, d, out_shift);
+                hn::Store(out0_i, d, out_shift + lanes);
+                hn::Store(out1_r, d, out_shift + lanes * 2);
+                hn::Store(out1_i, d, out_shift + lanes * 3);
+                hn::Store(out2_r, d, out_shift + lanes * 4);
+                hn::Store(out2_i, d, out_shift + lanes * 5);
+                hn::Store(out3_r, d, out_shift + lanes * 6);
+                hn::Store(out3_i, d, out_shift + lanes * 7);
+            }
         }
     }
 
@@ -468,22 +499,25 @@ namespace zlfft::common {
             transpose4x4(d, upper_i0, upper_i1, upper_i2, upper_i3, i4, i5, i6, i7);
 
             F* __restrict out_shift = out_aosoa + (j << 4);
-            hn::Store(r0, d, out_shift);
-            hn::Store(i0, d, out_shift + lanes);
-            hn::Store(r1, d, out_shift + 2 * lanes);
-            hn::Store(i1, d, out_shift + 3 * lanes);
-            hn::Store(r2, d, out_shift + 4 * lanes);
-            hn::Store(i2, d, out_shift + 5 * lanes);
-            hn::Store(r3, d, out_shift + 6 * lanes);
-            hn::Store(i3, d, out_shift + 7 * lanes);
-            hn::Store(r4, d, out_shift + 8 * lanes);
-            hn::Store(i4, d, out_shift + 9 * lanes);
-            hn::Store(r5, d, out_shift + 10 * lanes);
-            hn::Store(i5, d, out_shift + 11 * lanes);
-            hn::Store(r6, d, out_shift + 12 * lanes);
-            hn::Store(i6, d, out_shift + 13 * lanes);
-            hn::Store(r7, d, out_shift + 14 * lanes);
-            hn::Store(i7, d, out_shift + 15 * lanes);
+            if constexpr (lanes == 8) {
+                hn::Store(r0, d, out_shift);              hn::Store(i0, d, out_shift + lanes);
+                hn::Store(r1, d, out_shift + 2 * lanes);  hn::Store(i1, d, out_shift + 3 * lanes);
+                hn::Store(r4, d, out_shift + 4 * lanes);  hn::Store(i4, d, out_shift + 5 * lanes);
+                hn::Store(r5, d, out_shift + 6 * lanes);  hn::Store(i5, d, out_shift + 7 * lanes);
+                hn::Store(r2, d, out_shift + 8 * lanes);  hn::Store(i2, d, out_shift + 9 * lanes);
+                hn::Store(r3, d, out_shift + 10 * lanes); hn::Store(i3, d, out_shift + 11 * lanes);
+                hn::Store(r6, d, out_shift + 12 * lanes); hn::Store(i6, d, out_shift + 13 * lanes);
+                hn::Store(r7, d, out_shift + 14 * lanes); hn::Store(i7, d, out_shift + 15 * lanes);
+            } else {
+                hn::Store(r0, d, out_shift);              hn::Store(i0, d, out_shift + lanes);
+                hn::Store(r1, d, out_shift + 2 * lanes);  hn::Store(i1, d, out_shift + 3 * lanes);
+                hn::Store(r2, d, out_shift + 4 * lanes);  hn::Store(i2, d, out_shift + 5 * lanes);
+                hn::Store(r3, d, out_shift + 6 * lanes);  hn::Store(i3, d, out_shift + 7 * lanes);
+                hn::Store(r4, d, out_shift + 8 * lanes);  hn::Store(i4, d, out_shift + 9 * lanes);
+                hn::Store(r5, d, out_shift + 10 * lanes); hn::Store(i5, d, out_shift + 11 * lanes);
+                hn::Store(r6, d, out_shift + 12 * lanes); hn::Store(i6, d, out_shift + 13 * lanes);
+                hn::Store(r7, d, out_shift + 14 * lanes); hn::Store(i7, d, out_shift + 15 * lanes);
+            }
         }
     }
 }
