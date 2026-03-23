@@ -163,15 +163,15 @@ namespace zlfft::common {
         const size_t half_n = n >> 1;
         const size_t three_quarter_n = quarter_n * 3;
 
-        static constexpr hn::FixedTag<F, 4> d;
+        static constexpr hn::ScalableTag<F> d;
         static constexpr size_t lanes = hn::Lanes(d);
 
         const auto w1_r = hn::LoadU(d, w_ptr);
-        const auto w1_i = hn::LoadU(d, w_ptr + 4);
-        const auto w2_r = hn::LoadU(d, w_ptr + 8);
-        const auto w2_i = hn::LoadU(d, w_ptr + 12);
-        const auto w3_r = hn::LoadU(d, w_ptr + 16);
-        const auto w3_i = hn::LoadU(d, w_ptr + 20);
+        const auto w1_i = hn::LoadU(d, w_ptr + lanes);
+        const auto w2_r = hn::LoadU(d, w_ptr + lanes * 2);
+        const auto w2_i = hn::LoadU(d, w_ptr + lanes * 3);
+        const auto w3_r = hn::LoadU(d, w_ptr + lanes * 4);
+        const auto w3_i = hn::LoadU(d, w_ptr + lanes * 5);
 
         for (size_t j = 0; j < quarter_n; j += lanes) {
             const auto i1 = hn::Load(d, in_aosoa + 2 * (j + quarter_n) + lanes);
@@ -202,19 +202,15 @@ namespace zlfft::common {
             const auto s1_r = hn::Sub(r0, t2_r);
             const auto s1_i = hn::Sub(i0, t2_i);
 
-            const size_t out_idx = j << 2;
-
-            hn::Store(hn::Add(s0_r, s2_r), d, out_aosoa + 2 * out_idx);
-            hn::Store(hn::Add(s0_i, s2_i), d, out_aosoa + 2 * out_idx + lanes);
-
-            hn::Store(hn::Sub(s0_r, s2_r), d, out_aosoa + 2 * (out_idx + 8));
-            hn::Store(hn::Sub(s0_i, s2_i), d, out_aosoa + 2 * (out_idx + 8) + lanes);
-
-            hn::Store(hn::Add(s1_r, s3_i), d, out_aosoa + 2 * (out_idx + 4));
-            hn::Store(hn::Sub(s1_i, s3_r), d, out_aosoa + 2 * (out_idx + 4) + lanes);
-
-            hn::Store(hn::Sub(s1_r, s3_i), d, out_aosoa + 2 * (out_idx + 12));
-            hn::Store(hn::Add(s1_i, s3_r), d, out_aosoa + 2 * (out_idx + 12) + lanes);
+            F* __restrict out_shift = out_aosoa + (j << 3);
+            hn::Store(hn::Add(s0_r, s2_r), d, out_shift);
+            hn::Store(hn::Add(s0_i, s2_i), d, out_shift + lanes);
+            hn::Store(hn::Add(s1_r, s3_i), d, out_shift + lanes * 2);
+            hn::Store(hn::Sub(s1_i, s3_r), d, out_shift + lanes * 3);
+            hn::Store(hn::Sub(s0_r, s2_r), d, out_shift + lanes * 4);
+            hn::Store(hn::Sub(s0_i, s2_i), d, out_shift + lanes * 5);
+            hn::Store(hn::Sub(s1_r, s3_i), d, out_shift + lanes * 6);
+            hn::Store(hn::Add(s1_i, s3_r), d, out_shift + lanes * 7);
         }
     }
 
