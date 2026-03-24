@@ -7,7 +7,7 @@ import shutil
 import json
 import time
 
-from build_config import build_benchmark
+from build_config import get_algo_list, build_benchmark
 
 
 def run_benchmark(exe_path, n0, n1, algorithm):
@@ -48,21 +48,11 @@ def main():
     parser.add_argument("n0", type=int, help="Start FFT order (size 2^n)")
     parser.add_argument("n1", type=int, help="End FFT order (size 2^n)")
     parser.add_argument("--avx2", action="store_true", help="Enable AVX2 architecture")
+    parser.add_argument("--full", action="store_true", help="Enable AVX2 architecture")
 
     args = parser.parse_args()
 
-    if platform.system() == "Darwin":
-        algorithms = [
-            "fftw3", "fftw3_estimate", "kfr", "vdsp", "pffft", 
-            "simd_low_order_opt1", "simd_low_order_opt2", 
-            "simd_low_order_aosoa1", "simd_low_order_aosoa2"
-        ]
-    else:
-        algorithms = [
-            "fftw3", "fftw3_estimate", "kfr", "ipp", "pffft", 
-            "simd_low_order_opt1", "simd_low_order_opt2", 
-            "simd_low_order_aosoa1", "simd_low_order_aosoa2"
-        ]
+    algorithms = get_algo_list(args.full)
 
     results = {}
 

@@ -6,7 +6,7 @@ import platform
 import shutil
 import time
 
-from build_config import build_benchmark
+from build_config import get_algo_list, build_benchmark
 
 
 def run_benchmark(exe_path, n0, n1, algorithm):
@@ -18,7 +18,6 @@ def run_benchmark(exe_path, n0, n1, algorithm):
         
         try:
             result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-            # Parse the float output from stdout
             mse = float(result.stdout.strip())
             mses.append(mse)
         except subprocess.CalledProcessError as e:
@@ -36,21 +35,11 @@ def main():
     parser.add_argument("n0", type=int, help="Start FFT order (size 2^n)")
     parser.add_argument("n1", type=int, help="End FFT order (size 2^n)")
     parser.add_argument("--avx2", action="store_true", help="Enable AVX2 architecture")
+    parser.add_argument("--full", action="store_true", help="Enable AVX2 architecture")
 
     args = parser.parse_args()
 
-    if platform.system() == "Darwin":
-        algorithms = [
-            "kfr",
-            "simd_low_order_opt1", "simd_low_order_opt2", 
-            "simd_low_order_aosoa1", "simd_low_order_aosoa2"
-        ]
-    else:
-        algorithms = [
-            "kfr",
-            "simd_low_order_opt1", "simd_low_order_opt2", 
-            "simd_low_order_aosoa1", "simd_low_order_aosoa2"
-        ]
+    algorithms = get_algo_list(args.full)
 
     results = {}
 

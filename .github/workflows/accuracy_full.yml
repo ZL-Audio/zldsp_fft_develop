@@ -1,0 +1,82 @@
+name: Accuracy Test Full
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+jobs:
+  build_and_test:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux
+            os: ubuntu-latest
+          - name: macOS
+            os: macos-latest
+#          - name: Windows
+#            os: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Show CPU Info (Linux)
+        if: runner.os == 'Linux'
+        run: lscpu
+
+      - name: Show CPU Info (macOS)
+        if: runner.os == 'macOS'
+        run: sysctl -n machdep.cpu.brand_string
+
+      - name: Show CPU Info (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: Get-CimInstance -ClassName Win32_Processor | Select-Object Name, NumberOfCores, NumberOfLogicalProcessors
+
+      - name: Install IPP (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          wget -O- https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB | gpg --dearmor | sudo tee /usr/share/keyrings/oneapi-archive-keyring.gpg > /dev/null
+          echo "deb [signed-by=/usr/share/keyrings/oneapi-archive-keyring.gpg] https://apt.repos.intel.com/oneapi all main" | sudo tee /etc/apt/sources.list.d/oneAPI.list
+          sudo apt-get update && sudo apt install intel-oneapi-ipp-devel
+
+      - name: Install IPP (Windows)
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: |
+          nuget install intelipp.static.win-x64 -Version 2022.3.0.387
+          
+      - name: Accuracy Test AVX2 (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          source /opt/intel/oneapi/setvars.sh
+          python -u benchmark/accuracy_all.py 5 25 --avx2 --full
+
+      - name: Accuracy Test (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          source /opt/intel/oneapi/setvars.sh
+          python -u benchmark/accuracy_all.py 5 25 --full
+
+      - name: Accuracy Test (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: python -u benchmark/accuracy_all.py 5 25 --full
+
+      - name: Accuracy Test (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: python -u benchmark/accuracy_all.py 5 25 --full

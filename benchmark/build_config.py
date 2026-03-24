@@ -28,6 +28,19 @@ algos = ["naive_stockham_radix2", "naive_cooley_radix2", "naive_stockham_radix4"
 
          "fftw3", "fftw3_estimate", "kfr", "vdsp", "vdsp_stride_2", "pffft", "ipp"]
 
+def get_algo_list(full=False):
+    if not full:
+        return ["kfr",
+                "simd_low_order_opt1", "simd_low_order_opt2",
+                "simd_low_order_aosoa1", "simd_low_order_aosoa2"]
+    elif platform.system() == "Darwin":
+        return ["fftw3", "fftw3_estimate", "kfr", "vdsp", "pffft",
+                "simd_low_order_opt1", "simd_low_order_opt2",
+                "simd_low_order_aosoa1", "simd_low_order_aosoa2"]
+    else:
+        return ["fftw3", "fftw3_estimate", "kfr", "ipp", "pffft",
+                "simd_low_order_opt1", "simd_low_order_opt2",
+                "simd_low_order_aosoa1", "simd_low_order_aosoa2"]
 
 def build_benchmark(algorithm, benchmark_type, use_avx2=False, to_print=False):
     build_dir = "build_fft"
