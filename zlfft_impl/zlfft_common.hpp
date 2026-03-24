@@ -24,32 +24,6 @@ namespace zlfft::common {
         kRadix4LastPass,
     };
 
-    template <class D, class V>
-    inline void transpose4x4(D d, V v0, V v1, V v2, V v3, V& r0, V& r1, V& r2, V& r3) {
-        hn::Repartition<uint64_t, D> d64;
-        auto t0 = hn::InterleaveLower(d, v0, v1);
-        auto t1 = hn::InterleaveLower(d, v2, v3);
-        auto t2 = hn::InterleaveUpper(d, v0, v1);
-        auto t3 = hn::InterleaveUpper(d, v2, v3);
-
-        auto m0 = hn::BitCast(d, hn::InterleaveLower(d64, hn::BitCast(d64, t0), hn::BitCast(d64, t1)));
-        auto m1 = hn::BitCast(d, hn::InterleaveUpper(d64, hn::BitCast(d64, t0), hn::BitCast(d64, t1)));
-        auto m2 = hn::BitCast(d, hn::InterleaveLower(d64, hn::BitCast(d64, t2), hn::BitCast(d64, t3)));
-        auto m3 = hn::BitCast(d, hn::InterleaveUpper(d64, hn::BitCast(d64, t2), hn::BitCast(d64, t3)));
-
-        if constexpr (hn::Lanes(D()) == 8) {
-            r0 = hn::ConcatLowerLower(d, m1, m0);
-            r1 = hn::ConcatLowerLower(d, m3, m2);
-            r2 = hn::ConcatUpperUpper(d, m1, m0);
-            r3 = hn::ConcatUpperUpper(d, m3, m2);
-        } else {
-            r0 = m0;
-            r1 = m1;
-            r2 = m2;
-            r3 = m3;
-        }
-    }
-
     template <typename F>
     inline void radix4(const F* __restrict in_r, const F* __restrict in_i,
                        F* __restrict out_r, F* __restrict out_i,
