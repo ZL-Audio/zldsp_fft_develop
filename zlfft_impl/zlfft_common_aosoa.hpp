@@ -42,7 +42,7 @@ namespace zlfft::common {
         }
     }
 
-    template <typename F>
+    template <typename F, bool use_fma = false>
     inline void radix4_aosoa(const F* __restrict in_aosoa, F* __restrict out_aosoa,
                              const size_t n, const size_t width,
                              const F* __restrict w_ptr) {
@@ -66,38 +66,80 @@ namespace zlfft::common {
             const size_t k = i & mask;
             const size_t w_offset = k * 6;
 
-            const auto w1_r = hn::Load(d, w_ptr + w_offset);
-            const auto w1_i = hn::Load(d, w_ptr + w_offset + lanes);
-            const auto r1 = hn::Load(d, in_shift + half_n);
-            const auto i1 = hn::Load(d, in_shift + half_n + lanes);
-            const auto t1_r = hn::NegMulAdd(i1, w1_i, hn::Mul(r1, w1_r));
-            const auto t1_i = hn::MulAdd(i1, w1_r, hn::Mul(r1, w1_i));
+            hn::Vec<decltype(d)> s2_r, s2_i, s3_r, s3_i;
 
-            const auto w3_r = hn::Load(d, w_ptr + w_offset + lanes * 4);
-            const auto w3_i = hn::Load(d, w_ptr + w_offset + lanes * 5);
-            const auto r3 = hn::Load(d, in_shift + three_over_two_n);
-            const auto i3 = hn::Load(d, in_shift + three_over_two_n + lanes);
-            const auto t3_r = hn::NegMulAdd(i3, w3_i, hn::Mul(r3, w3_r));
-            const auto t3_i = hn::MulAdd(i3, w3_r, hn::Mul(r3, w3_i));
+            {
+                const auto w1_r = hn::Load(d, w_ptr + w_offset);
+                const auto w1_i = hn::Load(d, w_ptr + w_offset + lanes);
+                const auto r1 = hn::Load(d, in_shift + half_n);
+                const auto i1 = hn::Load(d, in_shift + half_n + lanes);
+                const auto t1_r = hn::NegMulAdd(i1, w1_i, hn::Mul(r1, w1_r));
+                const auto t1_i = hn::MulAdd(i1, w1_r, hn::Mul(r1, w1_i));
 
-            const auto s2_r = hn::Add(t1_r, t3_r);
-            const auto s2_i = hn::Add(t1_i, t3_i);
-            const auto s3_r = hn::Sub(t1_r, t3_r);
-            const auto s3_i = hn::Sub(t1_i, t3_i);
+                const auto w3_r = hn::Load(d, w_ptr + w_offset + lanes * 4);
+                const auto w3_i = hn::Load(d, w_ptr + w_offset + lanes * 5);
+                const auto r3 = hn::Load(d, in_shift + three_over_two_n);
+                const auto i3 = hn::Load(d, in_shift + three_over_two_n + lanes);
+                const auto t3_r = hn::NegMulAdd(i3, w3_i, hn::Mul(r3, w3_r));
+                const auto t3_i = hn::MulAdd(i3, w3_r, hn::Mul(r3, w3_i));
 
-            const auto w2_r = hn::Load(d, w_ptr + w_offset + lanes * 2);
-            const auto w2_i = hn::Load(d, w_ptr + w_offset + lanes * 3);
-            const auto r2 = hn::Load(d, in_shift + n);
-            const auto i2 = hn::Load(d, in_shift + n + lanes);
-            const auto t2_r = hn::NegMulAdd(i2, w2_i, hn::Mul(r2, w2_r));
-            const auto t2_i = hn::MulAdd(i2, w2_r, hn::Mul(r2, w2_i));
+                s2_r = hn::Add(t1_r, t3_r);
+                s2_i = hn::Add(t1_i, t3_i);
+                s3_r = hn::Sub(t1_r, t3_r);
+                s3_i = hn::Sub(t1_i, t3_i);
+            }
 
-            const auto r0 = hn::Load(d, in_shift);
-            const auto i0 = hn::Load(d, in_shift + lanes);
-            const auto s0_r = hn::Add(r0, t2_r);
-            const auto s0_i = hn::Add(i0, t2_i);
-            const auto s1_r = hn::Sub(r0, t2_r);
-            const auto s1_i = hn::Sub(i0, t2_i);
+            hn::Vec<decltype(d)> s0_r, s0_i, s1_r, s1_i;
+
+            if constexpr (use_fma) {
+                const auto r0 = hn::Load(d, in_shift);
+                const auto i0 = hn::Load(d, in_shift + lanes);
+
+                const auto w2_r = hn::Load(d, w_ptr + w_offset + lanes * 2);
+                const auto w2_i = hn::Load(d, w_ptr + w_offset + lanes * 3);
+                const auto r2 = hn::Load(d, in_shift + n);
+                const auto i2 = hn::Load(d, in_shift + n + lanes);
+
+                const auto m2_r = hn::MulAdd(r2, w2_r, r0);
+                s0_r = hn::NegMulAdd(i2, w2_i, m2_r);
+
+                const auto m2_i = hn::MulAdd(i2, w2_r, i0);
+                s0_i = hn::MulAdd(r2, w2_i, m2_i);
+
+                const auto two_r0 = hn::Add(r0, r0);
+                s1_r   = hn::Sub(two_r0, s0_r);
+
+                const auto two_i0 = hn::Add(i0, i0);
+                s1_i   = hn::Sub(two_i0, s0_i);
+            } else {
+                const auto w2_r = hn::Load(d, w_ptr + w_offset + lanes * 2);
+                const auto w2_i = hn::Load(d, w_ptr + w_offset + lanes * 3);
+                const auto r2 = hn::Load(d, in_shift + n);
+                const auto i2 = hn::Load(d, in_shift + n + lanes);
+                const auto t2_r = hn::NegMulAdd(i2, w2_i, hn::Mul(r2, w2_r));
+                const auto t2_i = hn::MulAdd(i2, w2_r, hn::Mul(r2, w2_i));
+
+                const auto r0 = hn::Load(d, in_shift);
+                const auto i0 = hn::Load(d, in_shift + lanes);
+
+                s0_r = hn::Add(r0, t2_r);
+                s0_i = hn::Add(i0, t2_i);
+                s1_r = hn::Sub(r0, t2_r);
+                s1_i = hn::Sub(i0, t2_i);
+
+                const size_t j_times_4 = (i & ~mask) << 2;
+                const size_t out_idx = j_times_4 + k;
+                F* __restrict out_shift = out_aosoa + (out_idx << 1);
+
+                hn::Store(hn::Add(s0_r, s2_r), d, out_shift);
+                hn::Store(hn::Add(s0_i, s2_i), d, out_shift + lanes);
+                hn::Store(hn::Add(s1_r, s3_i), d, out_shift + double_width);
+                hn::Store(hn::Sub(s1_i, s3_r), d, out_shift + double_width + lanes);
+                hn::Store(hn::Sub(s0_r, s2_r), d, out_shift + quad_width);
+                hn::Store(hn::Sub(s0_i, s2_i), d, out_shift + quad_width + lanes);
+                hn::Store(hn::Sub(s1_r, s3_i), d, out_shift + sextuple_width);
+                hn::Store(hn::Add(s1_i, s3_r), d, out_shift + sextuple_width + lanes);
+            }
 
             const size_t j_times_4 = (i & ~mask) << 2;
             const size_t out_idx = j_times_4 + k;

@@ -125,6 +125,11 @@ if (ENABLE_SIMD_LOW_ORDER_AOSOA2)
     target_compile_definitions(zlfft_benchmark PRIVATE ENABLE_SIMD_LOW_ORDER_AOSOA2)
 endif ()
 
+option(ENABLE_SIMD_LOW_ORDER_AOSOA3 "Enable simd_low_order_aosoa3" OFF)
+if (ENABLE_SIMD_LOW_ORDER_AOSOA3)
+    target_compile_definitions(zlfft_benchmark PRIVATE ENABLE_SIMD_LOW_ORDER_AOSOA3)
+endif ()
+
 option(ENABLE_PFFFT "Enable pffft" OFF)
 if (ENABLE_PFFFT)
     if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64" OR CMAKE_SYSTEM_PROCESSOR MATCHES "arm64")
