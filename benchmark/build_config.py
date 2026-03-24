@@ -30,9 +30,14 @@ algos = ["naive_stockham_radix2", "naive_cooley_radix2", "naive_stockham_radix4"
 
 def get_algo_list(full=False):
     if not full:
-        return ["kfr",
-                "simd_low_order_opt1", "simd_low_order_opt2",
-                "simd_low_order_aosoa1", "simd_low_order_aosoa2"]
+        if platform.system() == "Darwin":
+            return ["kfr", "vdsp",
+                    "simd_low_order_opt1", "simd_low_order_opt2",
+                    "simd_low_order_aosoa1", "simd_low_order_aosoa2"]
+        else:
+            return ["kfr", "ipp",
+                    "simd_low_order_opt1", "simd_low_order_opt2",
+                    "simd_low_order_aosoa1", "simd_low_order_aosoa2"]
     elif platform.system() == "Darwin":
         return ["fftw3", "fftw3_estimate", "kfr", "vdsp", "pffft",
                 "simd_low_order_opt1", "simd_low_order_opt2",
