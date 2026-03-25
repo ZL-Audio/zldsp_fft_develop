@@ -42,6 +42,59 @@ namespace zlfft::common {
         }
     }
 
+    template <typename F>
+    void transpose_aosoa_square(const F* __restrict in, F* __restrict out,
+                                const size_t n,
+                                F* __restrict macro_twiddles) {
+        namespace hn = hwy::HWY_NAMESPACE;
+        static constexpr hn::ScalableTag<F> d;
+        static constexpr size_t lanes = hn::Lanes(d);
+
+        const size_t row_stride = n << 2;
+
+        static constexpr size_t block_size = (sizeof(F) == 8) ? 16 : 32;
+
+        for (size_t r_tile = 0; r_tile < n; r_tile += block_size) {
+            for (size_t c_tile = 0; c_tile < n; c_tile += block_size) {
+                for (size_t r = r_tile; r < r_tile + block_size; r += lanes) {
+                    for (size_t c = c_tile; c < c_tile + block_size; c += lanes) {
+                        hn::Vec<decltype(d)> r_vecs[lanes];
+                        hn::Vec<decltype(d)> i_vecs[lanes];
+
+                        const size_t read_offset0 = r * row_stride + (c << 1);
+                        for (size_t i = 0; i < lanes; ++i) {
+                            const size_t read_offset = read_offset0 + i * row_stride;
+                            const auto d_r = hn::Load(d, in + read_offset);
+                            const auto d_i = hn::Load(d, in + read_offset + lanes);
+
+                            const auto w_r = hn::Load(d, macro_twiddles + read_offset);
+                            const auto w_i = hn::Load(d, macro_twiddles + read_offset + lanes);
+
+                            r_vecs[i] = hn::NegMulAdd(d_i, w_i, hn::Mul(d_r, w_r));
+                            i_vecs[i] = hn::MulAdd(d_i, w_r, hn::Mul(d_r, w_i));
+                        }
+
+                        hn::Vec<decltype(d)> r_transposed[lanes];
+                        hn::Vec<decltype(d)> i_transposed[lanes];
+
+                        transpose4x4(d, r_vecs[0], r_vecs[1], r_vecs[2], r_vecs[3],
+                                     r_transposed[0], r_transposed[1], r_transposed[2], r_transposed[3]);
+
+                        transpose4x4(d, i_vecs[0], i_vecs[1], i_vecs[2], i_vecs[3],
+                                     i_transposed[0], i_transposed[1], i_transposed[2], i_transposed[3]);
+
+                        const auto write_offset_0 = c * row_stride + (r << 1);
+                        for (size_t i = 0; i < lanes; ++i) {
+                            const size_t write_offset = write_offset_0 + i * row_stride;
+                            hn::Store(r_transposed[i], d, out + write_offset);
+                            hn::Store(i_transposed[i], d, out + write_offset + lanes);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     template <typename F, bool use_fma = false>
     inline void radix4_aosoa(const F* __restrict in_aosoa, F* __restrict out_aosoa,
                              const size_t n, const size_t width,
@@ -107,10 +160,10 @@ namespace zlfft::common {
                 s0_i = hn::MulAdd(r2, w2_i, m2_i);
 
                 const auto two_r0 = hn::Add(r0, r0);
-                s1_r   = hn::Sub(two_r0, s0_r);
+                s1_r = hn::Sub(two_r0, s0_r);
 
                 const auto two_i0 = hn::Add(i0, i0);
-                s1_i   = hn::Sub(two_i0, s0_i);
+                s1_i = hn::Sub(two_i0, s0_i);
             } else {
                 const auto w2_r = hn::Load(d, w_ptr + w_offset + lanes * 2);
                 const auto w2_i = hn::Load(d, w_ptr + w_offset + lanes * 3);
@@ -530,13 +583,13 @@ namespace zlfft::common {
 
             hn::Vec<decltype(d)> lower_r0, lower_r1, lower_r2, lower_r3;
             transpose4x4(d, hn::InterleaveLower(d, z00_r, z10_r), hn::InterleaveLower(d, z01_r, z11_r),
-                            hn::InterleaveLower(d, z02_r, z12_r), hn::InterleaveLower(d, z03_r, z13_r),
-                            lower_r0, lower_r1, lower_r2, lower_r3);
+                         hn::InterleaveLower(d, z02_r, z12_r), hn::InterleaveLower(d, z03_r, z13_r),
+                         lower_r0, lower_r1, lower_r2, lower_r3);
 
             hn::Vec<decltype(d)> lower_i0, lower_i1, lower_i2, lower_i3;
             transpose4x4(d, hn::InterleaveLower(d, z00_i, z10_i), hn::InterleaveLower(d, z01_i, z11_i),
-                            hn::InterleaveLower(d, z02_i, z12_i), hn::InterleaveLower(d, z03_i, z13_i),
-                            lower_i0, lower_i1, lower_i2, lower_i3);
+                         hn::InterleaveLower(d, z02_i, z12_i), hn::InterleaveLower(d, z03_i, z13_i),
+                         lower_i0, lower_i1, lower_i2, lower_i3);
 
             if constexpr (lanes == 8) {
                 hn::Store(lower_r0, d, out_shift);
@@ -556,13 +609,13 @@ namespace zlfft::common {
 
             hn::Vec<decltype(d)> upper_r0, upper_r1, upper_r2, upper_r3;
             transpose4x4(d, hn::InterleaveUpper(d, z00_r, z10_r), hn::InterleaveUpper(d, z01_r, z11_r),
-                            hn::InterleaveUpper(d, z02_r, z12_r), hn::InterleaveUpper(d, z03_r, z13_r),
-                            upper_r0, upper_r1, upper_r2, upper_r3);
+                         hn::InterleaveUpper(d, z02_r, z12_r), hn::InterleaveUpper(d, z03_r, z13_r),
+                         upper_r0, upper_r1, upper_r2, upper_r3);
 
             hn::Vec<decltype(d)> upper_i0, upper_i1, upper_i2, upper_i3;
             transpose4x4(d, hn::InterleaveUpper(d, z00_i, z10_i), hn::InterleaveUpper(d, z01_i, z11_i),
-                            hn::InterleaveUpper(d, z02_i, z12_i), hn::InterleaveUpper(d, z03_i, z13_i),
-                            upper_i0, upper_i1, upper_i2, upper_i3);
+                         hn::InterleaveUpper(d, z02_i, z12_i), hn::InterleaveUpper(d, z03_i, z13_i),
+                         upper_i0, upper_i1, upper_i2, upper_i3);
 
             if constexpr (lanes == 8) {
                 hn::Store(upper_r0, d, out_shift + 4 * lanes);
