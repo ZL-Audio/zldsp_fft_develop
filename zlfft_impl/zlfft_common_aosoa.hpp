@@ -29,7 +29,7 @@ namespace zlfft::common {
         const auto m2 = hn::BitCast(d, hn::InterleaveLower(d64, hn::BitCast(d64, t2), hn::BitCast(d64, t3)));
         const auto m3 = hn::BitCast(d, hn::InterleaveUpper(d64, hn::BitCast(d64, t2), hn::BitCast(d64, t3)));
 
-        if constexpr (hn::Lanes(D()) == 8) {
+        if constexpr (D().MaxBytes() > 16) {
             r0 = hn::ConcatLowerLower(d, m1, m0);
             r1 = hn::ConcatLowerLower(d, m3, m2);
             r2 = hn::ConcatUpperUpper(d, m1, m0);
@@ -95,7 +95,7 @@ namespace zlfft::common {
         out[7] = hn::ConcatUpperUpper(d, q13, q03);
     }
 
-    template <typename F, bool use_fma = false, bool use_stream = false>
+    template <typename F, bool use_fma = false>
     inline void radix4_aosoa(const F* __restrict in_aosoa, F* __restrict out_aosoa,
                              const size_t n, const size_t width,
                              const F* __restrict w_ptr) {
@@ -185,25 +185,14 @@ namespace zlfft::common {
             const size_t out_idx = j_times_4 + k;
             F* __restrict out_shift = out_aosoa + (out_idx << 1);
 
-            if constexpr (use_stream) {
-                hn::Stream(hn::Add(s0_r, s2_r), d, out_shift);
-                hn::Stream(hn::Add(s0_i, s2_i), d, out_shift + lanes);
-                hn::Stream(hn::Add(s1_r, s3_i), d, out_shift + double_width);
-                hn::Stream(hn::Sub(s1_i, s3_r), d, out_shift + double_width + lanes);
-                hn::Stream(hn::Sub(s0_r, s2_r), d, out_shift + quad_width);
-                hn::Stream(hn::Sub(s0_i, s2_i), d, out_shift + quad_width + lanes);
-                hn::Stream(hn::Sub(s1_r, s3_i), d, out_shift + sextuple_width);
-                hn::Stream(hn::Add(s1_i, s3_r), d, out_shift + sextuple_width + lanes);
-            } else {
-                hn::Store(hn::Add(s0_r, s2_r), d, out_shift);
-                hn::Store(hn::Add(s0_i, s2_i), d, out_shift + lanes);
-                hn::Store(hn::Add(s1_r, s3_i), d, out_shift + double_width);
-                hn::Store(hn::Sub(s1_i, s3_r), d, out_shift + double_width + lanes);
-                hn::Store(hn::Sub(s0_r, s2_r), d, out_shift + quad_width);
-                hn::Store(hn::Sub(s0_i, s2_i), d, out_shift + quad_width + lanes);
-                hn::Store(hn::Sub(s1_r, s3_i), d, out_shift + sextuple_width);
-                hn::Store(hn::Add(s1_i, s3_r), d, out_shift + sextuple_width + lanes);
-            }
+            hn::Store(hn::Add(s0_r, s2_r), d, out_shift);
+            hn::Store(hn::Add(s0_i, s2_i), d, out_shift + lanes);
+            hn::Store(hn::Add(s1_r, s3_i), d, out_shift + double_width);
+            hn::Store(hn::Sub(s1_i, s3_r), d, out_shift + double_width + lanes);
+            hn::Store(hn::Sub(s0_r, s2_r), d, out_shift + quad_width);
+            hn::Store(hn::Sub(s0_i, s2_i), d, out_shift + quad_width + lanes);
+            hn::Store(hn::Sub(s1_r, s3_i), d, out_shift + sextuple_width);
+            hn::Store(hn::Add(s1_i, s3_r), d, out_shift + sextuple_width + lanes);
         }
     }
 
@@ -322,7 +311,7 @@ namespace zlfft::common {
             const auto out3_i = hn::Add(s1_i, s3_r);
 
             F* __restrict out_shift = out_aosoa + (i << 3);
-            if constexpr (lanes == 8) {
+            if constexpr (d.MaxBytes() > 16) {
                 const auto out01_r_lo = hn::ConcatLowerLower(d, out1_r, out0_r);
                 const auto out01_i_lo = hn::ConcatLowerLower(d, out1_i, out0_i);
                 const auto out23_r_lo = hn::ConcatLowerLower(d, out3_r, out2_r);
@@ -410,8 +399,20 @@ namespace zlfft::common {
             if constexpr (use_stream) {
                 auto stream_complex = [&](const auto& real, const auto& imag, size_t idx) {
                     F* base_ptr = reinterpret_cast<F*>(out + idx);
-                    hn::Stream(hn::InterleaveLower(d, real, imag), d, base_ptr);
-                    hn::Stream(hn::InterleaveUpper(d, real, imag), d, base_ptr + lanes);
+
+                    const auto lower = hn::InterleaveLower(d, real, imag);
+                    const auto upper = hn::InterleaveUpper(d, real, imag);
+
+                    if constexpr (d.MaxBytes() > 16) {
+                        const auto true_lower = hn::ConcatLowerLower(d, upper, lower);
+                        const auto true_upper = hn::ConcatUpperUpper(d, upper, lower);
+
+                        hn::Stream(true_lower, d, base_ptr);
+                        hn::Stream(true_upper, d, base_ptr + lanes);
+                    } else {
+                        hn::Stream(lower, d, base_ptr);
+                        hn::Stream(upper, d, base_ptr + lanes);
+                    }
                 };
 
                 stream_complex(hn::Add(s0_r, s2_r), hn::Add(s0_i, s2_i), out_idx);
@@ -602,7 +603,7 @@ namespace zlfft::common {
                          hn::InterleaveLower(d, z02_i, z12_i), hn::InterleaveLower(d, z03_i, z13_i),
                          lower_i0, lower_i1, lower_i2, lower_i3);
 
-            if constexpr (lanes == 8) {
+            if constexpr (d.MaxBytes() > 16) {
                 hn::Store(lower_r0, d, out_shift);
                 hn::Store(lower_i0, d, out_shift + lanes);
                 hn::Store(lower_r1, d, out_shift + 2 * lanes);
@@ -628,7 +629,7 @@ namespace zlfft::common {
                          hn::InterleaveUpper(d, z02_i, z12_i), hn::InterleaveUpper(d, z03_i, z13_i),
                          upper_i0, upper_i1, upper_i2, upper_i3);
 
-            if constexpr (lanes == 8) {
+            if constexpr (d.MaxBytes() > 16) {
                 hn::Store(upper_r0, d, out_shift + 4 * lanes);
                 hn::Store(upper_i0, d, out_shift + 5 * lanes);
                 hn::Store(upper_r1, d, out_shift + 6 * lanes);
@@ -798,7 +799,7 @@ namespace zlfft::common {
                          hn::InterleaveLower(d, z02_i, z12_i), hn::InterleaveLower(d, z03_i, z13_i),
                          lower_i0, lower_i1, lower_i2, lower_i3);
 
-            if constexpr (lanes == 8) {
+            if constexpr (d.MaxBytes() > 16) {
                 hn::Store(lower_r0, d, out_shift);
                 hn::Store(lower_i0, d, out_shift + lanes);
                 hn::Store(lower_r1, d, out_shift + 2 * lanes);
@@ -824,7 +825,7 @@ namespace zlfft::common {
                          hn::InterleaveUpper(d, z02_i, z12_i), hn::InterleaveUpper(d, z03_i, z13_i),
                          upper_i0, upper_i1, upper_i2, upper_i3);
 
-            if constexpr (lanes == 8) {
+            if constexpr (d.MaxBytes() > 16) {
                 hn::Store(upper_r0, d, out_shift + 4 * lanes);
                 hn::Store(upper_i0, d, out_shift + 5 * lanes);
                 hn::Store(upper_r1, d, out_shift + 6 * lanes);

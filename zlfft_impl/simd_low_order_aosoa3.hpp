@@ -206,7 +206,7 @@ namespace zlfft {
                     break;
                 }
                 case common::StageType::kRadix4: {
-                    common::radix4_aosoa<F, true, false>(in_aosoa, out_aosoa, n, width, w_ptr);
+                    common::radix4_aosoa<F, true>(in_aosoa, out_aosoa, n, width, w_ptr);
                     const size_t num_blocks = std::max<size_t>(1, width / lanes);
                     w_ptr += num_blocks * 6 * lanes;
                     width = width << 2;
