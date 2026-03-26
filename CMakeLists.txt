@@ -130,6 +130,11 @@ if (ENABLE_SIMD_LOW_ORDER_AOSOA3)
     target_compile_definitions(zlfft_benchmark PRIVATE ENABLE_SIMD_LOW_ORDER_AOSOA3)
 endif ()
 
+option(ENABLE_SIMD_LOW_ORDER_AOSOA4 "Enable simd_low_order_aosoa4" OFF)
+if (ENABLE_SIMD_LOW_ORDER_AOSOA4)
+    target_compile_definitions(zlfft_benchmark PRIVATE ENABLE_SIMD_LOW_ORDER_AOSOA4)
+endif ()
+
 option(ENABLE_HIGH_ORDER_AOSOA "Enable high_order_aosoa" OFF)
 if (ENABLE_HIGH_ORDER_AOSOA)
     target_compile_definitions(zlfft_benchmark PRIVATE ENABLE_HIGH_ORDER_AOSOA)

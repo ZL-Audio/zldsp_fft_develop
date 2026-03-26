@@ -26,9 +26,11 @@ algos = ["naive_stockham_radix2", "naive_cooley_radix2", "naive_stockham_radix4"
          "simd_low_order_aosoa1",
          "simd_low_order_aosoa2",
          "simd_low_order_aosoa3",
+         "simd_low_order_aosoa4",
          "high_order_aosoa",
 
          "fftw3", "fftw3_estimate", "kfr", "vdsp", "vdsp_stride_2", "pffft", "ipp"]
+
 
 def get_algo_list(full=False):
     if not full:
@@ -36,20 +38,23 @@ def get_algo_list(full=False):
             return ["kfr", "vdsp",
                     "simd_low_order_opt1", "simd_low_order_opt2",
                     "simd_low_order_aosoa1", "simd_low_order_aosoa2",
-                    "simd_low_order_aosoa3", "high_order_aosoa"]
+                    "simd_low_order_aosoa3", "simd_low_order_aosoa4"]
         else:
             return ["kfr", "ipp",
                     "simd_low_order_opt1", "simd_low_order_opt2",
                     "simd_low_order_aosoa1", "simd_low_order_aosoa2",
-                    "simd_low_order_aosoa3", "high_order_aosoa"]
+                    "simd_low_order_aosoa3", "simd_low_order_aosoa4"]
     elif platform.system() == "Darwin":
         return ["fftw3", "fftw3_estimate", "kfr", "vdsp", "pffft",
                 "simd_low_order_opt1", "simd_low_order_opt2",
-                "simd_low_order_aosoa1", "simd_low_order_aosoa2"]
+                "simd_low_order_aosoa1", "simd_low_order_aosoa2",
+                "simd_low_order_aosoa3", "simd_low_order_aosoa4"]
     else:
         return ["fftw3", "fftw3_estimate", "kfr", "ipp", "pffft",
                 "simd_low_order_opt1", "simd_low_order_opt2",
-                "simd_low_order_aosoa1", "simd_low_order_aosoa2"]
+                "simd_low_order_aosoa1", "simd_low_order_aosoa2",
+                "simd_low_order_aosoa3", "simd_low_order_aosoa4"]
+
 
 def build_benchmark(algorithm, benchmark_type, use_avx2=False, to_print=False):
     build_dir = "build_fft"
@@ -84,7 +89,7 @@ def build_benchmark(algorithm, benchmark_type, use_avx2=False, to_print=False):
 
         cmake_cmd_str = " ".join(cmake_cmd)
         full_cmake_cmd = f'call {vcvars} && {cmake_cmd_str}'
-        
+
         build_cmd_str = " ".join(build_cmd)
         full_build_cmd = f'call {vcvars} && {build_cmd_str}'
 
@@ -94,7 +99,7 @@ def build_benchmark(algorithm, benchmark_type, use_avx2=False, to_print=False):
         if to_print:
             print(f"Building: {full_build_cmd}")
         subprocess.run(full_build_cmd, capture_output=True, cwd=build_dir, check=True, shell=True)
-        
+
         return os.path.join(build_dir, "zlfft_benchmark.exe")
 
     else:

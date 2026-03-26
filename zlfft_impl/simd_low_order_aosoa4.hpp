@@ -7,14 +7,14 @@ namespace zlfft {
     namespace hn = hwy::HWY_NAMESPACE;
 
     template <typename F>
-    class SIMDLowOrderAOSOA3 {
+    class SIMDLowOrderAOSOA4 {
         using C = std::complex<F>;
 
     private:
         std::vector<common::StageType> stages_;
 
     public:
-        explicit SIMDLowOrderAOSOA3(const size_t order) :
+        explicit SIMDLowOrderAOSOA4(const size_t order) :
             order_(order) {
             if (order < 4) {
                 return;
@@ -224,8 +224,11 @@ namespace zlfft {
                 }
                 std::swap(in_aosoa, out_aosoa);
             }
-
-            common::radix4_last_pass_fused_aosoa(in_aosoa, out_buffer.data(), n, width, w_ptr);
+            if (order_ >= 21) {
+                common::radix4_last_pass_fused_aosoa<F, true>(in_aosoa, out_buffer.data(), n, width, w_ptr);
+            } else {
+                common::radix4_last_pass_fused_aosoa(in_aosoa, out_buffer.data(), n, width, w_ptr);
+            }
         }
 
     private:

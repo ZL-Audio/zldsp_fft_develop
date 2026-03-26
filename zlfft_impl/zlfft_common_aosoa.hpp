@@ -152,7 +152,7 @@ namespace zlfft::common {
         }
     }
 
-    template <typename F, bool use_fma = false>
+    template <typename F, bool use_fma = false, bool use_stream = false>
     inline void radix4_aosoa(const F* __restrict in_aosoa, F* __restrict out_aosoa,
                              const size_t n, const size_t width,
                              const F* __restrict w_ptr) {
@@ -236,11 +236,22 @@ namespace zlfft::common {
                 s0_i = hn::Add(i0, t2_i);
                 s1_r = hn::Sub(r0, t2_r);
                 s1_i = hn::Sub(i0, t2_i);
+            }
 
-                const size_t j_times_4 = (i & ~mask) << 2;
-                const size_t out_idx = j_times_4 + k;
-                F* __restrict out_shift = out_aosoa + (out_idx << 1);
+            const size_t j_times_4 = (i & ~mask) << 2;
+            const size_t out_idx = j_times_4 + k;
+            F* __restrict out_shift = out_aosoa + (out_idx << 1);
 
+            if constexpr (use_stream) {
+                hn::Stream(hn::Add(s0_r, s2_r), d, out_shift);
+                hn::Stream(hn::Add(s0_i, s2_i), d, out_shift + lanes);
+                hn::Stream(hn::Add(s1_r, s3_i), d, out_shift + double_width);
+                hn::Stream(hn::Sub(s1_i, s3_r), d, out_shift + double_width + lanes);
+                hn::Stream(hn::Sub(s0_r, s2_r), d, out_shift + quad_width);
+                hn::Stream(hn::Sub(s0_i, s2_i), d, out_shift + quad_width + lanes);
+                hn::Stream(hn::Sub(s1_r, s3_i), d, out_shift + sextuple_width);
+                hn::Stream(hn::Add(s1_i, s3_r), d, out_shift + sextuple_width + lanes);
+            } else {
                 hn::Store(hn::Add(s0_r, s2_r), d, out_shift);
                 hn::Store(hn::Add(s0_i, s2_i), d, out_shift + lanes);
                 hn::Store(hn::Add(s1_r, s3_i), d, out_shift + double_width);
@@ -250,19 +261,6 @@ namespace zlfft::common {
                 hn::Store(hn::Sub(s1_r, s3_i), d, out_shift + sextuple_width);
                 hn::Store(hn::Add(s1_i, s3_r), d, out_shift + sextuple_width + lanes);
             }
-
-            const size_t j_times_4 = (i & ~mask) << 2;
-            const size_t out_idx = j_times_4 + k;
-            F* __restrict out_shift = out_aosoa + (out_idx << 1);
-
-            hn::Store(hn::Add(s0_r, s2_r), d, out_shift);
-            hn::Store(hn::Add(s0_i, s2_i), d, out_shift + lanes);
-            hn::Store(hn::Add(s1_r, s3_i), d, out_shift + double_width);
-            hn::Store(hn::Sub(s1_i, s3_r), d, out_shift + double_width + lanes);
-            hn::Store(hn::Sub(s0_r, s2_r), d, out_shift + quad_width);
-            hn::Store(hn::Sub(s0_i, s2_i), d, out_shift + quad_width + lanes);
-            hn::Store(hn::Sub(s1_r, s3_i), d, out_shift + sextuple_width);
-            hn::Store(hn::Add(s1_i, s3_r), d, out_shift + sextuple_width + lanes);
         }
     }
 
@@ -413,7 +411,7 @@ namespace zlfft::common {
         }
     }
 
-    template <typename F>
+    template <typename F, bool use_stream = false>
     inline void radix4_last_pass_fused_aosoa(const F* __restrict in_aosoa,
                                              std::complex<F>* __restrict out,
                                              const size_t n, const size_t width,
@@ -466,14 +464,27 @@ namespace zlfft::common {
             const size_t j_times_4 = (i & ~mask) << 2;
             const size_t out_idx = j_times_4 + k;
 
-            hn::StoreInterleaved2(hn::Add(s0_r, s2_r), hn::Add(s0_i, s2_i), d,
-                                  reinterpret_cast<F*>(out + out_idx));
-            hn::StoreInterleaved2(hn::Add(s1_r, s3_i), hn::Sub(s1_i, s3_r), d,
-                                  reinterpret_cast<F*>(out + out_idx + width));
-            hn::StoreInterleaved2(hn::Sub(s0_r, s2_r), hn::Sub(s0_i, s2_i), d,
-                                  reinterpret_cast<F*>(out + out_idx + (width << 1)));
-            hn::StoreInterleaved2(hn::Sub(s1_r, s3_i), hn::Add(s1_i, s3_r), d,
-                                  reinterpret_cast<F*>(out + out_idx + width * 3));
+            if constexpr (use_stream) {
+                auto stream_complex = [&](const auto& real, const auto& imag, size_t idx) {
+                    F* base_ptr = reinterpret_cast<F*>(out + idx);
+                    hn::Stream(hn::InterleaveLower(d, real, imag), d, base_ptr);
+                    hn::Stream(hn::InterleaveUpper(d, real, imag), d, base_ptr + lanes);
+                };
+
+                stream_complex(hn::Add(s0_r, s2_r), hn::Add(s0_i, s2_i), out_idx);
+                stream_complex(hn::Add(s1_r, s3_i), hn::Sub(s1_i, s3_r), out_idx + width);
+                stream_complex(hn::Sub(s0_r, s2_r), hn::Sub(s0_i, s2_i), out_idx + (width << 1));
+                stream_complex(hn::Sub(s1_r, s3_i), hn::Add(s1_i, s3_r), out_idx + width * 3);
+            } else {
+                hn::StoreInterleaved2(hn::Add(s0_r, s2_r), hn::Add(s0_i, s2_i), d,
+                                      reinterpret_cast<F*>(out + out_idx));
+                hn::StoreInterleaved2(hn::Add(s1_r, s3_i), hn::Sub(s1_i, s3_r), d,
+                                      reinterpret_cast<F*>(out + out_idx + width));
+                hn::StoreInterleaved2(hn::Sub(s0_r, s2_r), hn::Sub(s0_i, s2_i), d,
+                                      reinterpret_cast<F*>(out + out_idx + (width << 1)));
+                hn::StoreInterleaved2(hn::Sub(s1_r, s3_i), hn::Add(s1_i, s3_r), d,
+                                      reinterpret_cast<F*>(out + out_idx + width * 3));
+            }
         }
     }
 
