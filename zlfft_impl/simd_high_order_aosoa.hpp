@@ -1,0 +1,299 @@
+#pragma once
+
+#include "zlfft_common_aosoa.hpp"
+
+namespace zlfft {
+    namespace hn = hwy::HWY_NAMESPACE;
+
+    template <typename F>
+    class SIMDHighOrderAOSOA {
+        using C = std::complex<F>;
+
+    public:
+        explicit SIMDHighOrderAOSOA(const size_t order) : order_(order) {
+            if (order < 10) return;
+
+            const bool is_even = (order % 2 == 0);
+            sub_order_ = is_even ? (order / 2) : ((order - 1) / 2);
+            sub_n_ = static_cast<size_t>(1) << sub_order_;
+
+            if (sub_order_ == 4) {
+                stages_ = {common::StageType::kRadix4FirstPass, common::StageType::kRadix4};
+            } else if (sub_order_ == 5) {
+                stages_ = {common::StageType::kRadix8FirstPass, common::StageType::kRadix4};
+            } else if (sub_order_ == 6) {
+                stages_ = {common::StageType::kRadix4FirstPass, common::StageType::kRadix4Width4, common::StageType::kRadix4};
+            } else {
+                if (sub_order_ % 2 == 1) {
+                    stages_.emplace_back(common::StageType::kRadix8FirstPass);
+                    for (size_t i = 3; i < sub_order_; i += 2) {
+                        stages_.emplace_back(common::StageType::kRadix4);
+                    }
+                } else {
+                    stages_.emplace_back(common::StageType::kRadix4FirstPass);
+                    stages_.emplace_back(common::StageType::kRadix4Width4);
+                    for (size_t i = 4; i < sub_order_; i += 2) {
+                        stages_.emplace_back(common::StageType::kRadix4);
+                    }
+                }
+            }
+
+            size_t num_twiddle_elements = 0;
+            size_t sim_width = (stages_[0] == common::StageType::kRadix4FirstPass) ? 4 : 8;
+
+            for (size_t i = 1; i < stages_.size(); ++i) {
+                const auto stage = stages_[i];
+                if (stage == common::StageType::kRadix4Width4) {
+                    num_twiddle_elements += 6 * width4_vec;
+                    sim_width = sim_width << 2;
+                } else if (stage == common::StageType::kRadix4) {
+                    size_t num_blocks = std::max<size_t>(1, sim_width / lanes);
+                    num_twiddle_elements += num_blocks * 6 * lanes;
+                    sim_width = sim_width << 2;
+                } else if (stage == common::StageType::kRadix8) {
+                    size_t num_blocks = std::max<size_t>(1, sim_width / lanes);
+                    num_twiddle_elements += num_blocks * 14 * lanes;
+                    sim_width = sim_width << 3;
+                }
+            }
+
+            sub_twiddles_aosoa_ = hwy::AllocateAligned<F>(num_twiddle_elements);
+            size_t offset = 0;
+            size_t gen_width = (stages_[0] == common::StageType::kRadix4FirstPass) ? 4 : 8;
+
+            for (size_t i = 1; i < stages_.size(); ++i) {
+                const auto stage = stages_[i];
+                if (stage == common::StageType::kRadix4Width4) {
+                    const double angle_step = -2.0 * std::numbers::pi / static_cast<double>(gen_width << 2);
+                    for (size_t l = 0; l < width4_vec; ++l) {
+                        const double angle = static_cast<double>(l % 4) * angle_step;
+                        sub_twiddles_aosoa_[offset + l] = static_cast<F>(std::cos(angle * 1));
+                        sub_twiddles_aosoa_[offset + width4_vec + l] = static_cast<F>(std::sin(angle * 1));
+                        sub_twiddles_aosoa_[offset + width4_vec * 2 + l] = static_cast<F>(std::cos(angle * 2));
+                        sub_twiddles_aosoa_[offset + width4_vec * 3 + l] = static_cast<F>(std::sin(angle * 2));
+                        sub_twiddles_aosoa_[offset + width4_vec * 4 + l] = static_cast<F>(std::cos(angle * 3));
+                        sub_twiddles_aosoa_[offset + width4_vec * 5 + l] = static_cast<F>(std::sin(angle * 3));
+                    }
+                    offset += 6 * width4_vec;
+                    gen_width = gen_width << 2;
+                } else if (stage == common::StageType::kRadix4) {
+                    size_t num_blocks = std::max<size_t>(1, gen_width / lanes);
+                    const double angle_step = -2.0 * std::numbers::pi / static_cast<double>(gen_width << 2);
+                    for (size_t b = 0; b < num_blocks; ++b) {
+                        for (size_t l = 0; l < lanes; ++l) {
+                            const size_t idx = (b * lanes + l) % gen_width;
+                            const double angle = static_cast<double>(idx) * angle_step;
+                            sub_twiddles_aosoa_[offset + l] = static_cast<F>(std::cos(angle));
+                            sub_twiddles_aosoa_[offset + lanes + l] = static_cast<F>(std::sin(angle));
+                            sub_twiddles_aosoa_[offset + 2 * lanes + l] = static_cast<F>(std::cos(angle * 2));
+                            sub_twiddles_aosoa_[offset + 3 * lanes + l] = static_cast<F>(std::sin(angle * 2));
+                            sub_twiddles_aosoa_[offset + 4 * lanes + l] = static_cast<F>(std::cos(angle * 3));
+                            sub_twiddles_aosoa_[offset + 5 * lanes + l] = static_cast<F>(std::sin(angle * 3));
+                        }
+                        offset += 6 * lanes;
+                    }
+                    gen_width = gen_width << 2;
+                } else if (stage == common::StageType::kRadix8) {
+                    size_t num_blocks = std::max<size_t>(1, gen_width / lanes);
+                    const double angle_step = -2.0 * std::numbers::pi / static_cast<double>(gen_width << 3);
+
+                    for (size_t b = 0; b < num_blocks; ++b) {
+                        for (size_t l = 0; l < lanes; ++l) {
+                            const size_t idx = (b * lanes + l) % gen_width;
+                            const double angle = static_cast<double>(idx) * angle_step;
+                            const int muls[7] = {3, 1, 5, 0, 4, 2, 6};
+                            for (int m = 0; m < 7; ++m) {
+                                sub_twiddles_aosoa_[offset + 2 * m * lanes + l] = static_cast<F>(std::cos(angle * muls[m]));
+                                sub_twiddles_aosoa_[offset + (2 * m + 1) * lanes + l] = static_cast<F>(std::sin(angle * muls[m]));
+                            }
+                        }
+                        offset += 14 * lanes;
+                    }
+                    gen_width = gen_width << 3;
+                }
+            }
+
+            size_t n_sq = sub_n_ * sub_n_;
+            const double macro_angle_step = -2.0 * std::numbers::pi / static_cast<double>(n_sq);
+            macro_twiddles_ = hwy::AllocateAligned<F>(sub_n_ * (sub_n_ << 1));
+            const size_t row_stride = sub_n_ << 1;
+            
+            static constexpr hn::ScalableTag<F> d;
+
+            for (size_t r = 0; r < sub_n_; ++r) {
+                for (size_t c = 0; c < sub_n_; c += lanes) {
+                    alignas(64) F temp_r[lanes];
+                    alignas(64) F temp_i[lanes];
+                    for (size_t k = 0; k < lanes; ++k) {
+                        size_t c_idx = c + k;
+                        double angle = macro_angle_step * static_cast<double>(r * c_idx);
+                        temp_r[k] = static_cast<F>(std::cos(angle));
+                        temp_i[k] = static_cast<F>(std::sin(angle));
+                    }
+                    size_t write_offset = r * row_stride + (c << 1);
+                    hn::Store(hn::Load(d, temp_r), d, macro_twiddles_.get() + write_offset);
+                    hn::Store(hn::Load(d, temp_i), d, macro_twiddles_.get() + write_offset + lanes);
+                }
+            }
+
+            if (order_ % 2 != 0) {
+                const size_t half_n = (static_cast<size_t>(1) << order_) >> 1;
+                radix2_twiddles_ = hwy::AllocateAligned<F>(half_n * 2);
+                const double angle_step = -2.0 * std::numbers::pi / static_cast<double>(half_n << 1);
+
+                for (size_t i = 0; i < half_n; i += lanes) {
+                    alignas(64) F w_r_arr[lanes];
+                    alignas(64) F w_i_arr[lanes];
+                    for (size_t k = 0; k < lanes; ++k) {
+                        const double angle = static_cast<double>(i + k) * angle_step;
+                        w_r_arr[k] = static_cast<F>(std::cos(angle));
+                        w_i_arr[k] = static_cast<F>(std::sin(angle));
+                    }
+                    hn::StoreInterleaved2(hn::Load(d, w_r_arr), hn::Load(d, w_i_arr), d, radix2_twiddles_.get() + 2 * i);
+                }
+            }
+
+            workspace_ = hwy::AllocateAligned<F>(4 * n_sq);
+        }
+
+        void forward(std::span<C> in_span, std::span<C> out_span) {
+            auto in_buffer = in_span.data();
+            auto out_buffer = out_span.data();
+            const size_t n = static_cast<size_t>(1) << order_;
+
+            if (order_ % 2 == 0) {
+                process_even_order(in_buffer, out_buffer);
+            } else {
+                static constexpr hn::ScalableTag<F> d;
+                const size_t half_n = n >> 1;
+                common::radix2_peel_aos(in_buffer, out_buffer, n, radix2_twiddles_.get());
+
+                process_even_order(out_buffer, out_buffer);
+                process_even_order(out_buffer + half_n, out_buffer + half_n);
+
+                auto* workspace_c = reinterpret_cast<std::complex<F>*>(workspace_.get());
+                std::memcpy(workspace_c, out_buffer, n * sizeof(std::complex<F>));
+
+                static constexpr hn::ScalableTag<F> tag;
+                for (size_t i = 0; i < half_n; i += lanes) {
+                    hn::Vec<decltype(tag)> r0, i0, r1, i1;
+                    hn::LoadInterleaved2(tag, reinterpret_cast<const F*>(workspace_c + i), r0, i0);
+                    hn::LoadInterleaved2(tag, reinterpret_cast<const F*>(workspace_c + i + half_n), r1, i1);
+
+                    const auto r_lo = hn::InterleaveLower(tag, r0, r1);
+                    const auto i_lo = hn::InterleaveLower(tag, i0, i1);
+
+                    const auto r_hi = hn::InterleaveUpper(tag, r0, r1);
+                    const auto i_hi = hn::InterleaveUpper(tag, i0, i1);
+
+                    F* out_ptr = reinterpret_cast<F*>(out_buffer + 2 * i);
+                    hn::StoreInterleaved2(r_lo, i_lo, tag, out_ptr);
+                    hn::StoreInterleaved2(r_hi, i_hi, tag, out_ptr + 2 * lanes);
+                }
+            }
+        }
+
+    private:
+        static constexpr size_t lanes = hn::Lanes(hn::ScalableTag<F>());
+        static constexpr size_t width4_vec = std::max(static_cast<size_t>(4), lanes);
+
+        size_t order_;
+        size_t sub_order_;
+        size_t sub_n_;
+
+        std::vector<common::StageType> stages_;
+        hwy::AlignedFreeUniquePtr<F[]> sub_twiddles_aosoa_;
+        hwy::AlignedFreeUniquePtr<F[]> macro_twiddles_;
+        hwy::AlignedFreeUniquePtr<F[]> workspace_;
+        hwy::AlignedFreeUniquePtr<F[]> radix2_twiddles_;
+
+        void process_even_order(const std::complex<F>* in, std::complex<F>* out) {
+            static constexpr hn::ScalableTag<F> d;
+            const size_t n1 = sub_n_;
+            const size_t n_sq = sub_n_ * sub_n_;
+
+            F* __restrict in_aosoa = workspace_.get();
+            F* __restrict out_aosoa = workspace_.get() + (n_sq << 1);
+
+            common::transpose_aos_to_aosoa(in, in_aosoa, n1);
+
+            for (size_t r = 0; r < n1; ++r) {
+                F* row_in = in_aosoa + r * (n1 << 1);
+                F* row_out = out_aosoa + r * (n1 << 1);
+
+                F* temp_in = row_in;
+                F* temp_out = row_out;
+
+                const F* w_ptr = sub_twiddles_aosoa_.get();
+                if (stages_[0] == common::StageType::kRadix4FirstPass) {
+                    common::radix4_first_pass_aosoa(temp_in, temp_out, n1);
+                } else {
+                    common::radix8_first_pass_aosoa(temp_in, temp_out, n1);
+                }
+
+                size_t width = (stages_[0] == common::StageType::kRadix4FirstPass) ? 4 : 8;
+                for (size_t i = 1; i < stages_.size(); ++i) {
+                    std::swap(temp_in, temp_out);
+                    const auto stage = stages_[i];
+                    if (stage == common::StageType::kRadix4Width4) {
+                        common::radix4_width4_aosoa(temp_in, temp_out, n1, w_ptr);
+                        w_ptr += 6 * width4_vec;
+                        width = width << 2;
+                    } else if (stage == common::StageType::kRadix4) {
+                        common::radix4_aosoa(temp_in, temp_out, n1, width, w_ptr);
+                        const size_t num_blocks = std::max<size_t>(1, width / lanes);
+                        w_ptr += num_blocks * 6 * lanes;
+                        width = width << 2;
+                    } else if (stage == common::StageType::kRadix8) {
+                        common::radix8_aosoa(temp_in, temp_out, n1, width, w_ptr);
+                        const size_t num_blocks = std::max<size_t>(1, width / lanes);
+                        w_ptr += num_blocks * 14 * lanes;
+                        width = width << 3;
+                    }
+                }
+            }
+
+            const bool stages_is_even = (stages_.size() % 2 == 0);
+
+            F* const row_result = stages_is_even ? in_aosoa : out_aosoa;
+            F* const trans_out  = stages_is_even ? out_aosoa : in_aosoa;
+            common::transpose_aosoa_square(row_result, trans_out, n1, macro_twiddles_.get());
+
+            for (size_t r = 0; r < n1; ++r) {
+                F* temp_in = trans_out + r * (n1 << 1);
+                F* temp_out = row_result + r * (n1 << 1);
+
+                const F* w_ptr = sub_twiddles_aosoa_.get();
+                if (stages_[0] == common::StageType::kRadix4FirstPass) {
+                    common::radix4_first_pass_aosoa(temp_in, temp_out, n1);
+                } else {
+                    common::radix8_first_pass_aosoa(temp_in, temp_out, n1);
+                }
+
+                size_t width = (stages_[0] == common::StageType::kRadix4FirstPass) ? 4 : 8;
+                for (size_t i = 1; i < stages_.size(); ++i) {
+                    std::swap(temp_in, temp_out);
+                    const auto stage = stages_[i];
+                    if (stage == common::StageType::kRadix4Width4) {
+                        common::radix4_width4_aosoa(temp_in, temp_out, n1, w_ptr);
+                        w_ptr += 6 * width4_vec;
+                        width = width << 2;
+                    } else if (stage == common::StageType::kRadix4) {
+                        common::radix4_aosoa(temp_in, temp_out, n1, width, w_ptr);
+                        const size_t num_blocks = std::max<size_t>(1, width / lanes);
+                        w_ptr += num_blocks * 6 * lanes;
+                        width = width << 2;
+                    } else if (stage == common::StageType::kRadix8) {
+                        common::radix8_aosoa(temp_in, temp_out, n1, width, w_ptr);
+                        const size_t num_blocks = std::max<size_t>(1, width / lanes);
+                        w_ptr += num_blocks * 14 * lanes;
+                        width = width << 3;
+                    }
+                }
+            }
+
+            F* const final_result = stages_is_even ? trans_out : row_result;
+            common::transpose_aosoa_to_aos(final_result, out, n1);
+        }
+    };
+}

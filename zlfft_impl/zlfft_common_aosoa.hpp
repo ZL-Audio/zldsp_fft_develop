@@ -42,52 +42,109 @@ namespace zlfft::common {
         }
     }
 
+    template <class D, class V>
+    inline void macro_transpose_2x2(D d, const V* in, V* out) {
+        out[0] = hn::InterleaveLower(d, in[0], in[1]);
+        out[1] = hn::InterleaveUpper(d, in[0], in[1]);
+    }
+
+    template <class D, class V>
+    inline void macro_transpose_4x4(D d, const V* in, V* out) {
+        hn::Repartition<uint64_t, D> d64;
+        const auto t0 = hn::InterleaveLower(d, in[0], in[1]);
+        const auto t1 = hn::InterleaveLower(d, in[2], in[3]);
+        const auto t2 = hn::InterleaveUpper(d, in[0], in[1]);
+        const auto t3 = hn::InterleaveUpper(d, in[2], in[3]);
+
+        out[0] = hn::BitCast(d, hn::InterleaveLower(d64, hn::BitCast(d64, t0), hn::BitCast(d64, t1)));
+        out[1] = hn::BitCast(d, hn::InterleaveUpper(d64, hn::BitCast(d64, t0), hn::BitCast(d64, t1)));
+        out[2] = hn::BitCast(d, hn::InterleaveLower(d64, hn::BitCast(d64, t2), hn::BitCast(d64, t3)));
+        out[3] = hn::BitCast(d, hn::InterleaveUpper(d64, hn::BitCast(d64, t2), hn::BitCast(d64, t3)));
+    }
+
+    template <class D, class V>
+    inline void macro_transpose_8x8(D d, const V* in, V* out) {
+        hn::Repartition<uint64_t, D> d64;
+        auto t00 = hn::InterleaveLower(d, in[0], in[1]);
+        auto t01 = hn::InterleaveUpper(d, in[0], in[1]);
+        auto t10 = hn::InterleaveLower(d, in[2], in[3]);
+        auto t11 = hn::InterleaveUpper(d, in[2], in[3]);
+        auto t20 = hn::InterleaveLower(d, in[4], in[5]);
+        auto t21 = hn::InterleaveUpper(d, in[4], in[5]);
+        auto t30 = hn::InterleaveLower(d, in[6], in[7]);
+        auto t31 = hn::InterleaveUpper(d, in[6], in[7]);
+
+        auto q00 = hn::BitCast(d, hn::InterleaveLower(d64, hn::BitCast(d64, t00), hn::BitCast(d64, t10)));
+        auto q01 = hn::BitCast(d, hn::InterleaveUpper(d64, hn::BitCast(d64, t00), hn::BitCast(d64, t10)));
+        auto q02 = hn::BitCast(d, hn::InterleaveLower(d64, hn::BitCast(d64, t01), hn::BitCast(d64, t11)));
+        auto q03 = hn::BitCast(d, hn::InterleaveUpper(d64, hn::BitCast(d64, t01), hn::BitCast(d64, t11)));
+
+        auto q10 = hn::BitCast(d, hn::InterleaveLower(d64, hn::BitCast(d64, t20), hn::BitCast(d64, t30)));
+        auto q11 = hn::BitCast(d, hn::InterleaveUpper(d64, hn::BitCast(d64, t20), hn::BitCast(d64, t30)));
+        auto q12 = hn::BitCast(d, hn::InterleaveLower(d64, hn::BitCast(d64, t21), hn::BitCast(d64, t31)));
+        auto q13 = hn::BitCast(d, hn::InterleaveUpper(d64, hn::BitCast(d64, t21), hn::BitCast(d64, t31)));
+
+        out[0] = hn::ConcatLowerLower(d, q10, q00);
+        out[1] = hn::ConcatLowerLower(d, q11, q01);
+        out[2] = hn::ConcatLowerLower(d, q12, q02);
+        out[3] = hn::ConcatLowerLower(d, q13, q03);
+
+        out[4] = hn::ConcatUpperUpper(d, q10, q00);
+        out[5] = hn::ConcatUpperUpper(d, q11, q01);
+        out[6] = hn::ConcatUpperUpper(d, q12, q02);
+        out[7] = hn::ConcatUpperUpper(d, q13, q03);
+    }
+
     template <typename F>
     void transpose_aosoa_square(const F* __restrict in, F* __restrict out,
                                 const size_t n,
-                                F* __restrict macro_twiddles) {
+                                const F* __restrict macro_twiddles) {
         namespace hn = hwy::HWY_NAMESPACE;
         static constexpr hn::ScalableTag<F> d;
         static constexpr size_t lanes = hn::Lanes(d);
 
-        const size_t row_stride = n << 2;
-
+        const size_t row_stride = n << 1;
         static constexpr size_t block_size = (sizeof(F) == 8) ? 16 : 32;
 
         for (size_t r_tile = 0; r_tile < n; r_tile += block_size) {
             for (size_t c_tile = 0; c_tile < n; c_tile += block_size) {
                 for (size_t r = r_tile; r < r_tile + block_size; r += lanes) {
                     for (size_t c = c_tile; c < c_tile + block_size; c += lanes) {
-                        hn::Vec<decltype(d)> r_vecs[lanes];
-                        hn::Vec<decltype(d)> i_vecs[lanes];
+                        hn::Vec<decltype(d)> r_vecs[lanes], i_vecs[lanes];
 
                         const size_t read_offset0 = r * row_stride + (c << 1);
-                        for (size_t i = 0; i < lanes; ++i) {
-                            const size_t read_offset = read_offset0 + i * row_stride;
+                        for (size_t k = 0; k < lanes; ++k) {
+                            const size_t read_offset = read_offset0 + k * row_stride;
+
                             const auto d_r = hn::Load(d, in + read_offset);
                             const auto d_i = hn::Load(d, in + read_offset + lanes);
 
                             const auto w_r = hn::Load(d, macro_twiddles + read_offset);
                             const auto w_i = hn::Load(d, macro_twiddles + read_offset + lanes);
 
-                            r_vecs[i] = hn::NegMulAdd(d_i, w_i, hn::Mul(d_r, w_r));
-                            i_vecs[i] = hn::MulAdd(d_i, w_r, hn::Mul(d_r, w_i));
+                            r_vecs[k] = hn::NegMulAdd(d_i, w_i, hn::Mul(d_r, w_r));
+                            i_vecs[k] = hn::MulAdd(d_i, w_r, hn::Mul(d_r, w_i));
                         }
 
-                        hn::Vec<decltype(d)> r_transposed[lanes];
-                        hn::Vec<decltype(d)> i_transposed[lanes];
+                        hn::Vec<decltype(d)> r_trans[lanes], i_trans[lanes];
+                        if constexpr (lanes == 2) {
+                            macro_transpose_2x2(d, r_vecs, r_trans);
+                            macro_transpose_2x2(d, i_vecs, i_trans);
+                        }
+                        if constexpr (lanes == 4) {
+                            macro_transpose_4x4(d, r_vecs, r_trans);
+                            macro_transpose_4x4(d, i_vecs, i_trans);
+                        }
+                        if constexpr (lanes == 8) {
+                            macro_transpose_8x8(d, r_vecs, r_trans);
+                            macro_transpose_8x8(d, i_vecs, i_trans);
+                        }
 
-                        transpose4x4(d, r_vecs[0], r_vecs[1], r_vecs[2], r_vecs[3],
-                                     r_transposed[0], r_transposed[1], r_transposed[2], r_transposed[3]);
-
-                        transpose4x4(d, i_vecs[0], i_vecs[1], i_vecs[2], i_vecs[3],
-                                     i_transposed[0], i_transposed[1], i_transposed[2], i_transposed[3]);
-
-                        const auto write_offset_0 = c * row_stride + (r << 1);
-                        for (size_t i = 0; i < lanes; ++i) {
-                            const size_t write_offset = write_offset_0 + i * row_stride;
-                            hn::Store(r_transposed[i], d, out + write_offset);
-                            hn::Store(i_transposed[i], d, out + write_offset + lanes);
+                        const size_t write_offset0 = c * row_stride + (r << 1);
+                        for (size_t k = 0; k < lanes; ++k) {
+                            const size_t write_offset = write_offset0 + k * row_stride;
+                            hn::Store(r_trans[k], d, out + write_offset);
+                            hn::Store(i_trans[k], d, out + write_offset + lanes);
                         }
                     }
                 }
@@ -640,6 +697,324 @@ namespace zlfft::common {
                 hn::Store(upper_r3, d, out_shift + 14 * lanes);
                 hn::Store(upper_i3, d, out_shift + 15 * lanes);
             }
+        }
+    }
+
+    template <typename F>
+    inline void radix4_first_pass_aosoa(const F* __restrict in_aosoa,
+                                        F* __restrict out_aosoa, const size_t n) {
+        const size_t quarter_n = n >> 2;
+        const size_t half_n = n >> 1;
+        const size_t three_quarter_n = quarter_n * 3;
+
+        static constexpr hn::ScalableTag<F> d;
+        static constexpr size_t lanes = hn::Lanes(d);
+
+        for (size_t j = 0; j < quarter_n; j += lanes) {
+            const auto x0_r = hn::Load(d, in_aosoa + 2 * j);
+            const auto x0_i = hn::Load(d, in_aosoa + 2 * j + lanes);
+            const auto x2_r = hn::Load(d, in_aosoa + 2 * (j + half_n));
+            const auto x2_i = hn::Load(d, in_aosoa + 2 * (j + half_n) + lanes);
+
+            const auto t0_r = hn::Add(x0_r, x2_r);
+            const auto t0_i = hn::Add(x0_i, x2_i);
+            const auto t1_r = hn::Sub(x0_r, x2_r);
+            const auto t1_i = hn::Sub(x0_i, x2_i);
+
+            const auto x1_r = hn::Load(d, in_aosoa + 2 * (j + quarter_n));
+            const auto x1_i = hn::Load(d, in_aosoa + 2 * (j + quarter_n) + lanes);
+            const auto x3_r = hn::Load(d, in_aosoa + 2 * (j + three_quarter_n));
+            const auto x3_i = hn::Load(d, in_aosoa + 2 * (j + three_quarter_n) + lanes);
+
+            const auto t2_r = hn::Add(x1_r, x3_r);
+            const auto t2_i = hn::Add(x1_i, x3_i);
+            const auto t3_r = hn::Sub(x1_r, x3_r);
+            const auto t3_i = hn::Sub(x1_i, x3_i);
+
+            const auto out0_r = hn::Add(t0_r, t2_r);
+            const auto out0_i = hn::Add(t0_i, t2_i);
+            const auto out2_r = hn::Sub(t0_r, t2_r);
+            const auto out2_i = hn::Sub(t0_i, t2_i);
+
+            const auto out1_r = hn::Add(t1_r, t3_i);
+            const auto out1_i = hn::Sub(t1_i, t3_r);
+            const auto out3_r = hn::Sub(t1_r, t3_i);
+            const auto out3_i = hn::Add(t1_i, t3_r);
+
+            hn::Vec<decltype(d)> r0, r1, r2, r3, i0, i1, i2, i3;
+            transpose4x4(d, out0_r, out1_r, out2_r, out3_r, r0, r1, r2, r3);
+            transpose4x4(d, out0_i, out1_i, out2_i, out3_i, i0, i1, i2, i3);
+
+            F* __restrict out_shift = out_aosoa + (j << 3);
+            hn::Store(r0, d, out_shift);
+            hn::Store(i0, d, out_shift + lanes);
+            hn::Store(r1, d, out_shift + 2 * lanes);
+            hn::Store(i1, d, out_shift + 3 * lanes);
+            hn::Store(r2, d, out_shift + 4 * lanes);
+            hn::Store(i2, d, out_shift + 5 * lanes);
+            hn::Store(r3, d, out_shift + 6 * lanes);
+            hn::Store(i3, d, out_shift + 7 * lanes);
+        }
+    }
+
+    template <typename F>
+    inline void radix8_first_pass_aosoa(const F* __restrict in_aosoa,
+                                        F* __restrict out_aosoa, const size_t n) {
+        const size_t eighth_n = n >> 3;
+        const size_t quarter_n = n >> 2;
+        const size_t three_eighth_n = eighth_n * 3;
+        const size_t half_n = n >> 1;
+        const size_t five_eighth_n = eighth_n * 5;
+        const size_t three_quarter_n = quarter_n * 3;
+        const size_t seven_eighth_n = eighth_n * 7;
+        
+        static constexpr hn::ScalableTag<F> d;
+        static constexpr size_t lanes = hn::Lanes(d);
+
+        static constexpr F kInvSqrt2 = static_cast<F>(1.0 / std::numbers::sqrt2);
+        const auto inv_sqrt2 = hn::Set(d, kInvSqrt2);
+
+        for (size_t j = 0; j + lanes <= eighth_n; j += lanes) {
+            hn::Vec<decltype(d)> temp_a_r, temp_a_i, temp_b_r, temp_b_i;
+
+            temp_a_r = hn::Load(d, in_aosoa + 2 * j);
+            temp_a_i = hn::Load(d, in_aosoa + 2 * j + lanes);
+            temp_b_r = hn::Load(d, in_aosoa + 2 * (j + half_n));
+            temp_b_i = hn::Load(d, in_aosoa + 2 * (j + half_n) + lanes);
+            const auto t0_r = hn::Add(temp_a_r, temp_b_r), t0_i = hn::Add(temp_a_i, temp_b_i);
+            const auto t1_r = hn::Sub(temp_a_r, temp_b_r), t1_i = hn::Sub(temp_a_i, temp_b_i);
+
+            temp_a_r = hn::Load(d, in_aosoa + 2 * (j + quarter_n));
+            temp_a_i = hn::Load(d, in_aosoa + 2 * (j + quarter_n) + lanes);
+            temp_b_r = hn::Load(d, in_aosoa + 2 * (j + three_quarter_n));
+            temp_b_i = hn::Load(d, in_aosoa + 2 * (j + three_quarter_n) + lanes);
+            const auto t2_r = hn::Add(temp_a_r, temp_b_r), t2_i = hn::Add(temp_a_i, temp_b_i);
+            const auto t3_r = hn::Sub(temp_a_r, temp_b_r), t3_i = hn::Sub(temp_a_i, temp_b_i);
+
+            const auto y00_r = hn::Add(t0_r, t2_r), y00_i = hn::Add(t0_i, t2_i);
+            const auto y01_r = hn::Add(t1_r, t3_i), y01_i = hn::Sub(t1_i, t3_r);
+            const auto y02_r = hn::Sub(t0_r, t2_r), y02_i = hn::Sub(t0_i, t2_i);
+            const auto y03_r = hn::Sub(t1_r, t3_i), y03_i = hn::Add(t1_i, t3_r);
+
+            temp_a_r = hn::Load(d, in_aosoa + 2 * (j + eighth_n));
+            temp_a_i = hn::Load(d, in_aosoa + 2 * (j + eighth_n) + lanes);
+            temp_b_r = hn::Load(d, in_aosoa + 2 * (j + five_eighth_n));
+            temp_b_i = hn::Load(d, in_aosoa + 2 * (j + five_eighth_n) + lanes);
+            const auto u0_r = hn::Add(temp_a_r, temp_b_r), u0_i = hn::Add(temp_a_i, temp_b_i);
+            const auto u1_r = hn::Sub(temp_a_r, temp_b_r), u1_i = hn::Sub(temp_a_i, temp_b_i);
+
+            temp_a_r = hn::Load(d, in_aosoa + 2 * (j + three_eighth_n));
+            temp_a_i = hn::Load(d, in_aosoa + 2 * (j + three_eighth_n) + lanes);
+            temp_b_r = hn::Load(d, in_aosoa + 2 * (j + seven_eighth_n));
+            temp_b_i = hn::Load(d, in_aosoa + 2 * (j + seven_eighth_n) + lanes);
+            const auto u2_r = hn::Add(temp_a_r, temp_b_r), u2_i = hn::Add(temp_a_i, temp_b_i);
+            const auto u3_r = hn::Sub(temp_a_r, temp_b_r), u3_i = hn::Sub(temp_a_i, temp_b_i);
+
+            const auto y10_r = hn::Add(u0_r, u2_r), y10_i = hn::Add(u0_i, u2_i);
+            const auto y11_r = hn::Add(u1_r, u3_i), y11_i = hn::Sub(u1_i, u3_r);
+            const auto y12_r = hn::Sub(u0_r, u2_r), y12_i = hn::Sub(u0_i, u2_i);
+            const auto y13_r = hn::Sub(u1_r, u3_i), y13_i = hn::Add(u1_i, u3_r);
+
+            const auto v0_r = y10_r, v0_i = y10_i;
+            const auto v1_r = hn::Mul(hn::Add(y11_r, y11_i), inv_sqrt2);
+            const auto v1_i = hn::Mul(hn::Sub(y11_i, y11_r), inv_sqrt2);
+            const auto v2_r = y12_i, v2_i = hn::Neg(y12_r);
+            const auto v3_r = hn::Mul(hn::Sub(y13_i, y13_r), inv_sqrt2);
+            const auto v3_i = hn::Mul(hn::Neg(hn::Add(y13_r, y13_i)), inv_sqrt2);
+
+            const auto z00_r = hn::Add(y00_r, v0_r), z00_i = hn::Add(y00_i, v0_i);
+            const auto z01_r = hn::Add(y01_r, v1_r), z01_i = hn::Add(y01_i, v1_i);
+            const auto z02_r = hn::Add(y02_r, v2_r), z02_i = hn::Add(y02_i, v2_i);
+            const auto z03_r = hn::Add(y03_r, v3_r), z03_i = hn::Add(y03_i, v3_i);
+
+            const auto z10_r = hn::Sub(y00_r, v0_r), z10_i = hn::Sub(y00_i, v0_i);
+            const auto z11_r = hn::Sub(y01_r, v1_r), z11_i = hn::Sub(y01_i, v1_i);
+            const auto z12_r = hn::Sub(y02_r, v2_r), z12_i = hn::Sub(y02_i, v2_i);
+            const auto z13_r = hn::Sub(y03_r, v3_r), z13_i = hn::Sub(y03_i, v3_i);
+
+            F* __restrict out_shift = out_aosoa + (j << 4);
+
+            hn::Vec<decltype(d)> lower_r0, lower_r1, lower_r2, lower_r3;
+            transpose4x4(d, hn::InterleaveLower(d, z00_r, z10_r), hn::InterleaveLower(d, z01_r, z11_r),
+                         hn::InterleaveLower(d, z02_r, z12_r), hn::InterleaveLower(d, z03_r, z13_r),
+                         lower_r0, lower_r1, lower_r2, lower_r3);
+
+            hn::Vec<decltype(d)> lower_i0, lower_i1, lower_i2, lower_i3;
+            transpose4x4(d, hn::InterleaveLower(d, z00_i, z10_i), hn::InterleaveLower(d, z01_i, z11_i),
+                         hn::InterleaveLower(d, z02_i, z12_i), hn::InterleaveLower(d, z03_i, z13_i),
+                         lower_i0, lower_i1, lower_i2, lower_i3);
+
+            if constexpr (lanes == 8) {
+                hn::Store(lower_r0, d, out_shift);
+                hn::Store(lower_i0, d, out_shift + lanes);
+                hn::Store(lower_r1, d, out_shift + 2 * lanes);
+                hn::Store(lower_i1, d, out_shift + 3 * lanes);
+            } else {
+                hn::Store(lower_r0, d, out_shift);
+                hn::Store(lower_i0, d, out_shift + lanes);
+                hn::Store(lower_r1, d, out_shift + 2 * lanes);
+                hn::Store(lower_i1, d, out_shift + 3 * lanes);
+                hn::Store(lower_r2, d, out_shift + 4 * lanes);
+                hn::Store(lower_i2, d, out_shift + 5 * lanes);
+                hn::Store(lower_r3, d, out_shift + 6 * lanes);
+                hn::Store(lower_i3, d, out_shift + 7 * lanes);
+            }
+
+            hn::Vec<decltype(d)> upper_r0, upper_r1, upper_r2, upper_r3;
+            transpose4x4(d, hn::InterleaveUpper(d, z00_r, z10_r), hn::InterleaveUpper(d, z01_r, z11_r),
+                         hn::InterleaveUpper(d, z02_r, z12_r), hn::InterleaveUpper(d, z03_r, z13_r),
+                         upper_r0, upper_r1, upper_r2, upper_r3);
+
+            hn::Vec<decltype(d)> upper_i0, upper_i1, upper_i2, upper_i3;
+            transpose4x4(d, hn::InterleaveUpper(d, z00_i, z10_i), hn::InterleaveUpper(d, z01_i, z11_i),
+                         hn::InterleaveUpper(d, z02_i, z12_i), hn::InterleaveUpper(d, z03_i, z13_i),
+                         upper_i0, upper_i1, upper_i2, upper_i3);
+
+            if constexpr (lanes == 8) {
+                hn::Store(upper_r0, d, out_shift + 4 * lanes);
+                hn::Store(upper_i0, d, out_shift + 5 * lanes);
+                hn::Store(upper_r1, d, out_shift + 6 * lanes);
+                hn::Store(upper_i1, d, out_shift + 7 * lanes);
+                hn::Store(lower_r2, d, out_shift + 8 * lanes);
+                hn::Store(lower_i2, d, out_shift + 9 * lanes);
+                hn::Store(lower_r3, d, out_shift + 10 * lanes);
+                hn::Store(lower_i3, d, out_shift + 11 * lanes);
+                hn::Store(upper_r2, d, out_shift + 12 * lanes);
+                hn::Store(upper_i2, d, out_shift + 13 * lanes);
+                hn::Store(upper_r3, d, out_shift + 14 * lanes);
+                hn::Store(upper_i3, d, out_shift + 15 * lanes);
+            } else {
+                hn::Store(upper_r0, d, out_shift + 8 * lanes);
+                hn::Store(upper_i0, d, out_shift + 9 * lanes);
+                hn::Store(upper_r1, d, out_shift + 10 * lanes);
+                hn::Store(upper_i1, d, out_shift + 11 * lanes);
+                hn::Store(upper_r2, d, out_shift + 12 * lanes);
+                hn::Store(upper_i2, d, out_shift + 13 * lanes);
+                hn::Store(upper_r3, d, out_shift + 14 * lanes);
+                hn::Store(upper_i3, d, out_shift + 15 * lanes);
+            }
+        }
+    }
+
+    template <typename F>
+    void transpose_aosoa_to_aos(const F* __restrict in, std::complex<F>* __restrict out,
+                                const size_t n) {
+        namespace hn = hwy::HWY_NAMESPACE;
+        static constexpr hn::ScalableTag<F> d;
+        static constexpr size_t lanes = hn::Lanes(d);
+
+        const size_t row_stride = n << 1;
+        static constexpr size_t block_size = (sizeof(F) == 8) ? 16 : 32;
+
+        for (size_t r_tile = 0; r_tile < n; r_tile += block_size) {
+            for (size_t c_tile = 0; c_tile < n; c_tile += block_size) {
+                for (size_t r = r_tile; r < r_tile + block_size; r += lanes) {
+                    for (size_t c = c_tile; c < c_tile + block_size; c += lanes) {
+                        hn::Vec<decltype(d)> r_vecs[lanes], i_vecs[lanes];
+                        const size_t read_offset0 = r * row_stride + (c << 1);
+                        for (size_t k = 0; k < lanes; ++k) {
+                            const size_t read_offset = read_offset0 + k * row_stride;
+                            r_vecs[k] = hn::Load(d, in + read_offset);
+                            i_vecs[k] = hn::Load(d, in + read_offset + lanes);
+                        }
+                        hn::Vec<decltype(d)> r_trans[lanes], i_trans[lanes];
+                        if constexpr (lanes == 2) {
+                            macro_transpose_2x2(d, r_vecs, r_trans);
+                            macro_transpose_2x2(d, i_vecs, i_trans);
+                        }
+                        if constexpr (lanes == 4) {
+                            macro_transpose_4x4(d, r_vecs, r_trans);
+                            macro_transpose_4x4(d, i_vecs, i_trans);
+                        }
+                        if constexpr (lanes == 8) {
+                            macro_transpose_8x8(d, r_vecs, r_trans);
+                            macro_transpose_8x8(d, i_vecs, i_trans);
+                        }
+                        for (size_t j = 0; j < lanes; ++j) {
+                            const size_t out_row = c + j;
+                            const size_t out_col = r;
+                            std::complex<F>* out_ptr = out + out_row * n + out_col;
+                            hn::StoreInterleaved2(r_trans[j], i_trans[j], d, reinterpret_cast<F*>(out_ptr));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    template <typename F>
+    void transpose_aos_to_aosoa(const std::complex<F>* __restrict in, F* __restrict out,
+                                const size_t n) {
+        namespace hn = hwy::HWY_NAMESPACE;
+        static constexpr hn::ScalableTag<F> d;
+        static constexpr size_t lanes = hn::Lanes(d);
+
+        const size_t row_stride = n << 1;
+        static constexpr size_t block_size = (sizeof(F) == 8) ? 16 : 32;
+
+        for (size_t r_tile = 0; r_tile < n; r_tile += block_size) {
+            for (size_t c_tile = 0; c_tile < n; c_tile += block_size) {
+                for (size_t r = r_tile; r < r_tile + block_size; r += lanes) {
+                    for (size_t c = c_tile; c < c_tile + block_size; c += lanes) {
+                        hn::Vec<decltype(d)> r_vecs[lanes], i_vecs[lanes];
+                        for (size_t k = 0; k < lanes; ++k) {
+                            const size_t in_row = c + k;
+                            const size_t in_col = r;
+                            const std::complex<F>* in_ptr = in + in_row * n + in_col;
+                            hn::LoadInterleaved2(d, reinterpret_cast<const F*>(in_ptr), r_vecs[k], i_vecs[k]);
+                        }
+                        hn::Vec<decltype(d)> r_trans[lanes], i_trans[lanes];
+                        if constexpr (lanes == 2) {
+                            macro_transpose_2x2(d, r_vecs, r_trans);
+                            macro_transpose_2x2(d, i_vecs, i_trans);
+                        }
+                        if constexpr (lanes == 4) {
+                            macro_transpose_4x4(d, r_vecs, r_trans);
+                            macro_transpose_4x4(d, i_vecs, i_trans);
+                        }
+                        if constexpr (lanes == 8) {
+                            macro_transpose_8x8(d, r_vecs, r_trans);
+                            macro_transpose_8x8(d, i_vecs, i_trans);
+                        }
+                        const size_t write_offset0 = r * row_stride + (c << 1);
+                        for (size_t k = 0; k < lanes; ++k) {
+                            const size_t write_offset = write_offset0 + k * row_stride;
+                            hn::Store(r_trans[k], d, out + write_offset);
+                            hn::Store(i_trans[k], d, out + write_offset + lanes);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    template <typename F>
+    void radix2_peel_aos(const std::complex<F>* in, std::complex<F>* out,
+                         const size_t n, const F* radix2_twiddles) {
+        static constexpr hn::ScalableTag<F> d;
+        static constexpr size_t lanes = hn::Lanes(d);
+        const size_t half_n = n >> 1;
+
+        for (size_t i = 0; i < half_n; i += lanes) {
+            hn::Vec<decltype(d)> x0_r, x0_i, x1_r, x1_i;
+
+            hn::LoadInterleaved2(d, reinterpret_cast<const F*>(in + i), x0_r, x0_i);
+            hn::LoadInterleaved2(d, reinterpret_cast<const F*>(in + i + half_n), x1_r, x1_i);
+
+            const auto diff_r = hn::Sub(x0_r, x1_r);
+            const auto diff_i = hn::Sub(x0_i, x1_i);
+
+            const auto sum_r = hn::Add(x0_r, x1_r);
+            const auto sum_i = hn::Add(x0_i, x1_i);
+
+            hn::Vec<decltype(d)> w_r, w_i;
+            hn::LoadInterleaved2(d, radix2_twiddles + 2 * i, w_r, w_i);
+
+            const auto out1_r = hn::NegMulAdd(diff_i, w_i, hn::Mul(diff_r, w_r));
+            const auto out1_i = hn::MulAdd(diff_i, w_r, hn::Mul(diff_r, w_i));
+
+            hn::StoreInterleaved2(sum_r, sum_i, d, reinterpret_cast<F*>(out + i));
+            hn::StoreInterleaved2(out1_r, out1_i, d, reinterpret_cast<F*>(out + i + half_n));
         }
     }
 }
