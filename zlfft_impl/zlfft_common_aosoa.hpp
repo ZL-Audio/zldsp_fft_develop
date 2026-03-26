@@ -95,63 +95,6 @@ namespace zlfft::common {
         out[7] = hn::ConcatUpperUpper(d, q13, q03);
     }
 
-    template <typename F>
-    void transpose_aosoa_square(const F* __restrict in, F* __restrict out,
-                                const size_t n,
-                                const F* __restrict macro_twiddles) {
-        namespace hn = hwy::HWY_NAMESPACE;
-        static constexpr hn::ScalableTag<F> d;
-        static constexpr size_t lanes = hn::Lanes(d);
-
-        const size_t row_stride = n << 1;
-        static constexpr size_t block_size = (sizeof(F) == 8) ? 16 : 32;
-
-        for (size_t r_tile = 0; r_tile < n; r_tile += block_size) {
-            for (size_t c_tile = 0; c_tile < n; c_tile += block_size) {
-                for (size_t r = r_tile; r < r_tile + block_size; r += lanes) {
-                    for (size_t c = c_tile; c < c_tile + block_size; c += lanes) {
-                        hn::Vec<decltype(d)> r_vecs[lanes], i_vecs[lanes];
-
-                        const size_t read_offset0 = r * row_stride + (c << 1);
-                        for (size_t k = 0; k < lanes; ++k) {
-                            const size_t read_offset = read_offset0 + k * row_stride;
-
-                            const auto d_r = hn::Load(d, in + read_offset);
-                            const auto d_i = hn::Load(d, in + read_offset + lanes);
-
-                            const auto w_r = hn::Load(d, macro_twiddles + read_offset);
-                            const auto w_i = hn::Load(d, macro_twiddles + read_offset + lanes);
-
-                            r_vecs[k] = hn::NegMulAdd(d_i, w_i, hn::Mul(d_r, w_r));
-                            i_vecs[k] = hn::MulAdd(d_i, w_r, hn::Mul(d_r, w_i));
-                        }
-
-                        hn::Vec<decltype(d)> r_trans[lanes], i_trans[lanes];
-                        if constexpr (lanes == 2) {
-                            macro_transpose_2x2(d, r_vecs, r_trans);
-                            macro_transpose_2x2(d, i_vecs, i_trans);
-                        }
-                        if constexpr (lanes == 4) {
-                            macro_transpose_4x4(d, r_vecs, r_trans);
-                            macro_transpose_4x4(d, i_vecs, i_trans);
-                        }
-                        if constexpr (lanes == 8) {
-                            macro_transpose_8x8(d, r_vecs, r_trans);
-                            macro_transpose_8x8(d, i_vecs, i_trans);
-                        }
-
-                        const size_t write_offset0 = c * row_stride + (r << 1);
-                        for (size_t k = 0; k < lanes; ++k) {
-                            const size_t write_offset = write_offset0 + k * row_stride;
-                            hn::Store(r_trans[k], d, out + write_offset);
-                            hn::Store(i_trans[k], d, out + write_offset + lanes);
-                        }
-                    }
-                }
-            }
-        }
-    }
-
     template <typename F, bool use_fma = false, bool use_stream = false>
     inline void radix4_aosoa(const F* __restrict in_aosoa, F* __restrict out_aosoa,
                              const size_t n, const size_t width,
@@ -778,7 +721,7 @@ namespace zlfft::common {
         const size_t five_eighth_n = eighth_n * 5;
         const size_t three_quarter_n = quarter_n * 3;
         const size_t seven_eighth_n = eighth_n * 7;
-        
+
         static constexpr hn::ScalableTag<F> d;
         static constexpr size_t lanes = hn::Lanes(d);
 
@@ -908,13 +851,70 @@ namespace zlfft::common {
     }
 
     template <typename F>
-    void transpose_aosoa_to_aos(const F* __restrict in, std::complex<F>* __restrict out,
-                                const size_t n) {
+    void transpose_aosoa_square(const F* __restrict in, F* __restrict out,
+                                const size_t n, const size_t stride,
+                                const F* __restrict macro_twiddles) {
         namespace hn = hwy::HWY_NAMESPACE;
         static constexpr hn::ScalableTag<F> d;
         static constexpr size_t lanes = hn::Lanes(d);
 
-        const size_t row_stride = n << 1;
+        const size_t row_stride = stride << 1;
+        static constexpr size_t block_size = (sizeof(F) == 8) ? 16 : 32;
+
+        for (size_t r_tile = 0; r_tile < n; r_tile += block_size) {
+            for (size_t c_tile = 0; c_tile < n; c_tile += block_size) {
+                for (size_t r = r_tile; r < r_tile + block_size; r += lanes) {
+                    for (size_t c = c_tile; c < c_tile + block_size; c += lanes) {
+                        hn::Vec<decltype(d)> r_vecs[lanes], i_vecs[lanes];
+
+                        const size_t read_offset0 = r * row_stride + (c << 1);
+                        for (size_t k = 0; k < lanes; ++k) {
+                            const size_t read_offset = read_offset0 + k * row_stride;
+
+                            const auto d_r = hn::Load(d, in + read_offset);
+                            const auto d_i = hn::Load(d, in + read_offset + lanes);
+
+                            const auto w_r = hn::Load(d, macro_twiddles + read_offset);
+                            const auto w_i = hn::Load(d, macro_twiddles + read_offset + lanes);
+
+                            r_vecs[k] = hn::NegMulAdd(d_i, w_i, hn::Mul(d_r, w_r));
+                            i_vecs[k] = hn::MulAdd(d_i, w_r, hn::Mul(d_r, w_i));
+                        }
+
+                        hn::Vec<decltype(d)> r_trans[lanes], i_trans[lanes];
+                        if constexpr (lanes == 2) {
+                            macro_transpose_2x2(d, r_vecs, r_trans);
+                            macro_transpose_2x2(d, i_vecs, i_trans);
+                        }
+                        if constexpr (lanes == 4) {
+                            macro_transpose_4x4(d, r_vecs, r_trans);
+                            macro_transpose_4x4(d, i_vecs, i_trans);
+                        }
+                        if constexpr (lanes == 8) {
+                            macro_transpose_8x8(d, r_vecs, r_trans);
+                            macro_transpose_8x8(d, i_vecs, i_trans);
+                        }
+
+                        const size_t write_offset0 = c * row_stride + (r << 1);
+                        for (size_t k = 0; k < lanes; ++k) {
+                            const size_t write_offset = write_offset0 + k * row_stride;
+                            hn::Store(r_trans[k], d, out + write_offset);
+                            hn::Store(i_trans[k], d, out + write_offset + lanes);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    template <typename F>
+    void transpose_aosoa_to_aos(const F* __restrict in, std::complex<F>* __restrict out,
+                                const size_t n, const size_t in_stride) {
+        namespace hn = hwy::HWY_NAMESPACE;
+        static constexpr hn::ScalableTag<F> d;
+        static constexpr size_t lanes = hn::Lanes(d);
+
+        const size_t row_stride = in_stride << 1;
         static constexpr size_t block_size = (sizeof(F) == 8) ? 16 : 32;
 
         for (size_t r_tile = 0; r_tile < n; r_tile += block_size) {
@@ -955,12 +955,12 @@ namespace zlfft::common {
 
     template <typename F>
     void transpose_aos_to_aosoa(const std::complex<F>* __restrict in, F* __restrict out,
-                                const size_t n) {
+                                const size_t n, const size_t out_stride) {
         namespace hn = hwy::HWY_NAMESPACE;
         static constexpr hn::ScalableTag<F> d;
         static constexpr size_t lanes = hn::Lanes(d);
 
-        const size_t row_stride = n << 1;
+        const size_t row_stride = out_stride << 1;
         static constexpr size_t block_size = (sizeof(F) == 8) ? 16 : 32;
 
         for (size_t r_tile = 0; r_tile < n; r_tile += block_size) {

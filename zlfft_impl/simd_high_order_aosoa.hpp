@@ -16,6 +16,7 @@ namespace zlfft {
             const bool is_even = (order % 2 == 0);
             sub_order_ = is_even ? (order / 2) : ((order - 1) / 2);
             sub_n_ = static_cast<size_t>(1) << sub_order_;
+            padded_sub_n_ = sub_n_ + 16;
 
             if (sub_order_ == 4) {
                 stages_ = {common::StageType::kRadix4FirstPass, common::StageType::kRadix4};
@@ -115,9 +116,9 @@ namespace zlfft {
 
             size_t n_sq = sub_n_ * sub_n_;
             const double macro_angle_step = -2.0 * std::numbers::pi / static_cast<double>(n_sq);
-            macro_twiddles_ = hwy::AllocateAligned<F>(sub_n_ * (sub_n_ << 1));
-            const size_t row_stride = sub_n_ << 1;
-            
+            macro_twiddles_ = hwy::AllocateAligned<F>(sub_n_ * (padded_sub_n_ << 1));
+            const size_t twiddle_row_stride = padded_sub_n_ << 1;
+
             static constexpr hn::ScalableTag<F> d;
 
             for (size_t r = 0; r < sub_n_; ++r) {
@@ -130,7 +131,7 @@ namespace zlfft {
                         temp_r[k] = static_cast<F>(std::cos(angle));
                         temp_i[k] = static_cast<F>(std::sin(angle));
                     }
-                    size_t write_offset = r * row_stride + (c << 1);
+                    size_t write_offset = r * twiddle_row_stride + (c << 1);
                     hn::Store(hn::Load(d, temp_r), d, macro_twiddles_.get() + write_offset);
                     hn::Store(hn::Load(d, temp_i), d, macro_twiddles_.get() + write_offset + lanes);
                 }
@@ -153,7 +154,7 @@ namespace zlfft {
                 }
             }
 
-            workspace_ = hwy::AllocateAligned<F>(4 * n_sq);
+            workspace_ = hwy::AllocateAligned<F>(4 * sub_n_ * padded_sub_n_);
         }
 
         void forward(std::span<C> in_span, std::span<C> out_span) {
@@ -200,6 +201,7 @@ namespace zlfft {
         size_t order_;
         size_t sub_order_;
         size_t sub_n_;
+        size_t padded_sub_n_;
 
         std::vector<common::StageType> stages_;
         hwy::AlignedFreeUniquePtr<F[]> sub_twiddles_aosoa_;
@@ -213,13 +215,13 @@ namespace zlfft {
             const size_t n_sq = sub_n_ * sub_n_;
 
             F* __restrict in_aosoa = workspace_.get();
-            F* __restrict out_aosoa = workspace_.get() + (n_sq << 1);
+            F* __restrict out_aosoa = workspace_.get() + ((sub_n_ * padded_sub_n_) << 1);
 
-            common::transpose_aos_to_aosoa(in, in_aosoa, n1);
+            common::transpose_aos_to_aosoa(in, in_aosoa, n1, padded_sub_n_);
 
             for (size_t r = 0; r < n1; ++r) {
-                F* row_in = in_aosoa + r * (n1 << 1);
-                F* row_out = out_aosoa + r * (n1 << 1);
+                F* row_in = in_aosoa + r * (padded_sub_n_ << 1);
+                F* row_out = out_aosoa + r * (padded_sub_n_ << 1);
 
                 F* temp_in = row_in;
                 F* temp_out = row_out;
@@ -257,11 +259,11 @@ namespace zlfft {
 
             F* const row_result = stages_is_even ? in_aosoa : out_aosoa;
             F* const trans_out  = stages_is_even ? out_aosoa : in_aosoa;
-            common::transpose_aosoa_square(row_result, trans_out, n1, macro_twiddles_.get());
+            common::transpose_aosoa_square(row_result, trans_out, n1, padded_sub_n_, macro_twiddles_.get());
 
             for (size_t r = 0; r < n1; ++r) {
-                F* temp_in = trans_out + r * (n1 << 1);
-                F* temp_out = row_result + r * (n1 << 1);
+                F* temp_in = trans_out + r * (padded_sub_n_ << 1);
+                F* temp_out = row_result + r * (padded_sub_n_ << 1);
 
                 const F* w_ptr = sub_twiddles_aosoa_.get();
                 if (stages_[0] == common::StageType::kRadix4FirstPass) {
@@ -293,7 +295,7 @@ namespace zlfft {
             }
 
             F* const final_result = stages_is_even ? trans_out : row_result;
-            common::transpose_aosoa_to_aos(final_result, out, n1);
+            common::transpose_aosoa_to_aos(final_result, out, n1, padded_sub_n_);
         }
     };
 }
