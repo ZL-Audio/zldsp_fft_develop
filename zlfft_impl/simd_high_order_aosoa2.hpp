@@ -1,6 +1,7 @@
 #pragma once
 
 #include "zlfft_common_aosoa.hpp"
+#include "zlfft_common_high_order.hpp"
 
 namespace zlfft {
     namespace hn = hwy::HWY_NAMESPACE;
@@ -178,6 +179,8 @@ namespace zlfft {
         }
 
         void forward(std::span<C> in_span, std::span<C> out_span) {
+            if (order_ < 10) return;
+
             auto in_buffer = in_span.data();
             auto out_buffer = out_span.data();
             const size_t n = static_cast<size_t>(1) << order_;
