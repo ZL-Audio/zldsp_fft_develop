@@ -19,7 +19,6 @@ def run_benchmark(exe_path, order, algorithm):
         print(f"Benchmark failed.\nSTDOUT: {e.stdout}\nSTDERR: {e.stderr}")
         return
 
-    # Print any non-JSON output (e.g. "Order: X, Total stages: Y")
     for line in result.stderr.strip().split('\n'):
         if line.strip():
             print(line)
