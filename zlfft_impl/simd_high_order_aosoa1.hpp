@@ -6,11 +6,11 @@ namespace zlfft {
     namespace hn = hwy::HWY_NAMESPACE;
 
     template <typename F>
-    class SIMDHighOrderAOSOA {
+    class SIMDHighOrderAOSOA1 {
         using C = std::complex<F>;
 
     public:
-        explicit SIMDHighOrderAOSOA(const size_t order) : order_(order) {
+        explicit SIMDHighOrderAOSOA1(const size_t order) : order_(order) {
             if (order < 10) return;
 
             const bool is_even = (order % 2 == 0);

@@ -27,7 +27,8 @@ algos = ["naive_stockham_radix2", "naive_cooley_radix2", "naive_stockham_radix4"
          "simd_low_order_aosoa2",
          "simd_low_order_aosoa3",
          "simd_low_order_aosoa4",
-         "high_order_aosoa",
+         "high_order_aosoa1",
+         "high_order_aosoa2",
 
          "fftw3", "fftw3_estimate", "kfr", "vdsp", "vdsp_stride_2", "pffft", "ipp"]
 
