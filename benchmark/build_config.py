@@ -63,9 +63,11 @@ def build_benchmark(algorithm, benchmark_type, use_avx2=False, to_print=False):
 
     cmake_cmd = ["cmake", "..", "-DCMAKE_BUILD_TYPE=Release", "-G", "Ninja"]
     if benchmark_type == "accuracy":
-        cmake_cmd += ["-DACCURACY_TEST=ON", "-DTHROUGHPUT_TEST=OFF"]
+        cmake_cmd += ["-DACCURACY_TEST=ON", "-DTHROUGHPUT_TEST=OFF", "-DSTAGE_TIMING_TEST=OFF"]
     elif benchmark_type == "throughput":
-        cmake_cmd += ["-DACCURACY_TEST=OFF", "-DTHROUGHPUT_TEST=ON"]
+        cmake_cmd += ["-DACCURACY_TEST=OFF", "-DTHROUGHPUT_TEST=ON", "-DSTAGE_TIMING_TEST=OFF"]
+    elif benchmark_type == "stage_timing":
+        cmake_cmd += ["-DACCURACY_TEST=OFF", "-DTHROUGHPUT_TEST=OFF", "-DSTAGE_TIMING_TEST=ON"]
 
     if use_avx2:
         cmake_cmd += ["-DUSE_AVX2=ON"]

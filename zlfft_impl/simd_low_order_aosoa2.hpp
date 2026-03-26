@@ -233,6 +233,62 @@ namespace zlfft {
             common::radix4_last_pass_fused_aosoa(in_aosoa, out_buffer.data(), n, width, w_ptr);
         }
 
+        size_t num_stages() const { return stages_.size(); }
+
+        void forward_stages(std::span<C> in_buffer, std::span<C> out_buffer, size_t num_stages_to_run) {
+            if (order_ <= 5 || num_stages_to_run == stages_.size()) {
+                forward(in_buffer, out_buffer);
+                return;
+            }
+
+            const auto n = in_buffer.size();
+            num_stages_to_run = std::min(num_stages_to_run, stages_.size());
+
+            F* __restrict in_aosoa = workspace_.get();
+            F* __restrict out_aosoa = workspace_.get() + 2 * stride_;
+
+            const F* __restrict w_ptr = twiddles_aosoa_.get();
+
+            if (stages_[0] == common::StageType::kRadix4FirstPass) {
+                common::radix4_first_pass_fused_aosoa(in_buffer.data(), out_aosoa, n);
+            } else {
+                common::radix8_first_pass_fused_aosoa(in_buffer.data(), out_aosoa, n);
+            }
+
+            std::swap(in_aosoa, out_aosoa);
+
+            size_t width = (stages_[0] == common::StageType::kRadix4FirstPass) ? 4 : 8;
+
+            for (size_t i = 1; i < num_stages_to_run; ++i) {
+                const auto stage = stages_[i];
+                switch (stage) {
+                case common::StageType::kRadix4Width4: {
+                    common::radix4_width4_aosoa(in_aosoa, out_aosoa, n, w_ptr);
+                    w_ptr += 6 * width4_vec;
+                    width = width << 2;
+                    break;
+                }
+                case common::StageType::kRadix4: {
+                    common::radix4_aosoa(in_aosoa, out_aosoa, n, width, w_ptr);
+                    const size_t num_blocks = std::max<size_t>(1, width / lanes);
+                    w_ptr += num_blocks * 6 * lanes;
+                    width = width << 2;
+                    break;
+                }
+                case common::StageType::kRadix8: {
+                    common::radix8_aosoa(in_aosoa, out_aosoa, n, width, w_ptr);
+                    const size_t num_blocks = std::max<size_t>(1, width / lanes);
+                    w_ptr += num_blocks * 14 * lanes;
+                    width = width << 3;
+                    break;
+                }
+                default:
+                    break;
+                }
+                std::swap(in_aosoa, out_aosoa);
+            }
+        }
+
     private:
         static constexpr size_t lanes = hn::Lanes(hn::ScalableTag<F>());
         static constexpr size_t width4_vec = std::max(static_cast<size_t>(4), lanes);

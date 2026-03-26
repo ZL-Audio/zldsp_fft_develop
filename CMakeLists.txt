@@ -23,6 +23,19 @@ if (THROUGHPUT_TEST)
     target_link_libraries(zlfft_benchmark PRIVATE benchmark::benchmark)
 endif ()
 
+option(STAGE_TIMING_TEST "Stage Timing Test" OFF)
+if (STAGE_TIMING_TEST)
+    add_executable(zlfft_benchmark benchmark/stage_timing.cpp)
+
+    if (NOT TARGET benchmark::benchmark)
+        set(BENCHMARK_ENABLE_TESTING OFF CACHE BOOL "Suppressing Google benchmark's tests" FORCE)
+        set(BENCHMARK_ENABLE_INSTALL OFF CACHE BOOL "Suppressing Google benchmark's install" FORCE)
+        set(BENCHMARK_DOWNLOAD_DEPENDENCIES OFF CACHE BOOL "Suppressing Google benchmark's dependencies downloading" FORCE)
+        add_subdirectory(google/benchmark)
+    endif ()
+    target_link_libraries(zlfft_benchmark PRIVATE benchmark::benchmark)
+endif ()
+
 target_include_directories(zlfft_benchmark PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/benchmark ${CMAKE_CURRENT_SOURCE_DIR}/source ${CMAKE_CURRENT_SOURCE_DIR}/zlfft_impl)
 
 option(ENABLE_NAIVE_COOLEY_RADIX2 "Enable naive_cooley_radix2" OFF)
