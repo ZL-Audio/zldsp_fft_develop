@@ -391,11 +391,21 @@ namespace zlfft::common {
         static constexpr F kInvSqrt2 = static_cast<F>(1.0 / std::numbers::sqrt2);
         const auto inv_sqrt2 = hn::Set(d, kInvSqrt2);
 
+        const size_t out_stride1 = width * 2;
+        const size_t out_stride2 = out_stride1 * 2;
+        const size_t out_stride3 = out_stride1 * 3;
+        const size_t out_stride4 = out_stride1 * 4;
+        const size_t out_stride5 = out_stride1 * 5;
+        const size_t out_stride6 = out_stride1 * 6;
+        const size_t out_stride7 = out_stride1 * 7;
+
         for (size_t i = 0; i < eighth_n; i += lanes) {
             const size_t k = i & mask;
             const size_t w_offset = k * 14;
             const size_t j_times_8 = (i & ~mask) << 3;
             const size_t out_idx = j_times_8 + k;
+
+            F* out_ptr = out_aosoa + 2 * out_idx;
 
             auto load_twiddle_mul = [&](size_t in_offset, size_t m_idx, auto& r_out, auto& i_out) {
                 const auto r_in = hn::Load(d, in_aosoa + 2 * (in_offset + i));
@@ -406,68 +416,71 @@ namespace zlfft::common {
                 i_out = hn::MulAdd(i_in, w_r, hn::Mul(r_in, w_i));
             };
 
-            const auto r0 = hn::Load(d, in_aosoa + 2 * i);
-            const auto i0 = hn::Load(d, in_aosoa + 2 * i + lanes);
+            hn::Vec<decltype(d)> tmp_r, tmp_i;
 
-            hn::Vec<decltype(d)> r4, i4;
-            load_twiddle_mul(eighth_n * 4, 0, r4, i4);
-            const auto t0_r = hn::Add(r0, r4), t0_i = hn::Add(i0, i4);
-            const auto t1_r = hn::Sub(r0, r4), t1_i = hn::Sub(i0, i4);
+            auto r0 = hn::Load(d, in_aosoa + 2 * i);
+            auto i0 = hn::Load(d, in_aosoa + 2 * i + lanes);
 
-            hn::Vec<decltype(d)> r2, i2, r6, i6;
+            load_twiddle_mul(eighth_n * 4, 0, tmp_r, tmp_i);
+            auto t1_r = hn::Sub(r0, tmp_r), t1_i = hn::Sub(i0, tmp_i);
+            auto t0_r = hn::Add(r0, tmp_r), t0_i = hn::Add(i0, tmp_i);
+
+            hn::Vec<decltype(d)> r2, i2;
             load_twiddle_mul(eighth_n * 2, 1, r2, i2);
-            load_twiddle_mul(eighth_n * 6, 2, r6, i6);
-            const auto t2_r = hn::Add(r2, r6), t2_i = hn::Add(i2, i6);
-            const auto t3_r = hn::Sub(r2, r6), t3_i = hn::Sub(i2, i6);
+            load_twiddle_mul(eighth_n * 6, 2, tmp_r, tmp_i);
+            auto t3_r = hn::Sub(r2, tmp_r), t3_i = hn::Sub(i2, tmp_i);
+            auto t2_r = hn::Add(r2, tmp_r), t2_i = hn::Add(i2, tmp_i);
 
-            const auto y00_r = hn::Add(t0_r, t2_r), y00_i = hn::Add(t0_i, t2_i);
-            const auto y02_r = hn::Sub(t0_r, t2_r), y02_i = hn::Sub(t0_i, t2_i);
-            const auto y01_r = hn::Add(t1_r, t3_i), y01_i = hn::Sub(t1_i, t3_r);
-            const auto y03_r = hn::Sub(t1_r, t3_i), y03_i = hn::Add(t1_i, t3_r);
+            auto y00_r = hn::Add(t0_r, t2_r), y00_i = hn::Add(t0_i, t2_i);
+            auto y02_r = hn::Sub(t0_r, t2_r), y02_i = hn::Sub(t0_i, t2_i);
+            auto y01_r = hn::Add(t1_r, t3_i), y01_i = hn::Sub(t1_i, t3_r);
+            auto y03_r = hn::Sub(t1_r, t3_i), y03_i = hn::Add(t1_i, t3_r);
 
-            hn::Vec<decltype(d)> r1, i1, r5, i5;
+            hn::Vec<decltype(d)> r1, i1;
             load_twiddle_mul(eighth_n * 1, 3, r1, i1);
-            load_twiddle_mul(eighth_n * 5, 4, r5, i5);
-            const auto u0_r = hn::Add(r1, r5), u0_i = hn::Add(i1, i5);
-            const auto u1_r = hn::Sub(r1, r5), u1_i = hn::Sub(i1, i5);
+            load_twiddle_mul(eighth_n * 5, 4, tmp_r, tmp_i);
+            auto u1_r = hn::Sub(r1, tmp_r), u1_i = hn::Sub(i1, tmp_i);
+            auto u0_r = hn::Add(r1, tmp_r), u0_i = hn::Add(i1, tmp_i);
 
-            hn::Vec<decltype(d)> r3, i3, r7, i7;
+            hn::Vec<decltype(d)> r3, i3;
             load_twiddle_mul(eighth_n * 3, 5, r3, i3);
-            load_twiddle_mul(eighth_n * 7, 6, r7, i7);
-            const auto u2_r = hn::Add(r3, r7), u2_i = hn::Add(i3, i7);
-            const auto u3_r = hn::Sub(r3, r7), u3_i = hn::Sub(i3, i7);
+            load_twiddle_mul(eighth_n * 7, 6, tmp_r, tmp_i);
+            auto u3_r = hn::Sub(r3, tmp_r), u3_i = hn::Sub(i3, tmp_i);
+            auto u2_r = hn::Add(r3, tmp_r), u2_i = hn::Add(i3, tmp_i);
 
-            const auto y10_r = hn::Add(u0_r, u2_r), y10_i = hn::Add(u0_i, u2_i);
-            const auto y12_r = hn::Sub(u0_r, u2_r), y12_i = hn::Sub(u0_i, u2_i);
-            const auto y11_r = hn::Add(u1_r, u3_i), y11_i = hn::Sub(u1_i, u3_r);
-            const auto y13_r = hn::Sub(u1_r, u3_i), y13_i = hn::Add(u1_i, u3_r);
+            auto y10_r = hn::Add(u0_r, u2_r), y10_i = hn::Add(u0_i, u2_i);
+            auto y12_r = hn::Sub(u0_r, u2_r), y12_i = hn::Sub(u0_i, u2_i);
+            auto y11_r = hn::Add(u1_r, u3_i), y11_i = hn::Sub(u1_i, u3_r);
+            auto y13_r = hn::Sub(u1_r, u3_i), y13_i = hn::Add(u1_i, u3_r);
 
-            const auto v0_r = y10_r, v0_i = y10_i;
-            const auto v1_r = hn::Mul(hn::Add(y11_r, y11_i), inv_sqrt2);
-            const auto v1_i = hn::Mul(hn::Sub(y11_i, y11_r), inv_sqrt2);
-            const auto v2_r = y12_i, v2_i = hn::Neg(y12_r);
-            const auto v3_r = hn::Mul(hn::Sub(y13_i, y13_r), inv_sqrt2);
-            const auto v3_i = hn::Mul(hn::Neg(hn::Add(y13_r, y13_i)), inv_sqrt2);
-
-            hn::Store(hn::Add(y00_r, v0_r), d, out_aosoa + 2 * out_idx);
-            hn::Store(hn::Add(y00_i, v0_i), d, out_aosoa + 2 * out_idx + lanes);
-            hn::Store(hn::Sub(y00_r, v0_r), d, out_aosoa + 2 * (out_idx + (width << 2)));
-            hn::Store(hn::Sub(y00_i, v0_i), d, out_aosoa + 2 * (out_idx + (width << 2)) + lanes);
-
-            hn::Store(hn::Add(y01_r, v1_r), d, out_aosoa + 2 * (out_idx + width));
-            hn::Store(hn::Add(y01_i, v1_i), d, out_aosoa + 2 * (out_idx + width) + lanes);
-            hn::Store(hn::Sub(y01_r, v1_r), d, out_aosoa + 2 * (out_idx + width * 5));
-            hn::Store(hn::Sub(y01_i, v1_i), d, out_aosoa + 2 * (out_idx + width * 5) + lanes);
-
-            hn::Store(hn::Add(y02_r, v2_r), d, out_aosoa + 2 * (out_idx + (width << 1)));
-            hn::Store(hn::Add(y02_i, v2_i), d, out_aosoa + 2 * (out_idx + (width << 1)) + lanes);
-            hn::Store(hn::Sub(y02_r, v2_r), d, out_aosoa + 2 * (out_idx + width * 6));
-            hn::Store(hn::Sub(y02_i, v2_i), d, out_aosoa + 2 * (out_idx + width * 6) + lanes);
-
-            hn::Store(hn::Add(y03_r, v3_r), d, out_aosoa + 2 * (out_idx + width * 3));
-            hn::Store(hn::Add(y03_i, v3_i), d, out_aosoa + 2 * (out_idx + width * 3) + lanes);
-            hn::Store(hn::Sub(y03_r, v3_r), d, out_aosoa + 2 * (out_idx + width * 7));
-            hn::Store(hn::Sub(y03_i, v3_i), d, out_aosoa + 2 * (out_idx + width * 7) + lanes);
+            {
+                hn::Store(hn::Add(y00_r, y10_r), d, out_ptr);
+                hn::Store(hn::Add(y00_i, y10_i), d, out_ptr + lanes);
+                hn::Store(hn::Sub(y00_r, y10_r), d, out_ptr + out_stride4);
+                hn::Store(hn::Sub(y00_i, y10_i), d, out_ptr + out_stride4 + lanes);
+            }
+            {
+                const auto v1_r = hn::Mul(hn::Add(y11_r, y11_i), inv_sqrt2);
+                const auto v1_i = hn::Mul(hn::Sub(y11_i, y11_r), inv_sqrt2);
+                hn::Store(hn::Add(y01_r, v1_r), d, out_ptr + out_stride1);
+                hn::Store(hn::Add(y01_i, v1_i), d, out_ptr + out_stride1 + lanes);
+                hn::Store(hn::Sub(y01_r, v1_r), d, out_ptr + out_stride5);
+                hn::Store(hn::Sub(y01_i, v1_i), d, out_ptr + out_stride5 + lanes);
+            }
+            {
+                hn::Store(hn::Add(y02_r, y12_i), d, out_ptr + out_stride2);
+                hn::Store(hn::Sub(y02_i, y12_r), d, out_ptr + out_stride2 + lanes);
+                hn::Store(hn::Sub(y02_r, y12_i), d, out_ptr + out_stride6);
+                hn::Store(hn::Add(y02_i, y12_r), d, out_ptr + out_stride6 + lanes);
+            }
+            {
+                const auto v3_r = hn::Mul(hn::Sub(y13_i, y13_r), inv_sqrt2);
+                const auto v3_i = hn::Mul(hn::Neg(hn::Add(y13_r, y13_i)), inv_sqrt2);
+                hn::Store(hn::Add(y03_r, v3_r), d, out_ptr + out_stride3);
+                hn::Store(hn::Add(y03_i, v3_i), d, out_ptr + out_stride3 + lanes);
+                hn::Store(hn::Sub(y03_r, v3_r), d, out_ptr + out_stride7);
+                hn::Store(hn::Sub(y03_i, v3_i), d, out_ptr + out_stride7 + lanes);
+            }
         }
     }
 
