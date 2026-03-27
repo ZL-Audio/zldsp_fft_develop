@@ -501,116 +501,143 @@ namespace zlfft::common {
         const auto inv_sqrt2 = hn::Set(d, kInvSqrt2);
 
         for (size_t j = 0; j + lanes <= one_eight_n; j += lanes) {
-            hn::Vec<decltype(d)> temp_a_r, temp_a_i, temp_b_r, temp_b_i;
-
             const F* __restrict in_shift = reinterpret_cast<const F*>(in + j);
-            hn::LoadInterleaved2(d, in_shift, temp_a_r, temp_a_i);
-            hn::LoadInterleaved2(d, in_shift + n, temp_b_r, temp_b_i);
-            const auto t0_r = hn::Add(temp_a_r, temp_b_r), t0_i = hn::Add(temp_a_i, temp_b_i);
-            const auto t1_r = hn::Sub(temp_a_r, temp_b_r), t1_i = hn::Sub(temp_a_i, temp_b_i);
 
-            hn::LoadInterleaved2(d, in_shift + half_n, temp_a_r, temp_a_i);
-            hn::LoadInterleaved2(d, in_shift + three_two_n, temp_b_r, temp_b_i);
-            const auto t2_r = hn::Add(temp_a_r, temp_b_r), t2_i = hn::Add(temp_a_i, temp_b_i);
-            const auto t3_r = hn::Sub(temp_a_r, temp_b_r), t3_i = hn::Sub(temp_a_i, temp_b_i);
+            hn::Vec<decltype(d)> a_r, a_i, b_r, b_i;
 
-            const auto y00_r = hn::Add(t0_r, t2_r), y00_i = hn::Add(t0_i, t2_i);
-            const auto y01_r = hn::Add(t1_r, t3_i), y01_i = hn::Sub(t1_i, t3_r);
-            const auto y02_r = hn::Sub(t0_r, t2_r), y02_i = hn::Sub(t0_i, t2_i);
-            const auto y03_r = hn::Sub(t1_r, t3_i), y03_i = hn::Add(t1_i, t3_r);
+            hn::LoadInterleaved2(d, in_shift, a_r, a_i);
+            hn::LoadInterleaved2(d, in_shift + n, b_r, b_i);
+            auto t0_r = hn::Add(a_r, b_r), t0_i = hn::Add(a_i, b_i);
+            auto t1_r = hn::Sub(a_r, b_r), t1_i = hn::Sub(a_i, b_i);
 
-            hn::LoadInterleaved2(d, in_shift + quarter_n, temp_a_r, temp_a_i);
-            hn::LoadInterleaved2(d, in_shift + five_four_n, temp_b_r, temp_b_i);
-            const auto u0_r = hn::Add(temp_a_r, temp_b_r), u0_i = hn::Add(temp_a_i, temp_b_i);
-            const auto u1_r = hn::Sub(temp_a_r, temp_b_r), u1_i = hn::Sub(temp_a_i, temp_b_i);
+            hn::LoadInterleaved2(d, in_shift + half_n, a_r, a_i);
+            hn::LoadInterleaved2(d, in_shift + three_two_n, b_r, b_i);
+            auto t2_r = hn::Add(a_r, b_r), t2_i = hn::Add(a_i, b_i);
+            auto t3_r = hn::Sub(a_r, b_r), t3_i = hn::Sub(a_i, b_i);
 
-            hn::LoadInterleaved2(d, in_shift + three_quarter_n, temp_a_r, temp_a_i);
-            hn::LoadInterleaved2(d, in_shift + seven_four_n, temp_b_r, temp_b_i);
-            const auto u2_r = hn::Add(temp_a_r, temp_b_r), u2_i = hn::Add(temp_a_i, temp_b_i);
-            const auto u3_r = hn::Sub(temp_a_r, temp_b_r), u3_i = hn::Sub(temp_a_i, temp_b_i);
+            auto y00_r = hn::Add(t0_r, t2_r), y00_i = hn::Add(t0_i, t2_i);
+            auto y02_r = hn::Sub(t0_r, t2_r), y02_i = hn::Sub(t0_i, t2_i);
+            auto y01_r = hn::Add(t1_r, t3_i), y01_i = hn::Sub(t1_i, t3_r);
+            auto y03_r = hn::Sub(t1_r, t3_i), y03_i = hn::Add(t1_i, t3_r);
 
-            const auto y10_r = hn::Add(u0_r, u2_r), y10_i = hn::Add(u0_i, u2_i);
-            const auto y11_r = hn::Add(u1_r, u3_i), y11_i = hn::Sub(u1_i, u3_r);
-            const auto y12_r = hn::Sub(u0_r, u2_r), y12_i = hn::Sub(u0_i, u2_i);
-            const auto y13_r = hn::Sub(u1_r, u3_i), y13_i = hn::Add(u1_i, u3_r);
+            hn::LoadInterleaved2(d, in_shift + quarter_n, a_r, a_i);
+            hn::LoadInterleaved2(d, in_shift + five_four_n, b_r, b_i);
+            auto u0_r = hn::Add(a_r, b_r), u0_i = hn::Add(a_i, b_i);
+            auto u1_r = hn::Sub(a_r, b_r), u1_i = hn::Sub(a_i, b_i);
 
-            const auto v0_r = y10_r, v0_i = y10_i;
-            const auto v1_r = hn::Mul(hn::Add(y11_r, y11_i), inv_sqrt2);
-            const auto v1_i = hn::Mul(hn::Sub(y11_i, y11_r), inv_sqrt2);
-            const auto v2_r = y12_i, v2_i = hn::Neg(y12_r);
-            const auto v3_r = hn::Mul(hn::Sub(y13_i, y13_r), inv_sqrt2);
-            const auto v3_i = hn::Mul(hn::Neg(hn::Add(y13_r, y13_i)), inv_sqrt2);
+            hn::LoadInterleaved2(d, in_shift + three_quarter_n, a_r, a_i);
+            hn::LoadInterleaved2(d, in_shift + seven_four_n, b_r, b_i);
+            auto u2_r = hn::Add(a_r, b_r), u2_i = hn::Add(a_i, b_i);
+            auto u3_r = hn::Sub(a_r, b_r), u3_i = hn::Sub(a_i, b_i);
 
-            const auto z00_r = hn::Add(y00_r, v0_r), z00_i = hn::Add(y00_i, v0_i);
-            const auto z01_r = hn::Add(y01_r, v1_r), z01_i = hn::Add(y01_i, v1_i);
-            const auto z02_r = hn::Add(y02_r, v2_r), z02_i = hn::Add(y02_i, v2_i);
-            const auto z03_r = hn::Add(y03_r, v3_r), z03_i = hn::Add(y03_i, v3_i);
+            auto y10_r = hn::Add(u0_r, u2_r), y10_i = hn::Add(u0_i, u2_i);
+            auto y12_r = hn::Sub(u0_r, u2_r), y12_i = hn::Sub(u0_i, u2_i);
+            auto y11_r = hn::Add(u1_r, u3_i), y11_i = hn::Sub(u1_i, u3_r);
+            auto y13_r = hn::Sub(u1_r, u3_i), y13_i = hn::Add(u1_i, u3_r);
 
-            const auto z10_r = hn::Sub(y00_r, v0_r), z10_i = hn::Sub(y00_i, v0_i);
-            const auto z11_r = hn::Sub(y01_r, v1_r), z11_i = hn::Sub(y01_i, v1_i);
-            const auto z12_r = hn::Sub(y02_r, v2_r), z12_i = hn::Sub(y02_i, v2_i);
-            const auto z13_r = hn::Sub(y03_r, v3_r), z13_i = hn::Sub(y03_i, v3_i);
+            auto v1_r = hn::Mul(hn::Add(y11_r, y11_i), inv_sqrt2);
+            auto v1_i = hn::Mul(hn::Sub(y11_i, y11_r), inv_sqrt2);
+            y11_r = v1_r;
+            y11_i = v1_i;
+
+            auto v2_r = y12_i;
+            auto v2_i = hn::Neg(y12_r);
+            y12_r = v2_r;
+            y12_i = v2_i;
+
+            auto v3_r = hn::Mul(hn::Sub(y13_i, y13_r), inv_sqrt2);
+            auto v3_i = hn::Mul(hn::Neg(hn::Add(y13_r, y13_i)), inv_sqrt2);
+            y13_r = v3_r;
+            y13_i = v3_i;
 
             F* __restrict out_shift = out_aosoa + (j << 4);
 
-            hn::Vec<decltype(d)> lower_r0, lower_r1, lower_r2, lower_r3;
-            transpose4x4(d, hn::InterleaveLower(d, z00_r, z10_r), hn::InterleaveLower(d, z01_r, z11_r),
-                         hn::InterleaveLower(d, z02_r, z12_r), hn::InterleaveLower(d, z03_r, z13_r),
-                         lower_r0, lower_r1, lower_r2, lower_r3);
+            {
+                auto z00 = hn::Add(y00_r, y10_r), z10 = hn::Sub(y00_r, y10_r);
+                auto il_00 = hn::InterleaveLower(d, z00, z10);
+                auto iu_00 = hn::InterleaveUpper(d, z00, z10);
 
-            hn::Vec<decltype(d)> lower_i0, lower_i1, lower_i2, lower_i3;
-            transpose4x4(d, hn::InterleaveLower(d, z00_i, z10_i), hn::InterleaveLower(d, z01_i, z11_i),
-                         hn::InterleaveLower(d, z02_i, z12_i), hn::InterleaveLower(d, z03_i, z13_i),
-                         lower_i0, lower_i1, lower_i2, lower_i3);
+                auto z01 = hn::Add(y01_r, y11_r), z11 = hn::Sub(y01_r, y11_r);
+                auto il_01 = hn::InterleaveLower(d, z01, z11);
+                auto iu_01 = hn::InterleaveUpper(d, z01, z11);
 
-            if constexpr (d.MaxBytes() > 16) {
-                hn::Store(lower_r0, d, out_shift);
-                hn::Store(lower_i0, d, out_shift + lanes);
-                hn::Store(lower_r1, d, out_shift + 2 * lanes);
-                hn::Store(lower_i1, d, out_shift + 3 * lanes);
-            } else {
-                hn::Store(lower_r0, d, out_shift);
-                hn::Store(lower_i0, d, out_shift + lanes);
-                hn::Store(lower_r1, d, out_shift + 2 * lanes);
-                hn::Store(lower_i1, d, out_shift + 3 * lanes);
-                hn::Store(lower_r2, d, out_shift + 4 * lanes);
-                hn::Store(lower_i2, d, out_shift + 5 * lanes);
-                hn::Store(lower_r3, d, out_shift + 6 * lanes);
-                hn::Store(lower_i3, d, out_shift + 7 * lanes);
+                auto z02 = hn::Add(y02_r, y12_r), z12 = hn::Sub(y02_r, y12_r);
+                auto il_02 = hn::InterleaveLower(d, z02, z12);
+                auto iu_02 = hn::InterleaveUpper(d, z02, z12);
+
+                auto z03 = hn::Add(y03_r, y13_r), z13 = hn::Sub(y03_r, y13_r);
+                auto il_03 = hn::InterleaveLower(d, z03, z13);
+                auto iu_03 = hn::InterleaveUpper(d, z03, z13);
+
+                hn::Vec<decltype(d)> lower_r0, lower_r1, lower_r2, lower_r3;
+                transpose4x4(d, il_00, il_01, il_02, il_03, lower_r0, lower_r1, lower_r2, lower_r3);
+
+                hn::Vec<decltype(d)> upper_r0, upper_r1, upper_r2, upper_r3;
+                transpose4x4(d, iu_00, iu_01, iu_02, iu_03, upper_r0, upper_r1, upper_r2, upper_r3);
+
+                if constexpr (d.MaxBytes() > 16) {
+                    hn::Store(lower_r0, d, out_shift);
+                    hn::Store(lower_r1, d, out_shift + 2 * lanes);
+                    hn::Store(upper_r0, d, out_shift + 4 * lanes);
+                    hn::Store(upper_r1, d, out_shift + 6 * lanes);
+                    hn::Store(lower_r2, d, out_shift + 8 * lanes);
+                    hn::Store(lower_r3, d, out_shift + 10 * lanes);
+                    hn::Store(upper_r2, d, out_shift + 12 * lanes);
+                    hn::Store(upper_r3, d, out_shift + 14 * lanes);
+                } else {
+                    hn::Store(lower_r0, d, out_shift);
+                    hn::Store(lower_r1, d, out_shift + 2 * lanes);
+                    hn::Store(lower_r2, d, out_shift + 4 * lanes);
+                    hn::Store(lower_r3, d, out_shift + 6 * lanes);
+                    hn::Store(upper_r0, d, out_shift + 8 * lanes);
+                    hn::Store(upper_r1, d, out_shift + 10 * lanes);
+                    hn::Store(upper_r2, d, out_shift + 12 * lanes);
+                    hn::Store(upper_r3, d, out_shift + 14 * lanes);
+                }
             }
 
-            hn::Vec<decltype(d)> upper_r0, upper_r1, upper_r2, upper_r3;
-            transpose4x4(d, hn::InterleaveUpper(d, z00_r, z10_r), hn::InterleaveUpper(d, z01_r, z11_r),
-                         hn::InterleaveUpper(d, z02_r, z12_r), hn::InterleaveUpper(d, z03_r, z13_r),
-                         upper_r0, upper_r1, upper_r2, upper_r3);
+            {
+                auto z00 = hn::Add(y00_i, y10_i), z10 = hn::Sub(y00_i, y10_i);
+                auto il_00 = hn::InterleaveLower(d, z00, z10);
+                auto iu_00 = hn::InterleaveUpper(d, z00, z10);
 
-            hn::Vec<decltype(d)> upper_i0, upper_i1, upper_i2, upper_i3;
-            transpose4x4(d, hn::InterleaveUpper(d, z00_i, z10_i), hn::InterleaveUpper(d, z01_i, z11_i),
-                         hn::InterleaveUpper(d, z02_i, z12_i), hn::InterleaveUpper(d, z03_i, z13_i),
-                         upper_i0, upper_i1, upper_i2, upper_i3);
+                auto z01 = hn::Add(y01_i, y11_i), z11 = hn::Sub(y01_i, y11_i);
+                auto il_01 = hn::InterleaveLower(d, z01, z11);
+                auto iu_01 = hn::InterleaveUpper(d, z01, z11);
 
-            if constexpr (d.MaxBytes() > 16) {
-                hn::Store(upper_r0, d, out_shift + 4 * lanes);
-                hn::Store(upper_i0, d, out_shift + 5 * lanes);
-                hn::Store(upper_r1, d, out_shift + 6 * lanes);
-                hn::Store(upper_i1, d, out_shift + 7 * lanes);
-                hn::Store(lower_r2, d, out_shift + 8 * lanes);
-                hn::Store(lower_i2, d, out_shift + 9 * lanes);
-                hn::Store(lower_r3, d, out_shift + 10 * lanes);
-                hn::Store(lower_i3, d, out_shift + 11 * lanes);
-                hn::Store(upper_r2, d, out_shift + 12 * lanes);
-                hn::Store(upper_i2, d, out_shift + 13 * lanes);
-                hn::Store(upper_r3, d, out_shift + 14 * lanes);
-                hn::Store(upper_i3, d, out_shift + 15 * lanes);
-            } else {
-                hn::Store(upper_r0, d, out_shift + 8 * lanes);
-                hn::Store(upper_i0, d, out_shift + 9 * lanes);
-                hn::Store(upper_r1, d, out_shift + 10 * lanes);
-                hn::Store(upper_i1, d, out_shift + 11 * lanes);
-                hn::Store(upper_r2, d, out_shift + 12 * lanes);
-                hn::Store(upper_i2, d, out_shift + 13 * lanes);
-                hn::Store(upper_r3, d, out_shift + 14 * lanes);
-                hn::Store(upper_i3, d, out_shift + 15 * lanes);
+                auto z02 = hn::Add(y02_i, y12_i), z12 = hn::Sub(y02_i, y12_i);
+                auto il_02 = hn::InterleaveLower(d, z02, z12);
+                auto iu_02 = hn::InterleaveUpper(d, z02, z12);
+
+                auto z03 = hn::Add(y03_i, y13_i), z13 = hn::Sub(y03_i, y13_i);
+                auto il_03 = hn::InterleaveLower(d, z03, z13);
+                auto iu_03 = hn::InterleaveUpper(d, z03, z13);
+
+                hn::Vec<decltype(d)> lower_i0, lower_i1, lower_i2, lower_i3;
+                transpose4x4(d, il_00, il_01, il_02, il_03, lower_i0, lower_i1, lower_i2, lower_i3);
+
+                hn::Vec<decltype(d)> upper_i0, upper_i1, upper_i2, upper_i3;
+                transpose4x4(d, iu_00, iu_01, iu_02, iu_03, upper_i0, upper_i1, upper_i2, upper_i3);
+
+                if constexpr (d.MaxBytes() > 16) {
+                    hn::Store(lower_i0, d, out_shift + lanes);
+                    hn::Store(lower_i1, d, out_shift + 3 * lanes);
+                    hn::Store(upper_i0, d, out_shift + 5 * lanes);
+                    hn::Store(upper_i1, d, out_shift + 7 * lanes);
+                    hn::Store(lower_i2, d, out_shift + 9 * lanes);
+                    hn::Store(lower_i3, d, out_shift + 11 * lanes);
+                    hn::Store(upper_i2, d, out_shift + 13 * lanes);
+                    hn::Store(upper_i3, d, out_shift + 15 * lanes);
+                } else {
+                    hn::Store(lower_i0, d, out_shift + lanes);
+                    hn::Store(lower_i1, d, out_shift + 3 * lanes);
+                    hn::Store(lower_i2, d, out_shift + 5 * lanes);
+                    hn::Store(lower_i3, d, out_shift + 7 * lanes);
+                    hn::Store(upper_i0, d, out_shift + 9 * lanes);
+                    hn::Store(upper_i1, d, out_shift + 11 * lanes);
+                    hn::Store(upper_i2, d, out_shift + 13 * lanes);
+                    hn::Store(upper_i3, d, out_shift + 15 * lanes);
+                }
             }
         }
     }
