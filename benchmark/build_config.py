@@ -63,11 +63,13 @@ def build_benchmark(algorithm, benchmark_type, use_avx2=False, to_print=False):
 
     cmake_cmd = ["cmake", "..", "-DCMAKE_BUILD_TYPE=Release", "-G", "Ninja"]
     if benchmark_type == "accuracy":
-        cmake_cmd += ["-DACCURACY_TEST=ON", "-DTHROUGHPUT_TEST=OFF", "-DSTAGE_TIMING_TEST=OFF"]
+        cmake_cmd += ["-DACCURACY_TEST=ON", "-DTHROUGHPUT_TEST=OFF", "-DSTAGE_TIMING_TEST=OFF", "-DPROFILER_TEST=OFF"]
     elif benchmark_type == "throughput":
-        cmake_cmd += ["-DACCURACY_TEST=OFF", "-DTHROUGHPUT_TEST=ON", "-DSTAGE_TIMING_TEST=OFF"]
+        cmake_cmd += ["-DACCURACY_TEST=OFF", "-DTHROUGHPUT_TEST=ON", "-DSTAGE_TIMING_TEST=OFF", "-DPROFILER_TEST=OFF"]
     elif benchmark_type == "stage_timing":
-        cmake_cmd += ["-DACCURACY_TEST=OFF", "-DTHROUGHPUT_TEST=OFF", "-DSTAGE_TIMING_TEST=ON"]
+        cmake_cmd += ["-DACCURACY_TEST=OFF", "-DTHROUGHPUT_TEST=OFF", "-DSTAGE_TIMING_TEST=ON", "-DPROFILER_TEST=OFF"]
+    elif benchmark_type == "profiler":
+        cmake_cmd += ["-DACCURACY_TEST=OFF", "-DTHROUGHPUT_TEST=OFF", "-DSTAGE_TIMING_TEST=OFF", "-DPROFILER_TEST=ON"]
 
     if use_avx2:
         cmake_cmd += ["-DUSE_AVX2=ON"]
@@ -85,7 +87,8 @@ def build_benchmark(algorithm, benchmark_type, use_avx2=False, to_print=False):
         else:
             cmake_cmd.append(f"-DENABLE_{algo.upper()}=OFF")
 
-    build_cmd = ["cmake", "--build", ".", "--target", "zlfft_benchmark", "--config", "Release", "-j"]
+    target_name = "zlfft_profiler" if benchmark_type == "profiler" else "zlfft_benchmark"
+    build_cmd = ["cmake", "--build", ".", "--target", target_name, "--config", "Release", "-j"]
 
     if platform.system() == "Windows":
         vcvars = '"C:\\Program Files\\Microsoft Visual Studio\\2022\\Enterprise\\VC\\Auxiliary\\Build\\vcvars64.bat"'
@@ -103,7 +106,8 @@ def build_benchmark(algorithm, benchmark_type, use_avx2=False, to_print=False):
             print(f"Building: {full_build_cmd}")
         subprocess.run(full_build_cmd, capture_output=True, cwd=build_dir, check=True, shell=True)
 
-        return os.path.join(build_dir, "zlfft_benchmark.exe")
+        exe_name = f"{target_name}.exe"
+        return os.path.join(build_dir, exe_name)
 
     else:
         if to_print:
@@ -114,4 +118,4 @@ def build_benchmark(algorithm, benchmark_type, use_avx2=False, to_print=False):
             print(f"Building: {build_cmd}")
         subprocess.run(build_cmd, capture_output=True, cwd=build_dir, check=True)
 
-        return os.path.join(build_dir, "zlfft_benchmark")
+        return os.path.join(build_dir, target_name)

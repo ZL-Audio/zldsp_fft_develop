@@ -122,7 +122,7 @@ using FFTClass = zlfft::NaiveStockhamRadix2<F>;
 #endif
 
 inline void generate_random_data(std::span<C> data) {
-    std::mt19937 gen(42); // Fixed seed for reproducibility
+    std::mt19937 gen(42);
     std::uniform_real_distribution<F> dist(static_cast<F>(-1.0), static_cast<F>(1.0));
     for (auto& x : data) {
         x = C(dist(gen), dist(gen));
