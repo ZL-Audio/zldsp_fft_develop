@@ -12,8 +12,27 @@
 #include <hwy/highway.h>
 #include <hwy/aligned_allocator.h>
 
+#include <cstddef>
+#include <bit>
+
+#if defined(_WIN32)
+#include <windows.h>
+#else
+#include <unistd.h>
+#endif
+
 namespace zlfft::common {
     namespace hn = hwy::HWY_NAMESPACE;
+
+    inline size_t get_system_page_size() {
+#if defined(_WIN32)
+        SYSTEM_INFO sysInfo;
+        GetSystemInfo(&sysInfo);
+        return static_cast<size_t>(sysInfo.dwPageSize);
+#else
+        return static_cast<size_t>(sysconf(_SC_PAGESIZE));
+#endif
+    }
 
     enum class StageType {
         kRadix8FirstPass,
@@ -658,7 +677,8 @@ namespace zlfft::common {
             const auto y13_r = hn::Sub(u1_r, u3_i), y13_i = hn::Add(u1_i, u3_r);
 
             const auto v0_r = y10_r, v0_i = y10_i;
-            const auto v1_r = hn::Mul(hn::Add(y11_r, y11_i), inv_sqrt2), v1_i = hn::Mul(hn::Sub(y11_i, y11_r), inv_sqrt2);
+            const auto v1_r = hn::Mul(hn::Add(y11_r, y11_i), inv_sqrt2), v1_i = hn::Mul(
+                hn::Sub(y11_i, y11_r), inv_sqrt2);
             const auto v2_r = y12_i, v2_i = hn::Neg(y12_r);
             const auto v3_r = hn::Mul(hn::Sub(y13_i, y13_r), inv_sqrt2), v3_i = hn::Mul(
                 hn::Neg(hn::Add(y13_r, y13_i)), inv_sqrt2);
