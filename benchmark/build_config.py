@@ -38,25 +38,41 @@ def get_algo_list(full=False):
     if not full:
         if platform.system() == "Darwin":
             return ["kfr", "vdsp",
-                    "simd_low_order_opt1", "simd_low_order_opt2",
                     "simd_low_order_aosoa1", "simd_low_order_aosoa2",
                     "simd_low_order_aosoa5"]
         else:
             return ["kfr", "ipp",
-                    "simd_low_order_opt1", "simd_low_order_opt2",
                     "simd_low_order_aosoa1", "simd_low_order_aosoa2",
                     "simd_low_order_aosoa5"]
     elif platform.system() == "Darwin":
         return ["fftw3", "fftw3_estimate", "kfr", "vdsp", "pffft",
-                "simd_low_order_opt1", "simd_low_order_opt2",
                 "simd_low_order_aosoa1", "simd_low_order_aosoa2",
-                "simd_low_order_aosoa3", "simd_low_order_aosoa4"]
+                "simd_low_order_aosoa5"]
     else:
         return ["fftw3", "fftw3_estimate", "kfr", "ipp", "pffft",
-                "simd_low_order_opt1", "simd_low_order_opt2",
                 "simd_low_order_aosoa1", "simd_low_order_aosoa2",
-                "simd_low_order_aosoa3", "simd_low_order_aosoa4"]
+                "simd_low_order_aosoa5"]
 
+def replace_result_keys(results):
+    r = {}
+    for key, value in results.items():
+        if key == "fftw3":
+            r["fftw3 measure"] = value
+        elif key == "fftw3_estimate":
+            r["fftw3 estimate"] = value
+        elif key == "simd_low_order_opt1":
+            r["radix-4"] = value
+        elif key == "simd_low_order_opt2":
+            r["radix-8"] = value
+        elif key == "simd_low_order_aosoa1":
+            r["radix-4 AoSoA"] = value
+        elif key == "simd_low_order_aosoa2":
+            r["radix-8 AoSoA"] = value
+        elif key == "simd_low_order_aosoa5":
+            r["Mix AoSoA"] = value
+        else:
+            r[key] = value
+    return r
 
 def build_benchmark(algorithm, benchmark_type, use_avx2=False, to_print=False):
     build_dir = "build_fft"

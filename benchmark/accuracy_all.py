@@ -6,7 +6,7 @@ import platform
 import shutil
 import time
 
-from build_config import get_algo_list, build_benchmark
+from build_config import get_algo_list, build_benchmark, replace_result_keys
 
 
 def run_benchmark(exe_path, n0, n1, algorithm):
@@ -66,23 +66,7 @@ def main():
     print("\n" + "="*50)
     print("FINAL ACCURACY RESULTS (MSE)")
     print("="*50)
-    r = {}
-
-    for key, value in results.items():
-        if key == "fftw3": 
-            r["fftw3 measure"] = value 
-        elif key == "fftw3_estimate":
-            r["fftw3 estimate"] = value
-        elif key == "simd_low_order_opt1":
-            r["radix-4"] = value
-        elif key == "simd_low_order_opt2":
-            r["radix-8"] = value
-        elif key == "simd_low_order_aosoa1":
-            r["radix-4 AoSoA"] = value
-        elif key == "simd_low_order_aosoa2":
-            r["radix-8 AoSoA"] = value
-        else:
-            r[key] = value
+    r = replace_result_keys(results)
             
     print(str(r).replace("],", "],\n"))
 
