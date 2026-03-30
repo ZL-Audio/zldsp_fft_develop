@@ -444,18 +444,28 @@ namespace zlfft {
                 common::radix4_last_pass_fused_aosoa(current_in, out_aos, M, width, uw_ptr);
             }
 
-            const size_t TILE = (sizeof(F) == 8) ? 8 : 16;
-            for (size_t k_block = 0; k_block < M; k_block += TILE) {
-                const size_t k_end = std::min(M, k_block + TILE);
-                for (size_t c_block = 0; c_block < l_; c_block += TILE) {
-                    const size_t c_end = std::min(l_, c_block + TILE);
-                    for (size_t k = k_block; k < k_end; ++k) {
-                        const size_t row_offset = l_ * k;
-                        for (size_t c = c_block; c < c_end; ++c) {
-                            size_t i = digit_rev_4_[c];
-                            out_buffer[row_offset + c] = aos_matrix[i * M_padded + k];
-                        }
-                    }
+            static constexpr size_t TILE = 8;
+            for (size_t c_block = 0; c_block < l_; c_block += TILE) {
+                const std::complex<F>* p0 = aos_matrix + digit_rev_4_[c_block] * M_padded;
+                const std::complex<F>* p1 = aos_matrix + digit_rev_4_[c_block + 1] * M_padded;
+                const std::complex<F>* p2 = aos_matrix + digit_rev_4_[c_block + 2] * M_padded;
+                const std::complex<F>* p3 = aos_matrix + digit_rev_4_[c_block + 3] * M_padded;
+                const std::complex<F>* p4 = aos_matrix + digit_rev_4_[c_block + 4] * M_padded;
+                const std::complex<F>* p5 = aos_matrix + digit_rev_4_[c_block + 5] * M_padded;
+                const std::complex<F>* p6 = aos_matrix + digit_rev_4_[c_block + 6] * M_padded;
+                const std::complex<F>* p7 = aos_matrix + digit_rev_4_[c_block + 7] * M_padded;
+                std::complex<F>* dst_shift =  out_buffer.data() + c_block;
+
+                for (size_t k = 0; k < M; ++k) {
+                    std::complex<F>* dst = dst_shift + l_ * k;
+                    dst[0] = p0[k];
+                    dst[1] = p1[k];
+                    dst[2] = p2[k];
+                    dst[3] = p3[k];
+                    dst[4] = p4[k];
+                    dst[5] = p5[k];
+                    dst[6] = p6[k];
+                    dst[7] = p7[k];
                 }
             }
         }
