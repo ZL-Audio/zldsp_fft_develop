@@ -67,7 +67,6 @@ namespace zlfft {
 
         for (size_t i = 0; i < width; i += lanes) {
             hn::Vec<decltype(d)> r0, i0, r1, i1, r2, i2, r3, i3;
-            // contiguous read from AoS for a vector length distance
             hn::LoadInterleaved2(d, reinterpret_cast<const F*>(in + i), r0, i0);
             hn::LoadInterleaved2(d, reinterpret_cast<const F*>(in + i + width), r1, i1);
             hn::LoadInterleaved2(d, reinterpret_cast<const F*>(in + i + double_width), r2, i2);
@@ -195,7 +194,7 @@ namespace zlfft {
         size_t l_;
         size_t max_m_;
         size_t stride_;
-        size_t p_; // macro passes
+        size_t p_;
 
         std::vector<common::StageType> micro_stages_;
         std::vector<size_t> digit_rev_4_;
@@ -244,7 +243,7 @@ namespace zlfft {
             micro_stages_.emplace_back(common::StageType::kRadix4LastPass);
 
             const auto pad = (64 / sizeof(F)) + 16;
-            stride_ = n_ + pad;
+            stride_ = n_ + (8 * l_) + pad;
             workspace_ = hwy::AllocateAligned<F>(hwy::RoundUpTo(4 * stride_ + 4 * m_pow + pad, lanes));
 
             size_t num_macro_tw_elements = 0;
@@ -392,12 +391,12 @@ namespace zlfft {
             }
 
             size_t M = static_cast<size_t>(1) << m_;
+            const size_t M_padded = M + 8;
 
             F* __restrict l1_buf_A = workspace_.get() + 4 * stride_;
             F* __restrict l1_buf_B = workspace_.get() + 4 * stride_ + 2 * M;
             for (size_t l_idx = 0; l_idx < l_; ++l_idx) {
                 F* __restrict main_mem_in = buf0 + 2 * l_idx * M;
-                // const F* __restrict uw_ptr = micro_twiddles_.get();
                 F* current_in = main_mem_in;
                 F* current_out = l1_buf_A;
 
@@ -441,7 +440,7 @@ namespace zlfft {
                     std::swap(current_in, current_out);
                 }
 
-                std::complex<F>* out_aos = aos_matrix + l_idx * M;
+                std::complex<F>* out_aos = aos_matrix + l_idx * M_padded;
                 common::radix4_last_pass_fused_aosoa(current_in, out_aos, M, width, uw_ptr);
             }
 
@@ -454,7 +453,7 @@ namespace zlfft {
                         const size_t row_offset = l_ * k;
                         for (size_t c = c_block; c < c_end; ++c) {
                             size_t i = digit_rev_4_[c];
-                            out_buffer[row_offset + c] = aos_matrix[i * M + k];
+                            out_buffer[row_offset + c] = aos_matrix[i * M_padded + k];
                         }
                     }
                 }
