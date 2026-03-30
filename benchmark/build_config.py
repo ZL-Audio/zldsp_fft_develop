@@ -30,6 +30,7 @@ algos = ["naive_stockham_radix2", "naive_cooley_radix2", "naive_stockham_radix4"
          "simd_low_order_aosoa5",
          "high_order_aosoa1",
          "high_order_aosoa2",
+         "hybrid_aosoa1",
 
          "fftw3", "fftw3_estimate", "kfr", "vdsp", "vdsp_stride_2", "pffft", "ipp"]
 
@@ -39,19 +40,19 @@ def get_algo_list(full=False):
         if platform.system() == "Darwin":
             return ["kfr", "vdsp",
                     "simd_low_order_aosoa1", "simd_low_order_aosoa2",
-                    "simd_low_order_aosoa5"]
+                    "simd_low_order_aosoa5", "hybrid_aosoa1"]
         else:
             return ["kfr", "ipp",
                     "simd_low_order_aosoa1", "simd_low_order_aosoa2",
-                    "simd_low_order_aosoa5"]
+                    "simd_low_order_aosoa5", "hybrid_aosoa1"]
     elif platform.system() == "Darwin":
         return ["fftw3", "fftw3_estimate", "kfr", "vdsp", "pffft",
                 "simd_low_order_aosoa1", "simd_low_order_aosoa2",
-                "simd_low_order_aosoa5"]
+                "simd_low_order_aosoa5", "hybrid_aosoa1"]
     else:
         return ["fftw3", "fftw3_estimate", "kfr", "ipp", "pffft",
                 "simd_low_order_aosoa1", "simd_low_order_aosoa2",
-                "simd_low_order_aosoa5"]
+                "simd_low_order_aosoa5", "hybrid_aosoa1"]
 
 def replace_result_keys(results):
     r = {}
@@ -70,6 +71,8 @@ def replace_result_keys(results):
             r["radix-8 AoSoA"] = value
         elif key == "simd_low_order_aosoa5":
             r["Mix AoSoA"] = value
+        elif key == "hybrid_aosoa1":
+            r["Hybrid AoSoA1"] = value
         else:
             r[key] = value
     return r
