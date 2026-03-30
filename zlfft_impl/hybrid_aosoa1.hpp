@@ -39,7 +39,8 @@ namespace zlfft {
             if (GetLogicalProcessorInformation(buffer.data(), &buffer_size)) {
                 for (const auto& info : buffer) {
                     if (info.Relationship == RelationCache) {
-                        if (info.Cache.Level == 1 && (info.Cache.Type == CacheData || info.Cache.Type == CacheUnified)) {
+                        if (info.Cache.Level == 1 && (info.Cache.Type == CacheData || info.Cache.Type ==
+                            CacheUnified)) {
                             l1d_size = info.Cache.Size;
                             break;
                         }
@@ -54,7 +55,7 @@ namespace zlfft {
     template <typename F>
     inline void radix4_first_pass_dif_aosoa(const std::complex<F>* __restrict in,
                                             F* __restrict out_aosoa,
-                                            const size_t n, 
+                                            const size_t n,
                                             const F* __restrict w_ptr) {
         static constexpr hn::ScalableTag<F> d;
         static constexpr size_t lanes = hn::Lanes(d);
@@ -117,13 +118,13 @@ namespace zlfft {
                                          const F* __restrict w_ptr) {
         static constexpr hn::ScalableTag<F> d;
         static constexpr size_t lanes = hn::Lanes(d);
-        
+
         const size_t sub_n = width << 2;
         const size_t double_width = width << 1;
         const size_t triple_width = width * 3;
-        
+
         for (size_t block = 0; block < n; block += sub_n) {
-            F* __restrict in_ptr = workspace + (block << 1); 
+            F* __restrict in_ptr = workspace + (block << 1);
 
             const F* __restrict local_w_ptr = w_ptr;
 
@@ -157,10 +158,10 @@ namespace zlfft {
 
                 const auto out1_r = hn::NegMulAdd(y1_i, w1_i, hn::Mul(y1_r, w1_r));
                 const auto out1_i = hn::MulAdd(y1_i, w1_r, hn::Mul(y1_r, w1_i));
-                
+
                 const auto out2_r = hn::NegMulAdd(y2_i, w2_i, hn::Mul(y2_r, w2_r));
                 const auto out2_i = hn::MulAdd(y2_i, w2_r, hn::Mul(y2_r, w2_i));
-                
+
                 const auto out3_r = hn::NegMulAdd(y3_i, w3_i, hn::Mul(y3_r, w3_r));
                 const auto out3_i = hn::MulAdd(y3_i, w3_r, hn::Mul(y3_r, w3_i));
 
@@ -206,13 +207,14 @@ namespace zlfft {
         std::unique_ptr<SIMDLowOrderAOSOA1<F>> low_order_fft_;
 
     public:
-        explicit HybridAoSoA1(const size_t order) : order_(order) {
+        explicit HybridAoSoA1(const size_t order) :
+            order_(order) {
             n_ = static_cast<size_t>(1) << order_;
 
             size_t l1d = get_l1d_cache_size();
             size_t working_set_per_item = 6 * sizeof(F);
             size_t max_m_val = (l1d / 2) / working_set_per_item;
-            max_m_ = (max_m_val == 0) ? 0 : std::bit_width(max_m_val) - 1; 
+            max_m_ = (max_m_val == 0) ? 0 : std::bit_width(max_m_val) - 1;
 
             if (order_ <= max_m_ + 4 || order_ <= 5) {
                 low_order_fft_ = std::make_unique<SIMDLowOrderAOSOA1<F>>(order_);
@@ -440,32 +442,25 @@ namespace zlfft {
                     std::swap(current_in, current_out);
                 }
 
-                std::complex<F>* out_aos = aos_matrix + l_idx * M_padded;
+                const size_t reversed_c = digit_rev_4_[l_idx];
+                std::complex<F>* out_aos = aos_matrix + reversed_c * M_padded;
                 common::radix4_last_pass_fused_aosoa(current_in, out_aos, M, width, uw_ptr);
             }
 
-            static constexpr size_t TILE = 8;
-            for (size_t c_block = 0; c_block < l_; c_block += TILE) {
-                const std::complex<F>* p0 = aos_matrix + digit_rev_4_[c_block] * M_padded;
-                const std::complex<F>* p1 = aos_matrix + digit_rev_4_[c_block + 1] * M_padded;
-                const std::complex<F>* p2 = aos_matrix + digit_rev_4_[c_block + 2] * M_padded;
-                const std::complex<F>* p3 = aos_matrix + digit_rev_4_[c_block + 3] * M_padded;
-                const std::complex<F>* p4 = aos_matrix + digit_rev_4_[c_block + 4] * M_padded;
-                const std::complex<F>* p5 = aos_matrix + digit_rev_4_[c_block + 5] * M_padded;
-                const std::complex<F>* p6 = aos_matrix + digit_rev_4_[c_block + 6] * M_padded;
-                const std::complex<F>* p7 = aos_matrix + digit_rev_4_[c_block + 7] * M_padded;
-                std::complex<F>* dst_shift =  out_buffer.data() + c_block;
+            static constexpr size_t TILE_K = 16;
+            static constexpr size_t TILE_C = 64;
 
-                for (size_t k = 0; k < M; ++k) {
-                    std::complex<F>* dst = dst_shift + l_ * k;
-                    dst[0] = p0[k];
-                    dst[1] = p1[k];
-                    dst[2] = p2[k];
-                    dst[3] = p3[k];
-                    dst[4] = p4[k];
-                    dst[5] = p5[k];
-                    dst[6] = p6[k];
-                    dst[7] = p7[k];
+            for (size_t k_block = 0; k_block < M; k_block += TILE_K) {
+                const size_t k_end = std::min(M, k_block + TILE_K);
+                for (size_t c_block = 0; c_block < l_; c_block += TILE_C) {
+                    const size_t c_end = std::min(l_, c_block + TILE_C);
+                    for (size_t k = k_block; k < k_end; ++k) {
+                        std::complex<F>* __restrict out_row = out_buffer.data() + k * l_;
+#pragma clang loop vectorize(enable) interleave(enable)
+                        for (size_t c = c_block; c < c_end; ++c) {
+                            out_row[c] = aos_matrix[c * M_padded + k];
+                        }
+                    }
                 }
             }
         }
