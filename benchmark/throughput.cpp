@@ -7,9 +7,9 @@ static void BM_Fft_Throughput(benchmark::State& state) {
     const int order = state.range(0);
     const size_t n = static_cast<size_t>(1) << order;
 
-    std::vector<C, AlignedAllocator<std::complex<float>>> in(n);
+    std::vector<C, AlignedAllocator<std::complex<F>>> in(n);
     generate_random_data(in);
-    std::vector<C, AlignedAllocator<std::complex<float>>> out(n);
+    std::vector<C, AlignedAllocator<std::complex<F>>> out(n);
 
     FFTClass fft(order);
 

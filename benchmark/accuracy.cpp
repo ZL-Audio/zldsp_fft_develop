@@ -14,11 +14,11 @@ int main(const int, char** argv) {
     const int order = std::stoi(argv[1]);
     const size_t n = static_cast<size_t>(1) << order;
 
-    std::vector<C, AlignedAllocator<std::complex<float>>> in(n);
-    std::vector<C, AlignedAllocator<std::complex<float>>> in_copy;
+    std::vector<C, AlignedAllocator<std::complex<F>>> in(n);
+    std::vector<C, AlignedAllocator<std::complex<F>>> in_copy;
     generate_random_data(in);
-    std::vector<C, AlignedAllocator<std::complex<float>>> out_ref(n);
-    std::vector<C, AlignedAllocator<std::complex<float>>> out_test(n);
+    std::vector<C, AlignedAllocator<std::complex<F>>> out_ref(n);
+    std::vector<C, AlignedAllocator<std::complex<F>>> out_test(n);
 
     zlfft::NaiveStockhamRadix2<F> ref_fft(order);
     in_copy = in;

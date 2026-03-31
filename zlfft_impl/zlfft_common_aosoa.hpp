@@ -14,30 +14,49 @@
 #include <hwy/aligned_allocator.h>
 
 namespace zlfft::common {
-    namespace hn = hwy::HWY_NAMESPACE;
     template <class D, class V>
     inline void transpose4x4(D d, V v0, V v1, V v2, V v3, V& r0, V& r1, V& r2, V& r3) {
-        hn::Repartition<uint64_t, D> d64;
+        const size_t lanes = hn::Lanes(d);
+        using T = hn::TFromD<D>;
+
         const auto t0 = hn::InterleaveLower(d, v0, v1);
         const auto t1 = hn::InterleaveLower(d, v2, v3);
         const auto t2 = hn::InterleaveUpper(d, v0, v1);
         const auto t3 = hn::InterleaveUpper(d, v2, v3);
 
-        const auto m0 = hn::BitCast(d, hn::InterleaveLower(d64, hn::BitCast(d64, t0), hn::BitCast(d64, t1)));
-        const auto m1 = hn::BitCast(d, hn::InterleaveUpper(d64, hn::BitCast(d64, t0), hn::BitCast(d64, t1)));
-        const auto m2 = hn::BitCast(d, hn::InterleaveLower(d64, hn::BitCast(d64, t2), hn::BitCast(d64, t3)));
-        const auto m3 = hn::BitCast(d, hn::InterleaveUpper(d64, hn::BitCast(d64, t2), hn::BitCast(d64, t3)));
-
-        if constexpr (D().MaxBytes() > 16) {
+        if constexpr (lanes == 2) {
+            r0 = t0;
+            r1 = t1;
+            r2 = t2;
+            r3 = t3;
+        } else if constexpr (lanes == 4) {
+            if constexpr (sizeof(T) == 8) {
+                r0 = hn::ConcatLowerLower(d, t1, t0);
+                r1 = hn::ConcatLowerLower(d, t3, t2);
+                r2 = hn::ConcatUpperUpper(d, t1, t0);
+                r3 = hn::ConcatUpperUpper(d, t3, t2);
+            } else {
+                hn::Repartition<uint64_t, D> d64;
+                r0 = hn::BitCast(d, hn::InterleaveLower(d64, hn::BitCast(d64, t0), hn::BitCast(d64, t1)));
+                r1 = hn::BitCast(d, hn::InterleaveUpper(d64, hn::BitCast(d64, t0), hn::BitCast(d64, t1)));
+                r2 = hn::BitCast(d, hn::InterleaveLower(d64, hn::BitCast(d64, t2), hn::BitCast(d64, t3)));
+                r3 = hn::BitCast(d, hn::InterleaveUpper(d64, hn::BitCast(d64, t2), hn::BitCast(d64, t3)));
+            }
+        } else if constexpr (lanes == 8) {
+            hn::Repartition<uint64_t, D> d64;
+            const auto m0 = hn::BitCast(d, hn::InterleaveLower(d64, hn::BitCast(d64, t0), hn::BitCast(d64, t1)));
+            const auto m1 = hn::BitCast(d, hn::InterleaveUpper(d64, hn::BitCast(d64, t0), hn::BitCast(d64, t1)));
+            const auto m2 = hn::BitCast(d, hn::InterleaveLower(d64, hn::BitCast(d64, t2), hn::BitCast(d64, t3)));
+            const auto m3 = hn::BitCast(d, hn::InterleaveUpper(d64, hn::BitCast(d64, t2), hn::BitCast(d64, t3)));
             r0 = hn::ConcatLowerLower(d, m1, m0);
             r1 = hn::ConcatLowerLower(d, m3, m2);
             r2 = hn::ConcatUpperUpper(d, m1, m0);
             r3 = hn::ConcatUpperUpper(d, m3, m2);
         } else {
-            r0 = m0;
-            r1 = m1;
-            r2 = m2;
-            r3 = m3;
+            r0 = t0;
+            r1 = t1;
+            r2 = t2;
+            r3 = t3;
         }
     }
 
@@ -217,138 +236,136 @@ namespace zlfft::common {
 
         static constexpr size_t step = (lanes > 4) ? lanes : 4;
         static constexpr size_t vecs_per_step = step / lanes;
+        static constexpr size_t width4_vec = step;
 
         hn::Vec<decltype(d)> w1_r_hoist, w1_i_hoist, w2_r_hoist, w2_i_hoist, w3_r_hoist, w3_i_hoist;
 
         if constexpr (vecs_per_step == 1) {
             w1_r_hoist = hn::Load(d, w_ptr);
-            w1_i_hoist = hn::Load(d, w_ptr + lanes);
-            w2_r_hoist = hn::Load(d, w_ptr + lanes * 2);
-            w2_i_hoist = hn::Load(d, w_ptr + lanes * 3);
-            w3_r_hoist = hn::Load(d, w_ptr + lanes * 4);
-            w3_i_hoist = hn::Load(d, w_ptr + lanes * 5);
+            w1_i_hoist = hn::Load(d, w_ptr + width4_vec);
+            w2_r_hoist = hn::Load(d, w_ptr + width4_vec * 2);
+            w2_i_hoist = hn::Load(d, w_ptr + width4_vec * 3);
+            w3_r_hoist = hn::Load(d, w_ptr + width4_vec * 4);
+            w3_i_hoist = hn::Load(d, w_ptr + width4_vec * 5);
         }
 
         for (size_t i = 0; i < quarter_n; i += step) {
-            [&]<size_t... v>(std::index_sequence<v...>) {
-                ([&]() {
-                    const size_t vec_i = i + v * lanes;
-                    const F* __restrict in_shift = in_aosoa + (vec_i << 1);
-                    hn::Vec<decltype(d)> w1_r, w1_i, w2_r, w2_i, w3_r, w3_i;
 
-                    if constexpr (vecs_per_step == 1) {
-                        w1_r = w1_r_hoist;
-                        w1_i = w1_i_hoist;
-                        w2_r = w2_r_hoist;
-                        w2_i = w2_i_hoist;
-                        w3_r = w3_r_hoist;
-                        w3_i = w3_i_hoist;
-                    } else {
-                        constexpr size_t k = (v * lanes) & 3;
-                        constexpr size_t w_offset = k * 6;
-                        w1_r = hn::Load(d, w_ptr + w_offset);
-                        w1_i = hn::Load(d, w_ptr + w_offset + lanes);
-                        w2_r = hn::Load(d, w_ptr + w_offset + lanes * 2);
-                        w2_i = hn::Load(d, w_ptr + w_offset + lanes * 3);
-                        w3_r = hn::Load(d, w_ptr + w_offset + lanes * 4);
-                        w3_i = hn::Load(d, w_ptr + w_offset + lanes * 5);
-                    }
+#pragma clang loop unroll(full)
+            for (size_t v = 0; v < vecs_per_step; ++v) {
+                const size_t vec_i = i + v * lanes;
+                const F* __restrict in_shift = in_aosoa + (vec_i << 1);
+                hn::Vec<decltype(d)> w1_r, w1_i, w2_r, w2_i, w3_r, w3_i;
 
-                    const auto r1 = hn::Load(d, in_shift + half_n);
-                    const auto i1 = hn::Load(d, in_shift + half_n + lanes);
-                    const auto t1_r = hn::NegMulAdd(i1, w1_i, hn::Mul(r1, w1_r));
-                    const auto t1_i = hn::MulAdd(i1, w1_r, hn::Mul(r1, w1_i));
+                if constexpr (vecs_per_step == 1) {
+                    w1_r = w1_r_hoist;
+                    w1_i = w1_i_hoist;
+                    w2_r = w2_r_hoist;
+                    w2_i = w2_i_hoist;
+                    w3_r = w3_r_hoist;
+                    w3_i = w3_i_hoist;
+                } else {
+                    // LLVM will constant-fold 'k' natively after unrolling
+                    const size_t k = (v * lanes) & 3;
+                    w1_r = hn::Load(d, w_ptr + k);
+                    w1_i = hn::Load(d, w_ptr + k + width4_vec);
+                    w2_r = hn::Load(d, w_ptr + k + width4_vec * 2);
+                    w2_i = hn::Load(d, w_ptr + k + width4_vec * 3);
+                    w3_r = hn::Load(d, w_ptr + k + width4_vec * 4);
+                    w3_i = hn::Load(d, w_ptr + k + width4_vec * 5);
+                }
 
-                    const auto r3 = hn::Load(d, in_shift + three_over_two_n);
-                    const auto i3 = hn::Load(d, in_shift + three_over_two_n + lanes);
-                    const auto t3_r = hn::NegMulAdd(i3, w3_i, hn::Mul(r3, w3_r));
-                    const auto t3_i = hn::MulAdd(i3, w3_r, hn::Mul(r3, w3_i));
+                const auto r1 = hn::Load(d, in_shift + half_n);
+                const auto i1 = hn::Load(d, in_shift + half_n + lanes);
+                const auto t1_r = hn::NegMulAdd(i1, w1_i, hn::Mul(r1, w1_r));
+                const auto t1_i = hn::MulAdd(i1, w1_r, hn::Mul(r1, w1_i));
 
-                    const auto s2_r = hn::Add(t1_r, t3_r);
-                    const auto s2_i = hn::Add(t1_i, t3_i);
-                    const auto s3_r = hn::Sub(t1_r, t3_r);
-                    const auto s3_i = hn::Sub(t1_i, t3_i);
+                const auto r3 = hn::Load(d, in_shift + three_over_two_n);
+                const auto i3 = hn::Load(d, in_shift + three_over_two_n + lanes);
+                const auto t3_r = hn::NegMulAdd(i3, w3_i, hn::Mul(r3, w3_r));
+                const auto t3_i = hn::MulAdd(i3, w3_r, hn::Mul(r3, w3_i));
 
-                    hn::Vec<decltype(d)> s0_r, s0_i, s1_r, s1_i;
+                const auto s2_r = hn::Add(t1_r, t3_r);
+                const auto s2_i = hn::Add(t1_i, t3_i);
+                const auto s3_r = hn::Sub(t1_r, t3_r);
+                const auto s3_i = hn::Sub(t1_i, t3_i);
 
-                    if constexpr (use_fma) {
-                        const auto r0 = hn::Load(d, in_shift);
-                        const auto i0 = hn::Load(d, in_shift + lanes);
-                        const auto r2 = hn::Load(d, in_shift + n);
-                        const auto i2 = hn::Load(d, in_shift + n + lanes);
+                hn::Vec<decltype(d)> s0_r, s0_i, s1_r, s1_i;
 
-                        const auto m2_r = hn::MulAdd(r2, w2_r, r0);
-                        s0_r = hn::NegMulAdd(i2, w2_i, m2_r);
+                if constexpr (use_fma) {
+                    const auto r0 = hn::Load(d, in_shift);
+                    const auto i0 = hn::Load(d, in_shift + lanes);
+                    const auto r2 = hn::Load(d, in_shift + n);
+                    const auto i2 = hn::Load(d, in_shift + n + lanes);
 
-                        const auto m2_i = hn::MulAdd(i2, w2_r, i0);
-                        s0_i = hn::MulAdd(r2, w2_i, m2_i);
+                    const auto m2_r = hn::MulAdd(r2, w2_r, r0);
+                    s0_r = hn::NegMulAdd(i2, w2_i, m2_r);
+                    const auto m2_i = hn::MulAdd(i2, w2_r, i0);
+                    s0_i = hn::MulAdd(r2, w2_i, m2_i);
 
-                        const auto two_r0 = hn::Add(r0, r0);
-                        s1_r = hn::Sub(two_r0, s0_r);
+                    const auto two_r0 = hn::Add(r0, r0);
+                    s1_r = hn::Sub(two_r0, s0_r);
+                    const auto two_i0 = hn::Add(i0, i0);
+                    s1_i = hn::Sub(two_i0, s0_i);
+                } else {
+                    const auto r2 = hn::Load(d, in_shift + n);
+                    const auto i2 = hn::Load(d, in_shift + n + lanes);
+                    const auto t2_r = hn::NegMulAdd(i2, w2_i, hn::Mul(r2, w2_r));
+                    const auto t2_i = hn::MulAdd(i2, w2_r, hn::Mul(r2, w2_i));
 
-                        const auto two_i0 = hn::Add(i0, i0);
-                        s1_i = hn::Sub(two_i0, s0_i);
-                    } else {
-                        const auto r2 = hn::Load(d, in_shift + n);
-                        const auto i2 = hn::Load(d, in_shift + n + lanes);
-                        const auto t2_r = hn::NegMulAdd(i2, w2_i, hn::Mul(r2, w2_r));
-                        const auto t2_i = hn::MulAdd(i2, w2_r, hn::Mul(r2, w2_i));
+                    const auto r0 = hn::Load(d, in_shift);
+                    const auto i0 = hn::Load(d, in_shift + lanes);
 
-                        const auto r0 = hn::Load(d, in_shift);
-                        const auto i0 = hn::Load(d, in_shift + lanes);
+                    s0_r = hn::Add(r0, t2_r);
+                    s0_i = hn::Add(i0, t2_i);
+                    s1_r = hn::Sub(r0, t2_r);
+                    s1_i = hn::Sub(i0, t2_i);
+                }
 
-                        s0_r = hn::Add(r0, t2_r);
-                        s0_i = hn::Add(i0, t2_i);
-                        s1_r = hn::Sub(r0, t2_r);
-                        s1_i = hn::Sub(i0, t2_i);
-                    }
+                const auto out0_r = hn::Add(s0_r, s2_r);
+                const auto out0_i = hn::Add(s0_i, s2_i);
+                const auto out1_r = hn::Add(s1_r, s3_i);
+                const auto out1_i = hn::Sub(s1_i, s3_r);
+                const auto out2_r = hn::Sub(s0_r, s2_r);
+                const auto out2_i = hn::Sub(s0_i, s2_i);
+                const auto out3_r = hn::Sub(s1_r, s3_i);
+                const auto out3_i = hn::Add(s1_i, s3_r);
 
-                    const auto out0_r = hn::Add(s0_r, s2_r);
-                    const auto out0_i = hn::Add(s0_i, s2_i);
-                    const auto out1_r = hn::Add(s1_r, s3_i);
-                    const auto out1_i = hn::Sub(s1_i, s3_r);
-                    const auto out2_r = hn::Sub(s0_r, s2_r);
-                    const auto out2_i = hn::Sub(s0_i, s2_i);
-                    const auto out3_r = hn::Sub(s1_r, s3_i);
-                    const auto out3_i = hn::Add(s1_i, s3_r);
+                if constexpr (lanes > 4) {
+                    F* __restrict out_shift = out_aosoa + (i << 3);
 
-                    if constexpr (lanes > 4) {
-                        F* __restrict out_shift = out_aosoa + (i << 3);
+                    const auto out01_r_lo = hn::ConcatLowerLower(d, out1_r, out0_r);
+                    const auto out01_i_lo = hn::ConcatLowerLower(d, out1_i, out0_i);
+                    const auto out23_r_lo = hn::ConcatLowerLower(d, out3_r, out2_r);
+                    const auto out23_i_lo = hn::ConcatLowerLower(d, out3_i, out2_i);
 
-                        const auto out01_r_lo = hn::ConcatLowerLower(d, out1_r, out0_r);
-                        const auto out01_i_lo = hn::ConcatLowerLower(d, out1_i, out0_i);
-                        const auto out23_r_lo = hn::ConcatLowerLower(d, out3_r, out2_r);
-                        const auto out23_i_lo = hn::ConcatLowerLower(d, out3_i, out2_i);
+                    const auto out01_r_hi = hn::ConcatUpperUpper(d, out1_r, out0_r);
+                    const auto out01_i_hi = hn::ConcatUpperUpper(d, out1_i, out0_i);
+                    const auto out23_r_hi = hn::ConcatUpperUpper(d, out3_r, out2_r);
+                    const auto out23_i_hi = hn::ConcatUpperUpper(d, out3_i, out2_i);
 
-                        const auto out01_r_hi = hn::ConcatUpperUpper(d, out1_r, out0_r);
-                        const auto out01_i_hi = hn::ConcatUpperUpper(d, out1_i, out0_i);
-                        const auto out23_r_hi = hn::ConcatUpperUpper(d, out3_r, out2_r);
-                        const auto out23_i_hi = hn::ConcatUpperUpper(d, out3_i, out2_i);
+                    hn::Store(out01_r_lo, d, out_shift);
+                    hn::Store(out01_i_lo, d, out_shift + lanes);
+                    hn::Store(out23_r_lo, d, out_shift + lanes * 2);
+                    hn::Store(out23_i_lo, d, out_shift + lanes * 3);
+                    hn::Store(out01_r_hi, d, out_shift + lanes * 4);
+                    hn::Store(out01_i_hi, d, out_shift + lanes * 5);
+                    hn::Store(out23_r_hi, d, out_shift + lanes * 6);
+                    hn::Store(out23_i_hi, d, out_shift + lanes * 7);
+                } else {
+                    const size_t k = (v * lanes) & 3;
+                    F* __restrict out_shift = out_aosoa + (i << 3) + k * 2;
 
-                        hn::Store(out01_r_lo, d, out_shift);
-                        hn::Store(out01_i_lo, d, out_shift + lanes);
-                        hn::Store(out23_r_lo, d, out_shift + lanes * 2);
-                        hn::Store(out23_i_lo, d, out_shift + lanes * 3);
-                        hn::Store(out01_r_hi, d, out_shift + lanes * 4);
-                        hn::Store(out01_i_hi, d, out_shift + lanes * 5);
-                        hn::Store(out23_r_hi, d, out_shift + lanes * 6);
-                        hn::Store(out23_i_hi, d, out_shift + lanes * 7);
-                    } else {
-                        constexpr size_t k = (v * lanes) & 3;
-                        F* __restrict out_shift = out_aosoa + (i << 3) + k * 2;
-
-                        hn::Store(out0_r, d, out_shift);
-                        hn::Store(out0_i, d, out_shift + lanes);
-                        hn::Store(out1_r, d, out_shift + 8);
-                        hn::Store(out1_i, d, out_shift + 8 + lanes);
-                        hn::Store(out2_r, d, out_shift + 16);
-                        hn::Store(out2_i, d, out_shift + 16 + lanes);
-                        hn::Store(out3_r, d, out_shift + 24);
-                        hn::Store(out3_i, d, out_shift + 24 + lanes);
-                    }
-
-                }(), ...);
-            }(std::make_index_sequence<vecs_per_step>{});
+                    hn::Store(out0_r, d, out_shift);
+                    hn::Store(out0_i, d, out_shift + lanes);
+                    hn::Store(out1_r, d, out_shift + 8);
+                    hn::Store(out1_i, d, out_shift + 8 + lanes);
+                    hn::Store(out2_r, d, out_shift + 16);
+                    hn::Store(out2_i, d, out_shift + 16 + lanes);
+                    hn::Store(out3_r, d, out_shift + 24);
+                    hn::Store(out3_i, d, out_shift + 24 + lanes);
+                }
+            }
         }
     }
 
@@ -434,7 +451,6 @@ namespace zlfft::common {
 
                     const auto m2_r = hn::MulAdd(r2, w2_r, r0);
                     s0_r = hn::NegMulAdd(i2, w2_i, m2_r);
-
                     const auto m2_i = hn::MulAdd(i2, w2_r, i0);
                     s0_i = hn::MulAdd(r2, w2_i, m2_i);
 
@@ -758,7 +774,7 @@ namespace zlfft::common {
                 hn::Vec<decltype(d)> upper_r0, upper_r1, upper_r2, upper_r3;
                 transpose4x4(d, iu_00, iu_01, iu_02, iu_03, upper_r0, upper_r1, upper_r2, upper_r3);
 
-                if constexpr (d.MaxBytes() > 16) {
+                if constexpr (lanes > 4) {
                     hn::Store(lower_r0, d, out_shift);
                     hn::Store(lower_r1, d, out_shift + 2 * lanes);
                     hn::Store(upper_r0, d, out_shift + 4 * lanes);
@@ -802,7 +818,7 @@ namespace zlfft::common {
                 hn::Vec<decltype(d)> upper_i0, upper_i1, upper_i2, upper_i3;
                 transpose4x4(d, iu_00, iu_01, iu_02, iu_03, upper_i0, upper_i1, upper_i2, upper_i3);
 
-                if constexpr (d.MaxBytes() > 16) {
+                if constexpr (lanes > 4) {
                     hn::Store(lower_i0, d, out_shift + lanes);
                     hn::Store(lower_i1, d, out_shift + 3 * lanes);
                     hn::Store(upper_i0, d, out_shift + 5 * lanes);
