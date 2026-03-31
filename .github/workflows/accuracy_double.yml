@@ -62,21 +62,21 @@ jobs:
         shell: bash
         run: |
           source /opt/intel/oneapi/setvars.sh
-          python -u benchmark/accuracy_all.py 5 25 --avx2 --double
+          python -u benchmark/accuracy_all.py 3 25 --avx2 --double
 
       - name: Accuracy Test (Linux)
         if: runner.os == 'Linux'
         shell: bash
         run: |
           source /opt/intel/oneapi/setvars.sh
-          python -u benchmark/accuracy_all.py 5 25 --double
+          python -u benchmark/accuracy_all.py 3 25 --double
 
       - name: Accuracy Test (Windows)
         if: runner.os == 'Windows'
         shell: bash
-        run: python -u benchmark/accuracy_all.py 5 25
+        run: python -u benchmark/accuracy_all.py 3 25
 
       - name: Accuracy Test (macOS)
         if: runner.os == 'macOS'
         shell: bash
-        run: python -u benchmark/accuracy_all.py 5 25 --double
+        run: python -u benchmark/accuracy_all.py 3 25 --double

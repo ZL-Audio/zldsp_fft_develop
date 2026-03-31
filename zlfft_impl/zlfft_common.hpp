@@ -711,7 +711,7 @@ namespace zlfft::common {
                                  const F* w_r_base, const F* w_i_base) {
         namespace hn = hwy::HWY_NAMESPACE;
         using D_Max = hn::ScalableTag<F>;
-        constexpr size_t N = hn::Lanes(D_Max());
+        static constexpr size_t N = hn::Lanes(D_Max());
         static constexpr F kInvSqrt2 = static_cast<F>(1.0 / std::numbers::sqrt2);
 
         alignas(64) F tmp_r[32];
@@ -894,8 +894,11 @@ namespace zlfft::common {
                 hn::StoreInterleaved4(upper_i0, upper_i1, upper_i2, upper_i3, d, tmp_i + 16);
             }
 
+            static constexpr size_t off1 = (sizeof(F) == 8) ? 16 : 8;
+            static constexpr size_t off2 = (sizeof(F) == 8) ? 8 : 16;
+
             for (size_t k = 0; k < 8; k += 4) {
-                const auto i1 = hn::Load(d, tmp_i + 8 + k), r1 = hn::Load(d, tmp_r + 8 + k);
+                const auto i1 = hn::Load(d, tmp_i + off1 + k), r1 = hn::Load(d, tmp_r + off1 + k);
                 const auto w1_r = hn::Load(d, w_r_base + k), w1_i = hn::Load(d, w_i_base + k);
                 const auto t1_r = hn::NegMulAdd(i1, w1_i, hn::Mul(r1, w1_r));
                 const auto t1_i = hn::MulAdd(i1, w1_r, hn::Mul(r1, w1_i));
@@ -908,7 +911,7 @@ namespace zlfft::common {
                 const auto s2_r = hn::Add(t1_r, t3_r), s2_i = hn::Add(t1_i, t3_i);
                 const auto s3_r = hn::Sub(t1_r, t3_r), s3_i = hn::Sub(t1_i, t3_i);
 
-                const auto i2 = hn::Load(d, tmp_i + 16 + k), r2 = hn::Load(d, tmp_r + 16 + k);
+                const auto i2 = hn::Load(d, tmp_i + off2 + k), r2 = hn::Load(d, tmp_r + off2 + k);
                 const auto w2_r = hn::Load(d, w_r_base + 8 + k), w2_i = hn::Load(d, w_i_base + 8 + k);
                 const auto t2_r = hn::NegMulAdd(i2, w2_i, hn::Mul(r2, w2_r));
                 const auto t2_i = hn::MulAdd(i2, w2_r, hn::Mul(r2, w2_i));
