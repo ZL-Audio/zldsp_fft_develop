@@ -51,6 +51,12 @@ foreach(_tgt ${ZLFFT_TARGETS})
     target_include_directories(${_tgt} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/benchmark ${CMAKE_CURRENT_SOURCE_DIR}/source ${CMAKE_CURRENT_SOURCE_DIR}/zlfft_impl)
 endforeach()
 
+if (USE_DOUBLE)
+    foreach(_tgt ${ZLFFT_TARGETS})
+        target_compile_definitions(${_tgt} PRIVATE USE_DOUBLE)
+    endforeach()
+endif ()
+
 # Algorithm selection flags (applied to all targets)
 set(ZLFFT_ALGO_OPTIONS
     ENABLE_NAIVE_COOLEY_RADIX2

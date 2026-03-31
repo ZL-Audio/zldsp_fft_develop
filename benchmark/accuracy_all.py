@@ -35,7 +35,8 @@ def main():
     parser.add_argument("n0", type=int, help="Start FFT order (size 2^n)")
     parser.add_argument("n1", type=int, help="End FFT order (size 2^n)")
     parser.add_argument("--avx2", action="store_true", help="Enable AVX2 architecture")
-    parser.add_argument("--full", action="store_true", help="Enable AVX2 architecture")
+    parser.add_argument("--full", action="store_true", help="Enable Full tests")
+    parser.add_argument("--double", action="store_true", help="Enable Double")
 
     args = parser.parse_args()
 
@@ -47,7 +48,8 @@ def main():
         print(f"\n[{i+1}/{len(algorithms)}] Building {algo}...")
         
         try:
-            exe_path = build_benchmark(algo, "accuracy", use_avx2=args.avx2)
+            exe_path = build_benchmark(algo, "accuracy",
+                                       use_avx2=args.avx2, use_double=args.double, to_print=False)
             time.sleep(1)
             accuracy_data = run_benchmark(exe_path, args.n0, args.n1, algo)
             

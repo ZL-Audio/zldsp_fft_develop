@@ -78,7 +78,7 @@ def replace_result_keys(results):
             r[key] = value
     return r
 
-def build_benchmark(algorithm, benchmark_type, use_avx2=False, to_print=False):
+def build_benchmark(algorithm, benchmark_type, use_avx2=False, use_double=False, to_print=False):
     build_dir = "build_fft"
     os.makedirs(build_dir, exist_ok=True)
 
@@ -96,6 +96,11 @@ def build_benchmark(algorithm, benchmark_type, use_avx2=False, to_print=False):
         cmake_cmd += ["-DUSE_AVX2=ON"]
     else:
         cmake_cmd += ["-DUSE_AVX2=OFF"]
+
+    if use_double:
+        cmake_cmd += ["-DUSE_DOUBLE=ON"]
+    else:
+        cmake_cmd += ["-DUSE_DOUBLE=OFF"]
 
     if platform.system() == "Windows":
         cmake_cmd += ["-DCMAKE_C_COMPILER=clang-cl", "-DCMAKE_CXX_COMPILER=clang-cl"]
