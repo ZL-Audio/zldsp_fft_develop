@@ -22,8 +22,8 @@ jobs:
             os: ubuntu-latest
           - name: macOS
             os: macos-latest
-#          - name: Windows
-#            os: windows-latest
+          - name: Windows
+            os: windows-latest
 
     steps:
       - name: Checkout code
@@ -71,10 +71,15 @@ jobs:
           source /opt/intel/oneapi/setvars.sh
           python -u benchmark/accuracy_all.py 3 25 --double
 
+      - name: Accuracy Test AVX2 (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: python -u benchmark/accuracy_all.py 3 25 --avx2 --double
+
       - name: Accuracy Test (Windows)
         if: runner.os == 'Windows'
         shell: bash
-        run: python -u benchmark/accuracy_all.py 3 25
+        run: python -u benchmark/accuracy_all.py 3 25 --double
 
       - name: Accuracy Test (macOS)
         if: runner.os == 'macOS'

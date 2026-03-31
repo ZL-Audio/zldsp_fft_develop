@@ -71,6 +71,11 @@ jobs:
           source /opt/intel/oneapi/setvars.sh
           python -u benchmark/accuracy_all.py 3 25
 
+      - name: Accuracy Test AVX2 (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: python -u benchmark/accuracy_all.py 3 25 --avx2
+
       - name: Accuracy Test (Windows)
         if: runner.os == 'Windows'
         shell: bash
