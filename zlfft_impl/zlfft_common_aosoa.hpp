@@ -265,7 +265,6 @@ namespace zlfft::common {
                     w3_r = w3_r_hoist;
                     w3_i = w3_i_hoist;
                 } else {
-                    // LLVM will constant-fold 'k' natively after unrolling
                     const size_t k = (v * lanes) & 3;
                     w1_r = hn::Load(d, w_ptr + k);
                     w1_i = hn::Load(d, w_ptr + k + width4_vec);
@@ -783,6 +782,15 @@ namespace zlfft::common {
                     hn::Store(lower_r3, d, out_shift + 10 * lanes);
                     hn::Store(upper_r2, d, out_shift + 12 * lanes);
                     hn::Store(upper_r3, d, out_shift + 14 * lanes);
+                } else if constexpr (sizeof(F) == 8 && lanes == 4) {
+                    hn::Store(lower_r0, d, out_shift);
+                    hn::Store(lower_r1, d, out_shift + 2 * lanes);
+                    hn::Store(upper_r0, d, out_shift + 4 * lanes);
+                    hn::Store(upper_r1, d, out_shift + 6 * lanes);
+                    hn::Store(lower_r2, d, out_shift + 8 * lanes);
+                    hn::Store(lower_r3, d, out_shift + 10 * lanes);
+                    hn::Store(upper_r2, d, out_shift + 12 * lanes);
+                    hn::Store(upper_r3, d, out_shift + 14 * lanes);
                 } else {
                     hn::Store(lower_r0, d, out_shift);
                     hn::Store(lower_r1, d, out_shift + 2 * lanes);
@@ -819,6 +827,15 @@ namespace zlfft::common {
                 transpose4x4(d, iu_00, iu_01, iu_02, iu_03, upper_i0, upper_i1, upper_i2, upper_i3);
 
                 if constexpr (lanes > 4) {
+                    hn::Store(lower_i0, d, out_shift + lanes);
+                    hn::Store(lower_i1, d, out_shift + 3 * lanes);
+                    hn::Store(upper_i0, d, out_shift + 5 * lanes);
+                    hn::Store(upper_i1, d, out_shift + 7 * lanes);
+                    hn::Store(lower_i2, d, out_shift + 9 * lanes);
+                    hn::Store(lower_i3, d, out_shift + 11 * lanes);
+                    hn::Store(upper_i2, d, out_shift + 13 * lanes);
+                    hn::Store(upper_i3, d, out_shift + 15 * lanes);
+                } else if constexpr (sizeof(F) == 8 && lanes == 4) {
                     hn::Store(lower_i0, d, out_shift + lanes);
                     hn::Store(lower_i1, d, out_shift + 3 * lanes);
                     hn::Store(upper_i0, d, out_shift + 5 * lanes);
