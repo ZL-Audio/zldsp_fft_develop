@@ -38,6 +38,7 @@ namespace zlfft::common {
         kRadix8FirstPass,
         kRadix4FirstPass,
         kRadix4Width4,
+        kRadix4Width8,
         kRadix4,
         kRadix8,
         kRadix4LastPass,

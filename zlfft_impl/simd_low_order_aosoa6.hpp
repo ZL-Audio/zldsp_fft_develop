@@ -7,14 +7,14 @@ namespace zlfft {
     namespace hn = hwy::HWY_NAMESPACE;
 
     template <typename F>
-    class SIMDLowOrderAOSOA1 {
+    class SIMDLowOrderAOSOA6 {
         using C = std::complex<F>;
 
     private:
         std::vector<common::StageType> stages_;
 
     public:
-        explicit SIMDLowOrderAOSOA1(const size_t order) :
+        explicit SIMDLowOrderAOSOA6(const size_t order) :
             order_(order) {
             if (order < 4) {
                 return;
@@ -30,7 +30,8 @@ namespace zlfft {
                 const auto mod_result = order % 2;
                 if (mod_result == 1) {
                     stages_.emplace_back(common::StageType::kRadix8FirstPass);
-                    for (size_t i = 3; i < order - 2; i += 2) {
+                    stages_.emplace_back(common::StageType::kRadix4Width8);
+                    for (size_t i = 5; i < order - 2; i += 2) {
                         stages_.emplace_back(common::StageType::kRadix4);
                     }
                 } else {
