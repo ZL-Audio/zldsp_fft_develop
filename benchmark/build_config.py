@@ -41,19 +41,19 @@ def get_algo_list(full=False):
         if platform.system() == "Darwin":
             return ["kfr", "vdsp",
                     "simd_low_order_aosoa1", "simd_low_order_aosoa2",
-                    "simd_low_order_aosoa5", "simd_low_order_aosoa6", "hybrid_aosoa1"]
+                    "simd_low_order_aosoa5", "hybrid_aosoa1"]
         else:
             return ["kfr", "ipp",
                     "simd_low_order_aosoa1", "simd_low_order_aosoa2",
-                    "simd_low_order_aosoa5", "simd_low_order_aosoa6", "hybrid_aosoa1"]
+                    "simd_low_order_aosoa5", "hybrid_aosoa1"]
     elif platform.system() == "Darwin":
         return ["fftw3", "fftw3_estimate", "kfr", "vdsp", "pffft",
                 "simd_low_order_aosoa1", "simd_low_order_aosoa2",
-                "simd_low_order_aosoa5", "simd_low_order_aosoa6", "hybrid_aosoa1"]
+                "simd_low_order_aosoa5", "hybrid_aosoa1"]
     else:
         return ["fftw3", "fftw3_estimate", "kfr", "ipp", "pffft",
                 "simd_low_order_aosoa1", "simd_low_order_aosoa2",
-                "simd_low_order_aosoa5", "simd_low_order_aosoa6", "hybrid_aosoa1"]
+                "simd_low_order_aosoa5", "hybrid_aosoa1"]
 
 def replace_result_keys(results):
     r = {}
