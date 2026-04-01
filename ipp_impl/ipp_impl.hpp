@@ -12,7 +12,6 @@
 namespace zlbenchmark {
     enum class IPPSimdLevel {
         Auto,
-        SSE2,
         SSE42,
         AVX2,
         AVX512
@@ -41,11 +40,6 @@ namespace zlbenchmark {
             }
             if (target_level <= IPPSimdLevel::SSE42) {
                 cpuFeatures &= ~(ippCPUID_AVX | ippCPUID_AVX2);
-            }
-            if (target_level <= IPPSimdLevel::SSE2) {
-                cpuFeatures &= ~(ippCPUID_SSE3 | ippCPUID_SSSE3 |
-                                 ippCPUID_SSE41 | ippCPUID_SSE42 |
-                                 ippCPUID_AES | ippCPUID_CLMUL);
             }
 
             if (ippSetCpuFeatures(cpuFeatures) != ippStsNoErr) {
