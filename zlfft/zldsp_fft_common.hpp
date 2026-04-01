@@ -12,6 +12,13 @@
 #include <hwy/highway.h>
 #include <hwy/aligned_allocator.h>
 
+#if defined(_WIN32)
+#define NOMINMAX
+#include <windows.h>
+#else
+#include <unistd.h>
+#endif
+
 namespace zldsp::fft::common {
     namespace hn = hwy::HWY_NAMESPACE;
 
