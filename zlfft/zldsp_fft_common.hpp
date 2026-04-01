@@ -772,7 +772,7 @@ namespace zldsp::fft::common {
     /**
      * hardcoded FFT for order = 1
      * @tparam F
-     * @param in 
+     * @param in
      * @param out
      */
     template <typename F>
