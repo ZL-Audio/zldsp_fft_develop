@@ -32,6 +32,7 @@ algos = ["naive_stockham_radix2", "naive_cooley_radix2", "naive_stockham_radix4"
          "high_order_aosoa1",
          "high_order_aosoa2",
          "hybrid_aosoa1",
+         "zldsp",
 
          "fftw3", "fftw3_estimate", "kfr", "vdsp", "vdsp_stride_2", "pffft", "ipp"]
 
@@ -39,21 +40,17 @@ algos = ["naive_stockham_radix2", "naive_cooley_radix2", "naive_stockham_radix4"
 def get_algo_list(full=False):
     if not full:
         if platform.system() == "Darwin":
-            return ["kfr", "vdsp",
-                    "simd_low_order_aosoa1", "simd_low_order_aosoa2",
-                    "simd_low_order_aosoa5", "hybrid_aosoa1"]
+            return ["kfr", "vdsp", "zldsp",
+                    "simd_low_order_aosoa1", "simd_low_order_aosoa2", "hybrid_aosoa1"]
         else:
-            return ["kfr", "ipp",
-                    "simd_low_order_aosoa1", "simd_low_order_aosoa2",
-                    "simd_low_order_aosoa5", "hybrid_aosoa1"]
+            return ["kfr", "ipp", "zldsp",
+                    "simd_low_order_aosoa1", "simd_low_order_aosoa2", "hybrid_aosoa1"]
     elif platform.system() == "Darwin":
-        return ["fftw3", "fftw3_estimate", "kfr", "vdsp", "pffft",
-                "simd_low_order_aosoa1", "simd_low_order_aosoa2",
-                "simd_low_order_aosoa5", "hybrid_aosoa1"]
+        return ["fftw3", "fftw3_estimate", "kfr", "vdsp", "pffft", "zldsp",
+                "simd_low_order_aosoa1", "simd_low_order_aosoa2", "hybrid_aosoa1"]
     else:
-        return ["fftw3", "fftw3_estimate", "kfr", "ipp", "pffft",
-                "simd_low_order_aosoa1", "simd_low_order_aosoa2",
-                "simd_low_order_aosoa5", "hybrid_aosoa1"]
+        return ["fftw3", "fftw3_estimate", "kfr", "ipp", "pffft", "zldsp",
+                "simd_low_order_aosoa1", "simd_low_order_aosoa2", "hybrid_aosoa1"]
 
 def replace_result_keys(results):
     r = {}

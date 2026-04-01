@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "../source/naive_stockham_radix2.hpp"
+#include "../zlfft/zldsp_fft_cfft.hpp"
 
 #ifdef USE_DOUBLE
 using F = double;
@@ -126,6 +127,9 @@ using FFTClass = zlfft::SIMDLowOrderAOSOA6<F>;
 #elif defined(ENABLE_HYBRID_AOSOA1)
 #include "../zlfft_impl/hybrid_aosoa1.hpp"
 using FFTClass = zlfft::HybridAoSoA1<F>;
+#elif defined(ENABLE_ZLDSP)
+#include "../zlfft/zldsp_fft_cfft.hpp"
+using FFTClass = zldsp::fft::CFFT<F>;
 #else
 using FFTClass = zlfft::NaiveStockhamRadix2<F>;
 #endif

@@ -524,8 +524,8 @@ namespace zlfft::common {
         const auto t3 = in[1] - in[3];
         out[0] = t0 + t2;
         out[2] = t0 - t2;
-        out[1] = t1 + C(t3.imag(), -t3.real());
-        out[3] = t1 - C(t3.imag(), -t3.real());
+        out[1] = t1 + std::complex<F>(t3.imag(), -t3.real());
+        out[3] = t1 - std::complex<F>(t3.imag(), -t3.real());
     }
 
     template <typename F>
@@ -565,14 +565,14 @@ namespace zlfft::common {
         const auto v2_r = y12_i, v2_i = -y12_r;
         const auto v3_r = (y13_i - y13_r) * kInvSqrt2, v3_i = -(y13_r + y13_i) * kInvSqrt2;
 
-        out[0] = C(y00_r + v0_r, y00_i + v0_i);
-        out[1] = C(y01_r + v1_r, y01_i + v1_i);
-        out[2] = C(y02_r + v2_r, y02_i + v2_i);
-        out[3] = C(y03_r + v3_r, y03_i + v3_i);
-        out[4] = C(y00_r - v0_r, y00_i - v0_i);
-        out[5] = C(y01_r - v1_r, y01_i - v1_i);
-        out[6] = C(y02_r - v2_r, y02_i - v2_i);
-        out[7] = C(y03_r - v3_r, y03_i - v3_i);
+        out[0] = std::complex<F>(y00_r + v0_r, y00_i + v0_i);
+        out[1] = std::complex<F>(y01_r + v1_r, y01_i + v1_i);
+        out[2] = std::complex<F>(y02_r + v2_r, y02_i + v2_i);
+        out[3] = std::complex<F>(y03_r + v3_r, y03_i + v3_i);
+        out[4] = std::complex<F>(y00_r - v0_r, y00_i - v0_i);
+        out[5] = std::complex<F>(y01_r - v1_r, y01_i - v1_i);
+        out[6] = std::complex<F>(y02_r - v2_r, y02_i - v2_i);
+        out[7] = std::complex<F>(y03_r - v3_r, y03_i - v3_i);
     }
 
     template <typename F>
