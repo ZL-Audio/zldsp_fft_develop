@@ -875,15 +875,11 @@ namespace zldsp::fft::common {
             const auto sum_i = hn::Add(A_i, B_i);
             const auto diff_i = hn::Sub(A_i, B_i);
 
-            hn::Store(hn::LowerHalf(d4, out01_r), d4, tmp_r);
-            hn::Store(hn::UpperHalf(d4, out01_r), d4, tmp_r + 4);
-            hn::Store(hn::LowerHalf(d4, out23_r), d4, tmp_r + 8);
-            hn::Store(hn::UpperHalf(d4, out23_r), d4, tmp_r + 12);
+            hn::StoreInterleaved4(hn::LowerHalf(d4, out01_r), hn::UpperHalf(d4, out01_r),
+                                  hn::LowerHalf(d4, out23_r), hn::UpperHalf(d4, out23_r), d4, tmp_r);
 
-            hn::Store(hn::LowerHalf(d4, sum_i), d4, tmp_i);
-            hn::Store(hn::UpperHalf(d4, diff_i), d4, tmp_i + 4);
-            hn::Store(hn::LowerHalf(d4, diff_i), d4, tmp_i + 8);
-            hn::Store(hn::UpperHalf(d4, sum_i), d4, tmp_i + 12);
+            hn::StoreInterleaved4(hn::LowerHalf(d4, sum_i), hn::UpperHalf(d4, diff_i),
+                                  hn::LowerHalf(d4, diff_i), hn::UpperHalf(d4, sum_i), d4, tmp_i);
 
             const auto r0 = hn::Load(d4, tmp_r), i0 = hn::Load(d4, tmp_i);
             const auto r1 = hn::Load(d4, tmp_r + 4), i1 = hn::Load(d4, tmp_i + 4);
@@ -967,7 +963,7 @@ namespace zldsp::fft::common {
                 const auto s1_r = hn::Sub(r0, t2_r), s1_i = hn::Sub(i0, t2_i);
 
                 hn::StoreInterleaved2(hn::Add(s0_r, s2_r), hn::Add(s0_i, s2_i), d_cap,
-                    reinterpret_cast<F*>(out + i));
+                                      reinterpret_cast<F*>(out + i));
                 hn::StoreInterleaved2(hn::Add(s1_r, s3_i), hn::Sub(s1_i, s3_r), d_cap,
                                       reinterpret_cast<F*>(out + 4 + i));
                 hn::StoreInterleaved2(hn::Sub(s0_r, s2_r), hn::Sub(s0_i, s2_i), d_cap,
