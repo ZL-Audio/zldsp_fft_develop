@@ -29,6 +29,8 @@ algos = ["naive_stockham_radix2", "naive_cooley_radix2", "naive_stockham_radix4"
          "simd_low_order_aosoa4",
          "simd_low_order_aosoa5",
          "simd_low_order_aosoa6",
+         "simd_low_order_aosoa7",
+         "simd_low_order_aosoa8",
          "high_order_aosoa1",
          "high_order_aosoa2",
          "hybrid_aosoa1",
@@ -40,9 +42,9 @@ algos = ["naive_stockham_radix2", "naive_cooley_radix2", "naive_stockham_radix4"
 def get_algo_list(full=False):
     if not full:
         if platform.system() == "Darwin":
-            return ["kfr", "vdsp", "zldsp", "pffft"]
+            return ["kfr", "vdsp", "zldsp", "pffft", "simd_low_order_aosoa7", "simd_low_order_aosoa8"]
         else:
-            return ["kfr", "ipp", "zldsp", "pffft"]
+            return ["kfr", "ipp", "zldsp", "pffft", "simd_low_order_aosoa7", "simd_low_order_aosoa8"]
     elif platform.system() == "Darwin":
         return ["fftw3", "fftw3_estimate", "kfr", "vdsp", "pffft", "zldsp"]
     else:
@@ -65,6 +67,10 @@ def replace_result_keys(results):
             r["radix-8 AoSoA"] = value
         elif key == "simd_low_order_aosoa5":
             r["Mix AoSoA"] = value
+        elif key == "simd_low_order_aosoa7":
+            r["radix-4 AoSoA Shuffle"] = value
+        elif key == "simd_low_order_aosoa8":
+            r["radix-8 AoSoA Shuffle"] = value
         elif key == "hybrid_aosoa1":
             r["Hybrid AoSoA1"] = value
         else:
