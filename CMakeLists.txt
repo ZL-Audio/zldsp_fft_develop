@@ -169,31 +169,17 @@ if (ENABLE_IPP)
         message(STATUS "Forced Mac IPP Headers at: ${IPP_INC}")
         message(STATUS "Forced Mac IPP Libraries at: ${IPP_LIB}")
     elseif(UNIX)
-        find_path(IPP_INC
-                NAMES ippcore.h
-                HINTS
-                $ENV{IPPROOT}/include/ipp
-                $ENV{IPPROOT}/include
-                PATHS
-                "/opt/intel/oneapi/include/ipp"
-                "/opt/intel/oneapi/include"
-                "/opt/intel/oneapi/ipp/latest/include"
-        )
-        find_library(IPP_CORE_LIB
-                NAMES ippcore
-                HINTS
-                $ENV{IPPROOT}/lib
-                $ENV{IPPROOT}/lib/intel64
-                PATHS
-                "/opt/intel/oneapi/lib"
-                "/opt/intel/oneapi/ipp/latest/lib/intel64"
-        )
-        if (IPP_INC AND IPP_CORE_LIB)
-            get_filename_component(IPP_LIB "${IPP_CORE_LIB}" DIRECTORY)
+        set(LINUX_IPP_ROOT "$ENV{HOME}/.nuget/packages/intelipp.static.linux-x64/2021.2.0.233")
+        
+        if (EXISTS "${LINUX_IPP_ROOT}")
+            set(IPP_INC "${LINUX_IPP_ROOT}/lib/native/include")
+            set(IPP_LIB "${LINUX_IPP_ROOT}/lib/native/linux-x64")
+            
             set(IPP_LIBS ipps ippcore ippi ippcv ippvm)
             set(IPP_ROOT "${IPP_INC}")
-            message(STATUS "Dynamically located IPP Headers at: ${IPP_INC}")
-            message(STATUS "Dynamically located IPP Libraries at: ${IPP_LIB}")
+            
+            message(STATUS "Forced Linux IPP Headers at: ${IPP_INC}")
+            message(STATUS "Forced Linux IPP at: ${IPP_LIB}")
         else()
             message(FATAL_ERROR "CMake could not locate Intel IPP headers or libraries.")
         endif()

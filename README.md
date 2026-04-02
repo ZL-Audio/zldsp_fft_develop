@@ -11,10 +11,10 @@ You may need to edit the building commands in `benchmark/build_config.py`.
 ### Accuracy Benchmark
 
 ```console
-python3 benchmark/accuracy.py <n0> <n1> <algorithm>
+python3 benchmark/accuracy.py <n0> <n1> <algorithm> <--avx2> <--double>
 ```
 
-Run the algorithm forward method and compares the result with a naive Stockham implementation, from order `n0` to `n1`.
+Run the `algorithm` forward method and compares the result with a naive Stockham implementation, from order `n0` to `n1`.
 
 Example:
 
@@ -34,10 +34,10 @@ Order      MSE
 ### Throughput Benchmark
 
 ```console
-python3 benchmark/throughput.py <n0> <n1> <algorithm>
+python3 benchmark/throughput.py <n0> <n1> <algorithm> <--avx2> <--double>
 ```
 
-Run the algorithm forward method and calculates the throughput, from order `n0` to `n1`.
+Run the `algorithm` forward method and calculates the throughput, from order `n0` to `n1`.
 
 Example:
 
@@ -56,7 +56,7 @@ Order      Time (us)       Throughput (MFLOPS)
 
 ### Algorithms
 
-Naive algorithms, which are rely on compiler optimization:
+Naive algorithms, which rely on compiler optimization:
 
 - `naive_stockham_radix2`
 - `naive_cooley_radix2`
@@ -71,12 +71,19 @@ SIMD-accelerated algorithms, which utilize Google Highway:
 - `simd_stockham_radix2_kernel2`
 - `simd_stockham_radix2_kernel24`
 - `simd_stockham_radix4`
+- see more in `benchmark/build_config.py`
+
+Optimized algorithm:
+
+- `zldsp`
 
 External libraries:
 
 - `fftw3`
+- `fftw3_estimate`
 - `kfr`
 - `pffft`
+- `ipp`
 - `vdsp`
 
 ## License

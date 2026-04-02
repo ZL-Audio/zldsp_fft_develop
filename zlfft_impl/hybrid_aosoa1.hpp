@@ -448,33 +448,57 @@ namespace zlfft {
             }
 
             if constexpr (sizeof(F) == 4) {
-                // TILE = 4 for float
                 constexpr size_t TILE = 4;
+                const auto* __restrict aos = reinterpret_cast<const uint64_t*>(aos_matrix);
+                auto* __restrict out = reinterpret_cast<uint64_t*>(out_buffer.data());
                 for (size_t k_block = 0; k_block < M; k_block += TILE) {
                     for (size_t c_block = 0; c_block < l_; c_block += TILE) {
-                        const std::complex<F>* src0 = aos_matrix + (c_block + 0) * M_padded + k_block;
-                        const std::complex<F>* src1 = aos_matrix + (c_block + 1) * M_padded + k_block;
-                        const std::complex<F>* src2 = aos_matrix + (c_block + 2) * M_padded + k_block;
-                        const std::complex<F>* src3 = aos_matrix + (c_block + 3) * M_padded + k_block;
+                        const auto* src0 __restrict = aos + (c_block + 0) * M_padded + k_block;
+                        const auto* src1 __restrict = aos + (c_block + 1) * M_padded + k_block;
+                        const auto* src2 __restrict = aos + (c_block + 2) * M_padded + k_block;
+                        const auto* src3 __restrict = aos + (c_block + 3) * M_padded + k_block;
 
-                        std::complex<F>* dst0 = out_buffer.data() + (k_block + 0) * l_ + c_block;
-                        std::complex<F>* dst1 = out_buffer.data() + (k_block + 1) * l_ + c_block;
-                        std::complex<F>* dst2 = out_buffer.data() + (k_block + 2) * l_ + c_block;
-                        std::complex<F>* dst3 = out_buffer.data() + (k_block + 3) * l_ + c_block;
+                        auto* dst0 __restrict = out + (k_block + 0) * l_ + c_block;
+                        auto* dst1 __restrict = out + (k_block + 1) * l_ + c_block;
+                        auto* dst2 __restrict = out + (k_block + 2) * l_ + c_block;
+                        auto* dst3 __restrict = out + (k_block + 3) * l_ + c_block;
 
-                        auto r00 = src0[0]; auto r01 = src0[1]; auto r02 = src0[2]; auto r03 = src0[3];
-                        auto r10 = src1[0]; auto r11 = src1[1]; auto r12 = src1[2]; auto r13 = src1[3];
-                        auto r20 = src2[0]; auto r21 = src2[1]; auto r22 = src2[2]; auto r23 = src2[3];
-                        auto r30 = src3[0]; auto r31 = src3[1]; auto r32 = src3[2]; auto r33 = src3[3];
+                        const auto r00 = src0[0];
+                        const auto r01 = src0[1];
+                        const auto r02 = src0[2];
+                        const auto r03 = src0[3];
+                        const auto r10 = src1[0];
+                        const auto r11 = src1[1];
+                        const auto r12 = src1[2];
+                        const auto r13 = src1[3];
+                        const auto r20 = src2[0];
+                        const auto r21 = src2[1];
+                        const auto r22 = src2[2];
+                        const auto r23 = src2[3];
+                        const auto r30 = src3[0];
+                        const auto r31 = src3[1];
+                        const auto r32 = src3[2];
+                        const auto r33 = src3[3];
 
-                        dst0[0] = r00; dst0[1] = r10; dst0[2] = r20; dst0[3] = r30;
-                        dst1[0] = r01; dst1[1] = r11; dst1[2] = r21; dst1[3] = r31;
-                        dst2[0] = r02; dst2[1] = r12; dst2[2] = r22; dst2[3] = r32;
-                        dst3[0] = r03; dst3[1] = r13; dst3[2] = r23; dst3[3] = r33;
+                        dst0[0] = r00;
+                        dst0[1] = r10;
+                        dst0[2] = r20;
+                        dst0[3] = r30;
+                        dst1[0] = r01;
+                        dst1[1] = r11;
+                        dst1[2] = r21;
+                        dst1[3] = r31;
+                        dst2[0] = r02;
+                        dst2[1] = r12;
+                        dst2[2] = r22;
+                        dst2[3] = r32;
+                        dst3[0] = r03;
+                        dst3[1] = r13;
+                        dst3[2] = r23;
+                        dst3[3] = r33;
                     }
                 }
             } else if constexpr (sizeof(F) == 8) {
-                // TILE = 2 for double
                 constexpr size_t TILE = 2;
                 for (size_t k_block = 0; k_block < M; k_block += TILE) {
                     for (size_t c_block = 0; c_block < l_; c_block += TILE) {
@@ -484,11 +508,15 @@ namespace zlfft {
                         std::complex<F>* dst0 = out_buffer.data() + (k_block + 0) * l_ + c_block;
                         std::complex<F>* dst1 = out_buffer.data() + (k_block + 1) * l_ + c_block;
 
-                        auto r00 = src0[0]; auto r01 = src0[1];
-                        auto r10 = src1[0]; auto r11 = src1[1];
+                        auto r00 = src0[0];
+                        auto r01 = src0[1];
+                        auto r10 = src1[0];
+                        auto r11 = src1[1];
 
-                        dst0[0] = r00; dst0[1] = r10;
-                        dst1[0] = r01; dst1[1] = r11;
+                        dst0[0] = r00;
+                        dst0[1] = r10;
+                        dst1[0] = r01;
+                        dst1[1] = r11;
                     }
                 }
             }

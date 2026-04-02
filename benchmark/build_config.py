@@ -40,17 +40,13 @@ algos = ["naive_stockham_radix2", "naive_cooley_radix2", "naive_stockham_radix4"
 def get_algo_list(full=False):
     if not full:
         if platform.system() == "Darwin":
-            return ["kfr", "vdsp", "zldsp",
-                    "simd_low_order_aosoa1", "simd_low_order_aosoa2", "hybrid_aosoa1"]
+            return ["kfr", "vdsp", "zldsp", "pffft"]
         else:
-            return ["kfr", "ipp", "zldsp",
-                    "simd_low_order_aosoa1", "simd_low_order_aosoa2", "hybrid_aosoa1"]
+            return ["kfr", "ipp", "zldsp", "pffft"]
     elif platform.system() == "Darwin":
-        return ["fftw3", "fftw3_estimate", "kfr", "vdsp", "pffft", "zldsp",
-                "simd_low_order_aosoa1", "simd_low_order_aosoa2", "hybrid_aosoa1"]
+        return ["fftw3", "fftw3_estimate", "kfr", "vdsp", "pffft", "zldsp"]
     else:
-        return ["fftw3", "fftw3_estimate", "kfr", "ipp", "pffft", "zldsp",
-                "simd_low_order_aosoa1", "simd_low_order_aosoa2", "hybrid_aosoa1"]
+        return ["fftw3", "fftw3_estimate", "kfr", "ipp", "pffft", "zldsp"]
 
 def replace_result_keys(results):
     r = {}

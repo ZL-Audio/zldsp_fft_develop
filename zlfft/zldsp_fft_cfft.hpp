@@ -11,8 +11,14 @@ namespace zldsp::fft {
         using C = std::complex<F>;
 
     private:
-        std::vector<common::StageType> stages_;
+        size_t order_;
+        size_t stride_;
+        hwy::AlignedFreeUniquePtr<F[]> workspace_;
+        hwy::AlignedFreeUniquePtr<F[]> twiddles_r_;
+        hwy::AlignedFreeUniquePtr<F[]> twiddles_i_;
+        hwy::AlignedFreeUniquePtr<F[]> twiddles_aosoa_;
         std::vector<size_t> twiddles_shift_;
+        std::vector<common::StageType> stages_;
 
     public:
         explicit CFFT(const size_t order) :
@@ -125,8 +131,7 @@ namespace zldsp::fft {
 
             size_t width = (stages_[0] == common::StageType::kRadix4FirstPass) ? 4 : 8;
             for (size_t i = 1; i < stages_.size() - 1; ++i) {
-                const auto stage = stages_[i];
-                switch (stage) {
+                switch (stages_[i]) {
                 case common::StageType::kRadix4Width4: {
                     common::radix4_width4_aosoa(in_aosoa, out_aosoa, n, w_ptr);
                     width = width << 2;
@@ -150,15 +155,5 @@ namespace zldsp::fft {
             }
             common::radix4_last_pass_fused_aosoa(in_aosoa, out_buffer.data(), n, width, w_ptr);
         }
-
-    private:
-
-
-        size_t order_;
-        size_t stride_;
-        hwy::AlignedFreeUniquePtr<F[]> twiddles_r_;
-        hwy::AlignedFreeUniquePtr<F[]> twiddles_i_;
-        hwy::AlignedFreeUniquePtr<F[]> twiddles_aosoa_;
-        hwy::AlignedFreeUniquePtr<F[]> workspace_;
     };
 }
