@@ -60,19 +60,19 @@ jobs:
       - name: Accuracy Test AVX2 (Linux)
         if: runner.os == 'Linux'
         shell: bash
-        run: python -u benchmark/accuracy_all.py 5 25 --avx2 --full
+        run: python -u benchmark/accuracy_all.py 4 25 --avx2 --full
 
       - name: Accuracy Test (Linux)
         if: runner.os == 'Linux'
         shell: bash
-        run: python -u benchmark/accuracy_all.py 5 25 --full
+        run: python -u benchmark/accuracy_all.py 4 25 --full
 
       - name: Accuracy Test (Windows)
         if: runner.os == 'Windows'
         shell: bash
-        run: python -u benchmark/accuracy_all.py 5 25 --full
+        run: python -u benchmark/accuracy_all.py 4 25 --full
 
       - name: Accuracy Test (macOS)
         if: runner.os == 'macOS'
         shell: bash
-        run: python -u benchmark/accuracy_all.py 5 25 --full
+        run: python -u benchmark/accuracy_all.py 4 25 --full
