@@ -47,9 +47,9 @@ def get_algo_list(full=False):
         else:
             return ["kfr", "ipp", "zldsp", "pffft", "simd_low_order_aosoa9"]
     elif platform.system() == "Darwin":
-        return ["fftw3", "fftw3_estimate", "kfr", "vdsp", "pffft", "zldsp"]
+        return ["fftw3", "fftw3_estimate", "kfr", "vdsp", "pffft", "zldsp", "simd_low_order_aosoa9"]
     else:
-        return ["fftw3", "fftw3_estimate", "kfr", "ipp", "pffft", "zldsp"]
+        return ["fftw3", "fftw3_estimate", "kfr", "ipp", "pffft", "zldsp", "simd_low_order_aosoa9"]
 
 def replace_result_keys(results):
     r = {}
