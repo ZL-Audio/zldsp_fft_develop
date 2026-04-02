@@ -15,7 +15,7 @@
 
 namespace zlfft::common::shuffle {
     template <typename F>
-    inline constexpr size_t get_phys (const size_t logical) {
+    inline constexpr size_t get_phys(const size_t logical) {
         if constexpr (sizeof(F) == 8) {
             return logical + ((logical >> 8) << 3);
         } else {
