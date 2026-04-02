@@ -92,7 +92,7 @@ namespace zlfft::common::shuffle {
             hn::Vec<decltype(d)> s2_r, s2_i, s3_r, s3_i;
 
             {
-                const auto __restrict in_1 = in_aosoa + (get_phys<F>(i + quarter_n) << 1);
+                const auto* __restrict in_1 = in_aosoa + (get_phys<F>(i + quarter_n) << 1);
                 const auto w1_r = hn::Load(d, w_ptr + w_offset);
                 const auto w1_i = hn::Load(d, w_ptr + w_offset + lanes);
                 const auto r1 = hn::Load(d, in_1);
@@ -100,7 +100,7 @@ namespace zlfft::common::shuffle {
                 const auto t1_r = hn::NegMulAdd(i1, w1_i, hn::Mul(r1, w1_r));
                 const auto t1_i = hn::MulAdd(i1, w1_r, hn::Mul(r1, w1_i));
 
-                const auto __restrict in_3 = in_aosoa + (get_phys<F>(i + three_quarter_n) << 1);
+                const auto* __restrict in_3 = in_aosoa + (get_phys<F>(i + three_quarter_n) << 1);
                 const auto w3_r = hn::Load(d, w_ptr + w_offset + lanes * 4);
                 const auto w3_i = hn::Load(d, w_ptr + w_offset + lanes * 5);
                 const auto r3 = hn::Load(d, in_3);
@@ -117,7 +117,7 @@ namespace zlfft::common::shuffle {
             hn::Vec<decltype(d)> s0_r, s0_i, s1_r, s1_i;
 
             {
-                const auto __restrict in_2 = in_aosoa + (get_phys<F>(i + half_n) << 1);
+                const auto* __restrict in_2 = in_aosoa + (get_phys<F>(i + half_n) << 1);
                 const auto w2_r = hn::Load(d, w_ptr + w_offset + lanes * 2);
                 const auto w2_i = hn::Load(d, w_ptr + w_offset + lanes * 3);
                 const auto r2 = hn::Load(d, in_2);
@@ -125,7 +125,7 @@ namespace zlfft::common::shuffle {
                 const auto t2_r = hn::NegMulAdd(i2, w2_i, hn::Mul(r2, w2_r));
                 const auto t2_i = hn::MulAdd(i2, w2_r, hn::Mul(r2, w2_i));
 
-                const auto __restrict in_0 = in_aosoa + (get_phys<F>(i) << 1);
+                const auto* __restrict in_0 = in_aosoa + (get_phys<F>(i) << 1);
                 const auto r0 = hn::Load(d, in_0);
                 const auto i0 = hn::Load(d, in_0 + lanes);
 
@@ -263,13 +263,13 @@ namespace zlfft::common::shuffle {
 
                 hn::Vec<decltype(d)> s2_r, s2_i, s3_r, s3_i;
                 {
-                    const auto __restrict in_1 = in_aosoa + (get_phys<F>(vec_i + quarter_n) << 1);
+                    const auto* __restrict in_1 = in_aosoa + (get_phys<F>(vec_i + quarter_n) << 1);
                     const auto r1 = hn::Load(d, in_1);
                     const auto i1 = hn::Load(d, in_1 + lanes);
                     const auto t1_r = hn::NegMulAdd(i1, w1_i, hn::Mul(r1, w1_r));
                     const auto t1_i = hn::MulAdd(i1, w1_r, hn::Mul(r1, w1_i));
 
-                    const auto __restrict in_3 = in_aosoa + (get_phys<F>(vec_i + three_quarter_n) << 1);
+                    const auto* __restrict in_3 = in_aosoa + (get_phys<F>(vec_i + three_quarter_n) << 1);
                     const auto r3 = hn::Load(d, in_3);
                     const auto i3 = hn::Load(d, in_3 + lanes);
                     const auto t3_r = hn::NegMulAdd(i3, w3_i, hn::Mul(r3, w3_r));
@@ -283,13 +283,13 @@ namespace zlfft::common::shuffle {
 
                 hn::Vec<decltype(d)> s0_r, s0_i, s1_r, s1_i;
                 {
-                    const auto __restrict in_2 = in_aosoa + (get_phys<F>(vec_i + half_n) << 1);
+                    const auto* __restrict in_2 = in_aosoa + (get_phys<F>(vec_i + half_n) << 1);
                     const auto r2 = hn::Load(d, in_2);
                     const auto i2 = hn::Load(d, in_2 + lanes);
                     const auto t2_r = hn::NegMulAdd(i2, w2_i, hn::Mul(r2, w2_r));
                     const auto t2_i = hn::MulAdd(i2, w2_r, hn::Mul(r2, w2_i));
 
-                    const auto __restrict in_0 = in_aosoa + (get_phys<F>(vec_i) << 1);
+                    const auto* __restrict in_0 = in_aosoa + (get_phys<F>(vec_i) << 1);
                     const auto r0 = hn::Load(d, in_0);
                     const auto i0 = hn::Load(d, in_0 + lanes);
 
@@ -373,7 +373,7 @@ namespace zlfft::common::shuffle {
             hn::Vec<decltype(d)> s2_r, s2_i, s3_r, s3_i;
 
             {
-                const auto __restrict in_1 = in_aosoa + (get_phys<F>(i + quarter_n) << 1);
+                const auto* __restrict in_1 = in_aosoa + (get_phys<F>(i + quarter_n) << 1);
                 const auto w1_r = hn::Load(d, w_ptr + w_offset);
                 const auto w1_i = hn::Load(d, w_ptr + w_offset + lanes);
                 const auto r1 = hn::Load(d, in_1);
@@ -381,7 +381,7 @@ namespace zlfft::common::shuffle {
                 const auto t1_r = hn::NegMulAdd(i1, w1_i, hn::Mul(r1, w1_r));
                 const auto t1_i = hn::MulAdd(i1, w1_r, hn::Mul(r1, w1_i));
 
-                const auto __restrict in_3 = in_aosoa + (get_phys<F>(i + three_quarter_n) << 1);
+                const auto* __restrict in_3 = in_aosoa + (get_phys<F>(i + three_quarter_n) << 1);
                 const auto w3_r = hn::Load(d, w_ptr + w_offset + lanes * 4);
                 const auto w3_i = hn::Load(d, w_ptr + w_offset + lanes * 5);
                 const auto r3 = hn::Load(d, in_3);
@@ -398,7 +398,7 @@ namespace zlfft::common::shuffle {
             hn::Vec<decltype(d)> s0_r, s0_i, s1_r, s1_i;
 
             {
-                const auto __restrict in_2 = in_aosoa + (get_phys<F>(i + half_n) << 1);
+                const auto* __restrict in_2 = in_aosoa + (get_phys<F>(i + half_n) << 1);
                 const auto w2_r = hn::Load(d, w_ptr + w_offset + lanes * 2);
                 const auto w2_i = hn::Load(d, w_ptr + w_offset + lanes * 3);
                 const auto r2 = hn::Load(d, in_2);
@@ -406,7 +406,7 @@ namespace zlfft::common::shuffle {
                 const auto t2_r = hn::NegMulAdd(i2, w2_i, hn::Mul(r2, w2_r));
                 const auto t2_i = hn::MulAdd(i2, w2_r, hn::Mul(r2, w2_i));
 
-                const auto __restrict in_0 = in_aosoa + (get_phys<F>(i) << 1);
+                const auto* __restrict in_0 = in_aosoa + (get_phys<F>(i) << 1);
                 const auto r0 = hn::Load(d, in_0);
                 const auto i0 = hn::Load(d, in_0 + lanes);
 
