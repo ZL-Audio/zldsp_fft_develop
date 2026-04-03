@@ -1,16 +1,15 @@
 #pragma once
 
-#include "zlfft_common.hpp"
-#include <vector>
-#include <span>
-#include <complex>
-#include <cmath>
 #include <algorithm>
+#include <cmath>
+#include <complex>
 #include <numbers>
 #include <numeric>
+#include <span>
+#include <vector>
 
-#include <hwy/highway.h>
 #include <hwy/aligned_allocator.h>
+#include <hwy/highway.h>
 
 #if defined(_WIN32)
 #define NOMINMAX
@@ -115,8 +114,7 @@ namespace zldsp::fft::common {
      * @param w_ptr
      */
     template <typename F>
-    inline void radix4_aosoa(const F* __restrict in_aosoa, F* __restrict out_aosoa,
-                             const size_t n, const size_t width,
+    inline void radix4_aosoa(const F* __restrict in_aosoa, F* __restrict out_aosoa, const size_t n, const size_t width,
                              const F* __restrict w_ptr) {
         const auto quarter_n = n >> 2;
         const auto half_n = n >> 1;
@@ -133,6 +131,7 @@ namespace zldsp::fft::common {
 
         const size_t mask = width - 1;
 
+#pragma clang loop unroll_count(2)
         for (size_t i = 0; i < quarter_n; i += lanes) {
             const F* __restrict in_shift = in_aosoa + (i << 1);
             const size_t k = i & mask;
@@ -201,8 +200,8 @@ namespace zldsp::fft::common {
      * @param n
      */
     template <typename F>
-    inline void radix4_first_pass_fused_aosoa(const std::complex<F>* __restrict in,
-                                              F* __restrict out_aosoa, const size_t n) {
+    inline void radix4_first_pass_fused_aosoa(const std::complex<F>* __restrict in, F* __restrict out_aosoa,
+                                              const size_t n) {
         const size_t quarter_n = n >> 2;
         const size_t half_n = n >> 1;
         const size_t three_over_two_n = n + half_n;
@@ -210,6 +209,7 @@ namespace zldsp::fft::common {
         static constexpr hn::ScalableTag<F> d;
         static constexpr size_t lanes = hn::Lanes(d);
 
+#pragma clang loop unroll_count(2)
         for (size_t j = 0; j < quarter_n; j += lanes) {
             const F* __restrict in_shift = reinterpret_cast<const F*>(in + j);
             hn::Vec<decltype(d)> x0_r, x0_i, x2_r, x2_i;
@@ -265,8 +265,7 @@ namespace zldsp::fft::common {
      * @param w_ptr
      */
     template <typename F>
-    inline void radix4_width4_aosoa(const F* __restrict in_aosoa, F* __restrict out_aosoa,
-                                    const size_t n,
+    inline void radix4_width4_aosoa(const F* __restrict in_aosoa, F* __restrict out_aosoa, const size_t n,
                                     const F* __restrict w_ptr) {
         static constexpr hn::ScalableTag<F> d;
         static constexpr size_t lanes = hn::Lanes(d);
@@ -408,10 +407,8 @@ namespace zldsp::fft::common {
      * @param w_ptr
      */
     template <typename F>
-    inline void radix4_last_pass_fused_aosoa(const F* __restrict in_aosoa,
-                                             std::complex<F>* __restrict out,
-                                             const size_t n, const size_t width,
-                                             const F* __restrict w_ptr) {
+    inline void radix4_last_pass_fused_aosoa(const F* __restrict in_aosoa, std::complex<F>* __restrict out,
+                                             const size_t n, const size_t width, const F* __restrict w_ptr) {
         const size_t quarter_n = n >> 2;
         const size_t half_n = n >> 1;
         const size_t three_quarter_n = quarter_n * 3;
@@ -420,6 +417,7 @@ namespace zldsp::fft::common {
         static constexpr size_t lanes = hn::Lanes(d);
         const size_t mask = width - 1;
 
+#pragma clang loop unroll_count(2)
         for (size_t i = 0; i < quarter_n; i += lanes) {
             const size_t k = i & mask;
             const size_t w_offset = k * 6;
@@ -460,8 +458,7 @@ namespace zldsp::fft::common {
             const size_t j_times_4 = (i & ~mask) << 2;
             const size_t out_idx = j_times_4 + k;
 
-            hn::StoreInterleaved2(hn::Add(s0_r, s2_r), hn::Add(s0_i, s2_i), d,
-                                  reinterpret_cast<F*>(out + out_idx));
+            hn::StoreInterleaved2(hn::Add(s0_r, s2_r), hn::Add(s0_i, s2_i), d, reinterpret_cast<F*>(out + out_idx));
             hn::StoreInterleaved2(hn::Add(s1_r, s3_i), hn::Sub(s1_i, s3_r), d,
                                   reinterpret_cast<F*>(out + out_idx + width));
             hn::StoreInterleaved2(hn::Sub(s0_r, s2_r), hn::Sub(s0_i, s2_i), d,
@@ -481,8 +478,7 @@ namespace zldsp::fft::common {
      * @param w_ptr
      */
     template <typename F>
-    inline void radix8_aosoa(const F* __restrict in_aosoa, F* __restrict out_aosoa,
-                             const size_t n, const size_t width,
+    inline void radix8_aosoa(const F* __restrict in_aosoa, F* __restrict out_aosoa, const size_t n, const size_t width,
                              const F* __restrict w_ptr) {
         const size_t eighth_n = n >> 3;
         static constexpr hn::ScalableTag<F> d;
@@ -593,8 +589,8 @@ namespace zldsp::fft::common {
      * @param n
      */
     template <typename F>
-    inline void radix8_first_pass_fused_aosoa(const std::complex<F>* __restrict in,
-                                              F* __restrict out_aosoa, const size_t n) {
+    inline void radix8_first_pass_fused_aosoa(const std::complex<F>* __restrict in, F* __restrict out_aosoa,
+                                              const size_t n) {
         const size_t one_eight_n = n >> 3;
         const size_t quarter_n = n >> 2;
         const size_t half_n = n >> 1;
@@ -862,8 +858,8 @@ namespace zldsp::fft::common {
      * @param w_i_base
      */
     template <typename F>
-    inline void callback_order_4(const std::complex<F>* in, std::complex<F>* out,
-                                 const F* w_r_base, const F* w_i_base) {
+    inline void callback_order_4(const std::complex<F>* in, std::complex<F>* out, const F* w_r_base,
+                                 const F* w_i_base) {
         static constexpr size_t N = HWY_MAX_BYTES / sizeof(F);
 
         alignas(64) F tmp_r[16];
@@ -890,11 +886,11 @@ namespace zldsp::fft::common {
             const auto sum_i = hn::Add(A_i, B_i);
             const auto diff_i = hn::Sub(A_i, B_i);
 
-            hn::StoreInterleaved4(hn::LowerHalf(d4, out01_r), hn::UpperHalf(d4, out01_r),
-                                  hn::LowerHalf(d4, out23_r), hn::UpperHalf(d4, out23_r), d4, tmp_r);
+            hn::StoreInterleaved4(hn::LowerHalf(d4, out01_r), hn::UpperHalf(d4, out01_r), hn::LowerHalf(d4, out23_r),
+                                  hn::UpperHalf(d4, out23_r), d4, tmp_r);
 
-            hn::StoreInterleaved4(hn::LowerHalf(d4, sum_i), hn::UpperHalf(d4, diff_i),
-                                  hn::LowerHalf(d4, diff_i), hn::UpperHalf(d4, sum_i), d4, tmp_i);
+            hn::StoreInterleaved4(hn::LowerHalf(d4, sum_i), hn::UpperHalf(d4, diff_i), hn::LowerHalf(d4, diff_i),
+                                  hn::UpperHalf(d4, sum_i), d4, tmp_i);
 
             const auto r0 = hn::Load(d4, tmp_r), i0 = hn::Load(d4, tmp_i);
             const auto r1 = hn::Load(d4, tmp_r + 4), i1 = hn::Load(d4, tmp_i + 4);
@@ -977,8 +973,7 @@ namespace zldsp::fft::common {
                 const auto s0_r = hn::Add(r0, t2_r), s0_i = hn::Add(i0, t2_i);
                 const auto s1_r = hn::Sub(r0, t2_r), s1_i = hn::Sub(i0, t2_i);
 
-                hn::StoreInterleaved2(hn::Add(s0_r, s2_r), hn::Add(s0_i, s2_i), d_cap,
-                                      reinterpret_cast<F*>(out + i));
+                hn::StoreInterleaved2(hn::Add(s0_r, s2_r), hn::Add(s0_i, s2_i), d_cap, reinterpret_cast<F*>(out + i));
                 hn::StoreInterleaved2(hn::Add(s1_r, s3_i), hn::Sub(s1_i, s3_r), d_cap,
                                       reinterpret_cast<F*>(out + 4 + i));
                 hn::StoreInterleaved2(hn::Sub(s0_r, s2_r), hn::Sub(s0_i, s2_i), d_cap,
@@ -998,8 +993,8 @@ namespace zldsp::fft::common {
      * @param w_i_base
      */
     template <typename F>
-    inline void callback_order_5(const std::complex<F>* in, std::complex<F>* out,
-                                 const F* w_r_base, const F* w_i_base) {
+    inline void callback_order_5(const std::complex<F>* in, std::complex<F>* out, const F* w_r_base,
+                                 const F* w_i_base) {
         namespace hn = hwy::HWY_NAMESPACE;
         using D_Max = hn::ScalableTag<F>;
         static constexpr size_t N = hn::Lanes(D_Max());
@@ -1042,11 +1037,11 @@ namespace zldsp::fft::common {
             const auto y13_r = hn::UpperHalf(d4, vec_y03_r), y13_i = hn::UpperHalf(d4, vec_y03_i);
 
             const auto v0_r = y10_r, v0_i = y10_i;
-            const auto v1_r = hn::Mul(hn::Add(y11_r, y11_i), inv_sqrt2), v1_i = hn::Mul(
-                hn::Sub(y11_i, y11_r), inv_sqrt2);
+            const auto v1_r = hn::Mul(hn::Add(y11_r, y11_i), inv_sqrt2),
+                       v1_i = hn::Mul(hn::Sub(y11_i, y11_r), inv_sqrt2);
             const auto v2_r = y12_i, v2_i = hn::Neg(y12_r);
-            const auto v3_r = hn::Mul(hn::Sub(y13_i, y13_r), inv_sqrt2), v3_i = hn::Mul(
-                hn::Neg(hn::Add(y13_r, y13_i)), inv_sqrt2);
+            const auto v3_r = hn::Mul(hn::Sub(y13_i, y13_r), inv_sqrt2),
+                       v3_i = hn::Mul(hn::Neg(hn::Add(y13_r, y13_i)), inv_sqrt2);
 
             const auto z00_r = hn::Add(y00_r, v0_r), z00_i = hn::Add(y00_i, v0_i);
             const auto z01_r = hn::Add(y01_r, v1_r), z01_i = hn::Add(y01_i, v1_i);
@@ -1145,11 +1140,11 @@ namespace zldsp::fft::common {
                 const auto y13_r = hn::Sub(u1_r, u3_i), y13_i = hn::Add(u1_i, u3_r);
 
                 const auto v0_r = y10_r, v0_i = y10_i;
-                const auto v1_r = hn::Mul(hn::Add(y11_r, y11_i), inv_sqrt2), v1_i = hn::Mul(
-                    hn::Sub(y11_i, y11_r), inv_sqrt2);
+                const auto v1_r = hn::Mul(hn::Add(y11_r, y11_i), inv_sqrt2),
+                           v1_i = hn::Mul(hn::Sub(y11_i, y11_r), inv_sqrt2);
                 const auto v2_r = y12_i, v2_i = hn::Neg(y12_r);
-                const auto v3_r = hn::Mul(hn::Sub(y13_i, y13_r), inv_sqrt2), v3_i = hn::Mul(
-                    hn::Neg(hn::Add(y13_r, y13_i)), inv_sqrt2);
+                const auto v3_r = hn::Mul(hn::Sub(y13_i, y13_r), inv_sqrt2),
+                           v3_i = hn::Mul(hn::Neg(hn::Add(y13_r, y13_i)), inv_sqrt2);
 
                 const auto z00_r = hn::Add(y00_r, v0_r), z00_i = hn::Add(y00_i, v0_i);
                 const auto z01_r = hn::Add(y01_r, v1_r), z01_i = hn::Add(y01_i, v1_i);
@@ -1211,14 +1206,10 @@ namespace zldsp::fft::common {
                 const auto s0_r = hn::Add(r0, t2_r), s0_i = hn::Add(i0, t2_i);
                 const auto s1_r = hn::Sub(r0, t2_r), s1_i = hn::Sub(i0, t2_i);
 
-                hn::StoreInterleaved2(hn::Add(s0_r, s2_r), hn::Add(s0_i, s2_i), d,
-                                      reinterpret_cast<F*>(out + k));
-                hn::StoreInterleaved2(hn::Add(s1_r, s3_i), hn::Sub(s1_i, s3_r), d,
-                                      reinterpret_cast<F*>(out + 8 + k));
-                hn::StoreInterleaved2(hn::Sub(s0_r, s2_r), hn::Sub(s0_i, s2_i), d,
-                                      reinterpret_cast<F*>(out + 16 + k));
-                hn::StoreInterleaved2(hn::Sub(s1_r, s3_i), hn::Add(s1_i, s3_r), d,
-                                      reinterpret_cast<F*>(out + 24 + k));
+                hn::StoreInterleaved2(hn::Add(s0_r, s2_r), hn::Add(s0_i, s2_i), d, reinterpret_cast<F*>(out + k));
+                hn::StoreInterleaved2(hn::Add(s1_r, s3_i), hn::Sub(s1_i, s3_r), d, reinterpret_cast<F*>(out + 8 + k));
+                hn::StoreInterleaved2(hn::Sub(s0_r, s2_r), hn::Sub(s0_i, s2_i), d, reinterpret_cast<F*>(out + 16 + k));
+                hn::StoreInterleaved2(hn::Sub(s1_r, s3_i), hn::Add(s1_i, s3_r), d, reinterpret_cast<F*>(out + 24 + k));
             }
         } else {
             const hn::CappedTag<F, 2> d2;
@@ -1258,11 +1249,11 @@ namespace zldsp::fft::common {
                 const auto y13_r = hn::Sub(u1_r, u3_i), y13_i = hn::Add(u1_i, u3_r);
 
                 const auto v0_r = y10_r, v0_i = y10_i;
-                const auto v1_r = hn::Mul(hn::Add(y11_r, y11_i), inv_sqrt2), v1_i = hn::Mul(
-                    hn::Sub(y11_i, y11_r), inv_sqrt2);
+                const auto v1_r = hn::Mul(hn::Add(y11_r, y11_i), inv_sqrt2),
+                           v1_i = hn::Mul(hn::Sub(y11_i, y11_r), inv_sqrt2);
                 const auto v2_r = y12_i, v2_i = hn::Neg(y12_r);
-                const auto v3_r = hn::Mul(hn::Sub(y13_i, y13_r), inv_sqrt2), v3_i = hn::Mul(
-                    hn::Neg(hn::Add(y13_r, y13_i)), inv_sqrt2);
+                const auto v3_r = hn::Mul(hn::Sub(y13_i, y13_r), inv_sqrt2),
+                           v3_i = hn::Mul(hn::Neg(hn::Add(y13_r, y13_i)), inv_sqrt2);
 
                 const auto z00_r = hn::Add(y00_r, v0_r), z00_i = hn::Add(y00_i, v0_i);
                 const auto z01_r = hn::Add(y01_r, v1_r), z01_i = hn::Add(y01_i, v1_i);
@@ -1339,14 +1330,10 @@ namespace zldsp::fft::common {
                 const auto s0_r = hn::Add(r0, t2_r), s0_i = hn::Add(i0, t2_i);
                 const auto s1_r = hn::Sub(r0, t2_r), s1_i = hn::Sub(i0, t2_i);
 
-                hn::StoreInterleaved2(hn::Add(s0_r, s2_r), hn::Add(s0_i, s2_i), d2,
-                                      reinterpret_cast<F*>(out + k));
-                hn::StoreInterleaved2(hn::Add(s1_r, s3_i), hn::Sub(s1_i, s3_r), d2,
-                                      reinterpret_cast<F*>(out + 8 + k));
-                hn::StoreInterleaved2(hn::Sub(s0_r, s2_r), hn::Sub(s0_i, s2_i), d2,
-                                      reinterpret_cast<F*>(out + 16 + k));
-                hn::StoreInterleaved2(hn::Sub(s1_r, s3_i), hn::Add(s1_i, s3_r), d2,
-                                      reinterpret_cast<F*>(out + 24 + k));
+                hn::StoreInterleaved2(hn::Add(s0_r, s2_r), hn::Add(s0_i, s2_i), d2, reinterpret_cast<F*>(out + k));
+                hn::StoreInterleaved2(hn::Add(s1_r, s3_i), hn::Sub(s1_i, s3_r), d2, reinterpret_cast<F*>(out + 8 + k));
+                hn::StoreInterleaved2(hn::Sub(s0_r, s2_r), hn::Sub(s0_i, s2_i), d2, reinterpret_cast<F*>(out + 16 + k));
+                hn::StoreInterleaved2(hn::Sub(s1_r, s3_i), hn::Add(s1_i, s3_r), d2, reinterpret_cast<F*>(out + 24 + k));
             }
         }
     }
@@ -1359,8 +1346,7 @@ namespace zldsp::fft::common {
      * @param twiddles_i
      */
     template <typename F>
-    inline void generate_order_4_5_twiddles(const size_t order,
-                                            hwy::AlignedFreeUniquePtr<F[]>& twiddles_r,
+    inline void generate_order_4_5_twiddles(const size_t order, hwy::AlignedFreeUniquePtr<F[]>& twiddles_r,
                                             hwy::AlignedFreeUniquePtr<F[]>& twiddles_i) {
         const size_t num_twiddles = (order == 4 ? 60 : 120);
 
@@ -1391,8 +1377,7 @@ namespace zldsp::fft::common {
      * @param twiddles_aosoa
      */
     template <typename F>
-    inline void generate_general_twiddles(std::vector<StageType>& stages,
-                                          std::vector<size_t>& twiddles_shift,
+    inline void generate_general_twiddles(std::vector<StageType>& stages, std::vector<size_t>& twiddles_shift,
                                           hwy::AlignedFreeUniquePtr<F[]>& twiddles_aosoa) {
         static constexpr size_t lanes = hn::Lanes(hn::ScalableTag<F>());
         static constexpr size_t width4_vec = std::max(static_cast<size_t>(4), lanes);
@@ -1417,8 +1402,8 @@ namespace zldsp::fft::common {
         }
         // allocate twiddle
         {
-            const auto num_twiddles = std::accumulate(twiddles_shift.begin(), twiddles_shift.end(),
-                                                      static_cast<size_t>(0));
+            const auto num_twiddles =
+                std::accumulate(twiddles_shift.begin(), twiddles_shift.end(), static_cast<size_t>(0));
             twiddles_aosoa = hwy::AllocateAligned<F>(num_twiddles);
         }
         // calculate twiddle values
@@ -1478,4 +1463,4 @@ namespace zldsp::fft::common {
             }
         }
     }
-}
+} // namespace zldsp::fft::common

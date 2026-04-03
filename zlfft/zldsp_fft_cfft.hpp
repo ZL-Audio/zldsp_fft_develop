@@ -110,6 +110,64 @@ namespace zldsp::fft {
                 common::callback_order_5(in_buffer.data(), out_buffer.data(),
                                          twiddles_r_.get(), twiddles_i_.get());
                 return;
+            case 6: {
+                F* __restrict in_aosoa = workspace_.get();
+                F* __restrict out_aosoa = workspace_.get() + 2 * stride_;
+                const F* __restrict w0 = twiddles_aosoa_.get();
+                common::radix4_first_pass_fused_aosoa(in_buffer.data(), out_aosoa, 64);
+                common::radix4_width4_aosoa(out_aosoa, in_aosoa, 64, w0);
+                const F* __restrict w1 = w0 + twiddles_shift_[1];
+                common::radix4_last_pass_fused_aosoa(in_aosoa, out_buffer.data(), 64, 16, w1);
+                return;
+            }
+            case 7: {
+                F* __restrict in_aosoa = workspace_.get();
+                F* __restrict out_aosoa = workspace_.get() + 2 * stride_;
+                const F* __restrict w0 = twiddles_aosoa_.get();
+                common::radix8_first_pass_fused_aosoa(in_buffer.data(), out_aosoa, 128);
+                common::radix4_aosoa(out_aosoa, in_aosoa, 128, 8, w0);
+                const F* __restrict w1 = w0 + twiddles_shift_[1];
+                common::radix4_last_pass_fused_aosoa(in_aosoa, out_buffer.data(), 128, 32, w1);
+                return;
+            }
+            case 8: {
+                F* __restrict in_aosoa = workspace_.get();
+                F* __restrict out_aosoa = workspace_.get() + 2 * stride_;
+                const F* __restrict w0 = twiddles_aosoa_.get();
+                common::radix4_first_pass_fused_aosoa(in_buffer.data(), out_aosoa, 256);
+                common::radix4_width4_aosoa(out_aosoa, in_aosoa, 256, w0);
+                const F* __restrict w1 = w0 + twiddles_shift_[1];
+                common::radix4_aosoa(in_aosoa, out_aosoa, 256, 16, w1);
+                const F* __restrict w2 = w1 + twiddles_shift_[2];
+                common::radix4_last_pass_fused_aosoa(out_aosoa, out_buffer.data(), 256, 64, w2);
+                return;
+            }
+            case 9: {
+                F* __restrict in_aosoa = workspace_.get();
+                F* __restrict out_aosoa = workspace_.get() + 2 * stride_;
+                const F* __restrict w0 = twiddles_aosoa_.get();
+                common::radix8_first_pass_fused_aosoa(in_buffer.data(), out_aosoa, 512);
+                common::radix4_aosoa(out_aosoa, in_aosoa, 512, 8, w0);
+                const F* __restrict w1 = w0 + twiddles_shift_[1];
+                common::radix4_aosoa(in_aosoa, out_aosoa, 512, 32, w1);
+                const F* __restrict w2 = w1 + twiddles_shift_[2];
+                common::radix4_last_pass_fused_aosoa(out_aosoa, out_buffer.data(), 512, 128, w2);
+                return;
+            }
+            case 10: {
+                F* __restrict in_aosoa = workspace_.get();
+                F* __restrict out_aosoa = workspace_.get() + 2 * stride_;
+                const F* __restrict w0 = twiddles_aosoa_.get();
+                common::radix4_first_pass_fused_aosoa(in_buffer.data(), out_aosoa, 1024);
+                common::radix4_width4_aosoa(out_aosoa, in_aosoa, 1024, w0);
+                const F* __restrict w1 = w0 + twiddles_shift_[1];
+                common::radix4_aosoa(in_aosoa, out_aosoa, 1024, 16, w1);
+                const F* __restrict w2 = w1 + twiddles_shift_[2];
+                common::radix4_aosoa(out_aosoa, in_aosoa, 1024, 64, w2);
+                const F* __restrict w3 = w2 + twiddles_shift_[3];
+                common::radix4_last_pass_fused_aosoa(in_aosoa, out_buffer.data(), 1024, 256, w3);
+                return;
+            }
             default:
                 break;
             }
