@@ -35,6 +35,24 @@ namespace zldsp::fft::common {
 #endif
     }
 
+    template <bool is_forward, class D, typename V, typename F>
+    HWY_INLINE void load_interleaved(D d, const F* __restrict ptr, V& r, V& i) {
+        if constexpr (is_forward) {
+            hn::LoadInterleaved2(d, ptr, r, i);
+        } else {
+            hn::LoadInterleaved2(d, ptr, i, r);
+        }
+    }
+
+    template <bool is_forward, class D, typename V, typename F>
+    HWY_INLINE void store_interleaved(const V r, const V i, D d, F* __restrict ptr) {
+        if constexpr (is_forward) {
+            hn::StoreInterleaved2(r, i, d, ptr);
+        } else {
+            hn::StoreInterleaved2(i, r, d, ptr);
+        }
+    }
+
     enum class StageType {
         kRadix8FirstPass,
         kRadix4FirstPass,
@@ -195,11 +213,12 @@ namespace zldsp::fft::common {
     /**
      * performs a Stockham DIT radix-4 first pass and convert data from AoS to AoSoA
      * @tparam F
+     * @tparam is_forward
      * @param in
      * @param out_aosoa
      * @param n
      */
-    template <typename F>
+    template <typename F, bool is_forward>
     inline void radix4_first_pass_fused_aosoa(const std::complex<F>* __restrict in, F* __restrict out_aosoa,
                                               const size_t n) {
         const size_t quarter_n = n >> 2;
@@ -213,8 +232,8 @@ namespace zldsp::fft::common {
         for (size_t j = 0; j < quarter_n; j += lanes) {
             const F* __restrict in_shift = reinterpret_cast<const F*>(in + j);
             hn::Vec<decltype(d)> x0_r, x0_i, x2_r, x2_i;
-            hn::LoadInterleaved2(d, in_shift, x0_r, x0_i);
-            hn::LoadInterleaved2(d, in_shift + n, x2_r, x2_i);
+            load_interleaved<is_forward>(d, in_shift, x0_r, x0_i);
+            load_interleaved<is_forward>(d, in_shift + n, x2_r, x2_i);
 
             const auto t0_r = hn::Add(x0_r, x2_r);
             const auto t0_i = hn::Add(x0_i, x2_i);
@@ -222,8 +241,8 @@ namespace zldsp::fft::common {
             const auto t1_i = hn::Sub(x0_i, x2_i);
 
             hn::Vec<decltype(d)> x1_r, x1_i, x3_r, x3_i;
-            hn::LoadInterleaved2(d, in_shift + half_n, x1_r, x1_i);
-            hn::LoadInterleaved2(d, in_shift + three_over_two_n, x3_r, x3_i);
+            load_interleaved<is_forward>(d, in_shift + half_n, x1_r, x1_i);
+            load_interleaved<is_forward>(d, in_shift + three_over_two_n, x3_r, x3_i);
 
             const auto t2_r = hn::Add(x1_r, x3_r);
             const auto t2_i = hn::Add(x1_i, x3_i);
@@ -400,13 +419,14 @@ namespace zldsp::fft::common {
     /**
      * perform a Stockham DIT radix-4 pass and convert data from AoSoA to AoS
      * @tparam F
+     * @tparam is_forward
      * @param in_aosoa
      * @param out
      * @param n
      * @param width
      * @param w_ptr
      */
-    template <typename F>
+    template <typename F, bool is_forward>
     inline void radix4_last_pass_fused_aosoa(const F* __restrict in_aosoa, std::complex<F>* __restrict out,
                                              const size_t n, const size_t width, const F* __restrict w_ptr) {
         const size_t quarter_n = n >> 2;
@@ -458,13 +478,14 @@ namespace zldsp::fft::common {
             const size_t j_times_4 = (i & ~mask) << 2;
             const size_t out_idx = j_times_4 + k;
 
-            hn::StoreInterleaved2(hn::Add(s0_r, s2_r), hn::Add(s0_i, s2_i), d, reinterpret_cast<F*>(out + out_idx));
-            hn::StoreInterleaved2(hn::Add(s1_r, s3_i), hn::Sub(s1_i, s3_r), d,
-                                  reinterpret_cast<F*>(out + out_idx + width));
-            hn::StoreInterleaved2(hn::Sub(s0_r, s2_r), hn::Sub(s0_i, s2_i), d,
-                                  reinterpret_cast<F*>(out + out_idx + (width << 1)));
-            hn::StoreInterleaved2(hn::Sub(s1_r, s3_i), hn::Add(s1_i, s3_r), d,
-                                  reinterpret_cast<F*>(out + out_idx + width * 3));
+            store_interleaved<is_forward>(hn::Add(s0_r, s2_r), hn::Add(s0_i, s2_i), d,
+                                          reinterpret_cast<F*>(out + out_idx));
+            store_interleaved<is_forward>(hn::Add(s1_r, s3_i), hn::Sub(s1_i, s3_r), d,
+                                          reinterpret_cast<F*>(out + out_idx + width));
+            store_interleaved<is_forward>(hn::Sub(s0_r, s2_r), hn::Sub(s0_i, s2_i), d,
+                                          reinterpret_cast<F*>(out + out_idx + (width << 1)));
+            store_interleaved<is_forward>(hn::Sub(s1_r, s3_i), hn::Add(s1_i, s3_r), d,
+                                          reinterpret_cast<F*>(out + out_idx + width * 3));
         }
     }
 
@@ -584,11 +605,12 @@ namespace zldsp::fft::common {
     /**
      * performs a Stockham DIT radix-8 first pass and convert data from AoS to AoSoA
      * @tparam F
+     * @tparam is_forward
      * @param in
      * @param out_aosoa
      * @param n
      */
-    template <typename F>
+    template <typename F, bool is_forward>
     inline void radix8_first_pass_fused_aosoa(const std::complex<F>* __restrict in, F* __restrict out_aosoa,
                                               const size_t n) {
         const size_t one_eight_n = n >> 3;
@@ -609,13 +631,13 @@ namespace zldsp::fft::common {
 
             hn::Vec<decltype(d)> a_r, a_i, b_r, b_i;
 
-            hn::LoadInterleaved2(d, in_shift, a_r, a_i);
-            hn::LoadInterleaved2(d, in_shift + n, b_r, b_i);
+            load_interleaved<is_forward>(d, in_shift, a_r, a_i);
+            load_interleaved<is_forward>(d, in_shift + n, b_r, b_i);
             auto t0_r = hn::Add(a_r, b_r), t0_i = hn::Add(a_i, b_i);
             auto t1_r = hn::Sub(a_r, b_r), t1_i = hn::Sub(a_i, b_i);
 
-            hn::LoadInterleaved2(d, in_shift + half_n, a_r, a_i);
-            hn::LoadInterleaved2(d, in_shift + three_two_n, b_r, b_i);
+            load_interleaved<is_forward>(d, in_shift + half_n, a_r, a_i);
+            load_interleaved<is_forward>(d, in_shift + three_two_n, b_r, b_i);
             auto t2_r = hn::Add(a_r, b_r), t2_i = hn::Add(a_i, b_i);
             auto t3_r = hn::Sub(a_r, b_r), t3_i = hn::Sub(a_i, b_i);
 
@@ -624,13 +646,13 @@ namespace zldsp::fft::common {
             auto y01_r = hn::Add(t1_r, t3_i), y01_i = hn::Sub(t1_i, t3_r);
             auto y03_r = hn::Sub(t1_r, t3_i), y03_i = hn::Add(t1_i, t3_r);
 
-            hn::LoadInterleaved2(d, in_shift + quarter_n, a_r, a_i);
-            hn::LoadInterleaved2(d, in_shift + five_four_n, b_r, b_i);
+            load_interleaved<is_forward>(d, in_shift + quarter_n, a_r, a_i);
+            load_interleaved<is_forward>(d, in_shift + five_four_n, b_r, b_i);
             auto u0_r = hn::Add(a_r, b_r), u0_i = hn::Add(a_i, b_i);
             auto u1_r = hn::Sub(a_r, b_r), u1_i = hn::Sub(a_i, b_i);
 
-            hn::LoadInterleaved2(d, in_shift + three_quarter_n, a_r, a_i);
-            hn::LoadInterleaved2(d, in_shift + seven_four_n, b_r, b_i);
+            load_interleaved<is_forward>(d, in_shift + three_quarter_n, a_r, a_i);
+            load_interleaved<is_forward>(d, in_shift + seven_four_n, b_r, b_i);
             auto u2_r = hn::Add(a_r, b_r), u2_i = hn::Add(a_i, b_i);
             auto u3_r = hn::Sub(a_r, b_r), u3_i = hn::Sub(a_i, b_i);
 
@@ -781,10 +803,11 @@ namespace zldsp::fft::common {
     /**
      * hardcoded FFT for order = 2
      * @tparam F
+     * @tparam is_forward
      * @param in
      * @param out
      */
-    template <typename F>
+    template <typename F, bool is_forward>
     inline void callback_order_2(const std::complex<F>* in, std::complex<F>* out) {
         const auto t0 = in[0] + in[2];
         const auto t1 = in[0] - in[2];
@@ -792,17 +815,23 @@ namespace zldsp::fft::common {
         const auto t3 = in[1] - in[3];
         out[0] = t0 + t2;
         out[2] = t0 - t2;
-        out[1] = t1 + std::complex<F>(t3.imag(), -t3.real());
-        out[3] = t1 - std::complex<F>(t3.imag(), -t3.real());
+        if constexpr (is_forward) {
+            out[1] = t1 + std::complex<F>(t3.imag(), -t3.real());
+            out[3] = t1 - std::complex<F>(t3.imag(), -t3.real());
+        } else {
+            out[1] = t1 + std::complex<F>(-t3.imag(), t3.real());
+            out[3] = t1 - std::complex<F>(-t3.imag(), t3.real());
+        }
     }
 
     /**
      * hardcoded FFT for order = 3
      * @tparam F
+    * @tparam is_forward
      * @param in
      * @param out
      */
-    template <typename F>
+    template <typename F, bool is_forward>
     inline void callback_order_3(const std::complex<F>* in, std::complex<F>* out) {
         static constexpr F kInvSqrt2 = static_cast<F>(1.0 / std::numbers::sqrt2);
         const auto x0_r = in[0].real(), x0_i = in[0].imag();
@@ -819,25 +848,56 @@ namespace zldsp::fft::common {
         const auto t2_r = x2_r + x6_r, t2_i = x2_i + x6_i;
         const auto t3_r = x2_r - x6_r, t3_i = x2_i - x6_i;
 
-        const auto y00_r = t0_r + t2_r, y00_i = t0_i + t2_i;
-        const auto y01_r = t1_r + t3_i, y01_i = t1_i - t3_r;
-        const auto y02_r = t0_r - t2_r, y02_i = t0_i - t2_i;
-        const auto y03_r = t1_r - t3_i, y03_i = t1_i + t3_r;
-
         const auto u0_r = x1_r + x5_r, u0_i = x1_i + x5_i;
         const auto u1_r = x1_r - x5_r, u1_i = x1_i - x5_i;
         const auto u2_r = x3_r + x7_r, u2_i = x3_i + x7_i;
         const auto u3_r = x3_r - x7_r, u3_i = x3_i - x7_i;
 
+        const auto y00_r = t0_r + t2_r, y00_i = t0_i + t2_i;
+        const auto y02_r = t0_r - t2_r, y02_i = t0_i - t2_i;
         const auto y10_r = u0_r + u2_r, y10_i = u0_i + u2_i;
-        const auto y11_r = u1_r + u3_i, y11_i = u1_i - u3_r;
         const auto y12_r = u0_r - u2_r, y12_i = u0_i - u2_i;
-        const auto y13_r = u1_r - u3_i, y13_i = u1_i + u3_r;
-
         const auto v0_r = y10_r, v0_i = y10_i;
-        const auto v1_r = (y11_r + y11_i) * kInvSqrt2, v1_i = (y11_i - y11_r) * kInvSqrt2;
-        const auto v2_r = y12_i, v2_i = -y12_r;
-        const auto v3_r = (y13_i - y13_r) * kInvSqrt2, v3_i = -(y13_r + y13_i) * kInvSqrt2;
+
+        F y01_r, y01_i, y03_r, y03_i;
+        F y11_r, y11_i, y13_r, y13_i;
+        F v1_r, v1_i, v2_r, v2_i, v3_r, v3_i;
+
+        if constexpr (is_forward) {
+            y01_r = t1_r + t3_i;
+            y01_i = t1_i - t3_r;
+            y03_r = t1_r - t3_i;
+            y03_i = t1_i + t3_r;
+
+            y11_r = u1_r + u3_i;
+            y11_i = u1_i - u3_r;
+            y13_r = u1_r - u3_i;
+            y13_i = u1_i + u3_r;
+
+            v1_r = (y11_r + y11_i) * kInvSqrt2;
+            v1_i = (y11_i - y11_r) * kInvSqrt2;
+            v2_r = y12_i;
+            v2_i = -y12_r;
+            v3_r = (y13_i - y13_r) * kInvSqrt2;
+            v3_i = -(y13_r + y13_i) * kInvSqrt2;
+        } else {
+            y01_r = t1_r - t3_i;
+            y01_i = t1_i + t3_r;
+            y03_r = t1_r + t3_i;
+            y03_i = t1_i - t3_r;
+
+            y11_r = u1_r - u3_i;
+            y11_i = u1_i + u3_r;
+            y13_r = u1_r + u3_i;
+            y13_i = u1_i - u3_r;
+
+            v1_r = (y11_r - y11_i) * kInvSqrt2;
+            v1_i = (y11_i + y11_r) * kInvSqrt2;
+            v2_r = -y12_i;
+            v2_i = y12_r;
+            v3_r = -(y13_r + y13_i) * kInvSqrt2;
+            v3_i = (y13_r - y13_i) * kInvSqrt2;
+        }
 
         out[0] = std::complex<F>(y00_r + v0_r, y00_i + v0_i);
         out[1] = std::complex<F>(y01_r + v1_r, y01_i + v1_i);
@@ -852,34 +912,35 @@ namespace zldsp::fft::common {
     /**
      * hardcoded FFT for order = 4
      * @tparam F
+     * @tparam is_forward
      * @param in
      * @param out
      * @param w_r_base
      * @param w_i_base
      */
-    template <typename F>
+    template <typename F, bool is_forward>
     inline void callback_order_4(const std::complex<F>* in, std::complex<F>* out, const F* w_r_base,
                                  const F* w_i_base) {
-        static constexpr size_t N = HWY_MAX_BYTES / sizeof(F);
+        static constexpr hn::ScalableTag<F> d;
+        static constexpr size_t lanes = hn::Lanes(d);
 
         alignas(64) F tmp_r[16];
         alignas(64) F tmp_i[16];
 
-        if constexpr (N >= 8) {
-            hn::FixedTag<F, 8> d8;
+        if constexpr (lanes >= 8) {
             hn::FixedTag<F, 4> d4;
 
-            hn::Vec<decltype(d8)> v0_r, v0_i, v1_r, v1_i;
-            hn::LoadInterleaved2(d8, reinterpret_cast<const F*>(in), v0_r, v0_i);
-            hn::LoadInterleaved2(d8, reinterpret_cast<const F*>(in + 8), v1_r, v1_i);
+            hn::Vec<decltype(d)> v0_r, v0_i, v1_r, v1_i;
+            load_interleaved<is_forward>(d, reinterpret_cast<const F*>(in), v0_r, v0_i);
+            load_interleaved<is_forward>(d, reinterpret_cast<const F*>(in + 8), v1_r, v1_i);
 
             const auto t02_r = hn::Add(v0_r, v1_r), t02_i = hn::Add(v0_i, v1_i);
             const auto t13_r = hn::Sub(v0_r, v1_r), t13_i = hn::Sub(v0_i, v1_i);
 
-            const auto A_r = hn::ConcatLowerLower(d8, t13_r, t02_r);
-            const auto A_i = hn::ConcatLowerLower(d8, t13_i, t02_i);
-            const auto B_r = hn::ConcatUpperUpper(d8, t13_i, t02_r);
-            const auto B_i = hn::ConcatUpperUpper(d8, t13_r, t02_i);
+            const auto A_r = hn::ConcatLowerLower(d, t13_r, t02_r);
+            const auto A_i = hn::ConcatLowerLower(d, t13_i, t02_i);
+            const auto B_r = hn::ConcatUpperUpper(d, t13_i, t02_r);
+            const auto B_i = hn::ConcatUpperUpper(d, t13_r, t02_i);
 
             const auto out01_r = hn::Add(A_r, B_r);
             const auto out23_r = hn::Sub(A_r, B_r);
@@ -918,25 +979,24 @@ namespace zldsp::fft::common {
             const auto f2_r = hn::Sub(s0_r, s2_r), f2_i = hn::Sub(s0_i, s2_i);
             const auto f3_r = hn::Sub(s1_r, s3_i), f3_i = hn::Add(s1_i, s3_r);
 
-            hn::StoreInterleaved2(hn::Combine(d8, f1_r, f0_r), hn::Combine(d8, f1_i, f0_i), d8,
-                                  reinterpret_cast<F*>(out));
-            hn::StoreInterleaved2(hn::Combine(d8, f3_r, f2_r), hn::Combine(d8, f3_i, f2_i), d8,
-                                  reinterpret_cast<F*>(out + 8));
+            store_interleaved<is_forward>(hn::Combine(d, f1_r, f0_r), hn::Combine(d, f1_i, f0_i), d,
+                                          reinterpret_cast<F*>(out));
+            store_interleaved<is_forward>(hn::Combine(d, f3_r, f2_r), hn::Combine(d, f3_i, f2_i), d,
+                                          reinterpret_cast<F*>(out + 8));
 
         } else {
-            hn::FixedTag<F, (N < 4 ? N : 4)> d_cap;
+#pragma clang loop unroll(full)
+            for (size_t i = 0; i < 4; i += lanes) {
+                hn::Vec<decltype(d)> x0_r, x0_i, x1_r, x1_i, x2_r, x2_i, x3_r, x3_i;
 
-            for (size_t i = 0; i < 4; i += hn::Lanes(d_cap)) {
-                hn::Vec<decltype(d_cap)> x0_r, x0_i, x1_r, x1_i, x2_r, x2_i, x3_r, x3_i;
-
-                hn::LoadInterleaved2(d_cap, reinterpret_cast<const F*>(in + i), x0_r, x0_i);
-                hn::LoadInterleaved2(d_cap, reinterpret_cast<const F*>(in + i + 8), x2_r, x2_i);
+                load_interleaved<is_forward>(d, reinterpret_cast<const F*>(in + i), x0_r, x0_i);
+                load_interleaved<is_forward>(d, reinterpret_cast<const F*>(in + i + 8), x2_r, x2_i);
 
                 const auto t0_r = hn::Add(x0_r, x2_r), t0_i = hn::Add(x0_i, x2_i);
                 const auto t1_r = hn::Sub(x0_r, x2_r), t1_i = hn::Sub(x0_i, x2_i);
 
-                hn::LoadInterleaved2(d_cap, reinterpret_cast<const F*>(in + i + 4), x1_r, x1_i);
-                hn::LoadInterleaved2(d_cap, reinterpret_cast<const F*>(in + i + 12), x3_r, x3_i);
+                load_interleaved<is_forward>(d, reinterpret_cast<const F*>(in + i + 4), x1_r, x1_i);
+                load_interleaved<is_forward>(d, reinterpret_cast<const F*>(in + i + 12), x3_r, x3_i);
 
                 const auto t2_r = hn::Add(x1_r, x3_r), t2_i = hn::Add(x1_i, x3_i);
                 const auto t3_r = hn::Sub(x1_r, x3_r), t3_i = hn::Sub(x1_i, x3_i);
@@ -946,40 +1006,41 @@ namespace zldsp::fft::common {
                 const auto out1_r = hn::Add(t1_r, t3_i), out1_i = hn::Sub(t1_i, t3_r);
                 const auto out3_r = hn::Sub(t1_r, t3_i), out3_i = hn::Add(t1_i, t3_r);
 
-                hn::StoreInterleaved4(out0_r, out1_r, out2_r, out3_r, d_cap, tmp_r + i * 4);
-                hn::StoreInterleaved4(out0_i, out1_i, out2_i, out3_i, d_cap, tmp_i + i * 4);
+                hn::StoreInterleaved4(out0_r, out1_r, out2_r, out3_r, d, tmp_r + i * 4);
+                hn::StoreInterleaved4(out0_i, out1_i, out2_i, out3_i, d, tmp_i + i * 4);
             }
-
-            for (size_t i = 0; i < 4; i += hn::Lanes(d_cap)) {
-                const auto i1 = hn::Load(d_cap, tmp_i + 4 + i), r1 = hn::Load(d_cap, tmp_r + 4 + i);
-                const auto w1_r = hn::Load(d_cap, w_r_base + i), w1_i = hn::Load(d_cap, w_i_base + i);
+#pragma clang loop unroll(full)
+            for (size_t i = 0; i < 4; i += lanes) {
+                const auto i1 = hn::Load(d, tmp_i + 4 + i), r1 = hn::Load(d, tmp_r + 4 + i);
+                const auto w1_r = hn::Load(d, w_r_base + i), w1_i = hn::Load(d, w_i_base + i);
                 const auto t1_r = hn::NegMulAdd(i1, w1_i, hn::Mul(r1, w1_r));
                 const auto t1_i = hn::MulAdd(i1, w1_r, hn::Mul(r1, w1_i));
 
-                const auto i3 = hn::Load(d_cap, tmp_i + 12 + i), r3 = hn::Load(d_cap, tmp_r + 12 + i);
-                const auto w3_r = hn::Load(d_cap, w_r_base + 8 + i), w3_i = hn::Load(d_cap, w_i_base + 8 + i);
+                const auto i3 = hn::Load(d, tmp_i + 12 + i), r3 = hn::Load(d, tmp_r + 12 + i);
+                const auto w3_r = hn::Load(d, w_r_base + 8 + i), w3_i = hn::Load(d, w_i_base + 8 + i);
                 const auto t3_r = hn::NegMulAdd(i3, w3_i, hn::Mul(r3, w3_r));
                 const auto t3_i = hn::MulAdd(i3, w3_r, hn::Mul(r3, w3_i));
 
                 const auto s2_r = hn::Add(t1_r, t3_r), s2_i = hn::Add(t1_i, t3_i);
                 const auto s3_r = hn::Sub(t1_r, t3_r), s3_i = hn::Sub(t1_i, t3_i);
 
-                const auto i2 = hn::Load(d_cap, tmp_i + 8 + i), r2 = hn::Load(d_cap, tmp_r + 8 + i);
-                const auto w2_r = hn::Load(d_cap, w_r_base + 4 + i), w2_i = hn::Load(d_cap, w_i_base + 4 + i);
+                const auto i2 = hn::Load(d, tmp_i + 8 + i), r2 = hn::Load(d, tmp_r + 8 + i);
+                const auto w2_r = hn::Load(d, w_r_base + 4 + i), w2_i = hn::Load(d, w_i_base + 4 + i);
                 const auto t2_r = hn::NegMulAdd(i2, w2_i, hn::Mul(r2, w2_r));
                 const auto t2_i = hn::MulAdd(i2, w2_r, hn::Mul(r2, w2_i));
 
-                const auto r0 = hn::Load(d_cap, tmp_r + i), i0 = hn::Load(d_cap, tmp_i + i);
+                const auto r0 = hn::Load(d, tmp_r + i), i0 = hn::Load(d, tmp_i + i);
                 const auto s0_r = hn::Add(r0, t2_r), s0_i = hn::Add(i0, t2_i);
                 const auto s1_r = hn::Sub(r0, t2_r), s1_i = hn::Sub(i0, t2_i);
 
-                hn::StoreInterleaved2(hn::Add(s0_r, s2_r), hn::Add(s0_i, s2_i), d_cap, reinterpret_cast<F*>(out + i));
-                hn::StoreInterleaved2(hn::Add(s1_r, s3_i), hn::Sub(s1_i, s3_r), d_cap,
-                                      reinterpret_cast<F*>(out + 4 + i));
-                hn::StoreInterleaved2(hn::Sub(s0_r, s2_r), hn::Sub(s0_i, s2_i), d_cap,
-                                      reinterpret_cast<F*>(out + 8 + i));
-                hn::StoreInterleaved2(hn::Sub(s1_r, s3_i), hn::Add(s1_i, s3_r), d_cap,
-                                      reinterpret_cast<F*>(out + 12 + i));
+                store_interleaved<is_forward>(hn::Add(s0_r, s2_r), hn::Add(s0_i, s2_i), d,
+                                              reinterpret_cast<F*>(out + i));
+                store_interleaved<is_forward>(hn::Add(s1_r, s3_i), hn::Sub(s1_i, s3_r), d,
+                                              reinterpret_cast<F*>(out + 4 + i));
+                store_interleaved<is_forward>(hn::Sub(s0_r, s2_r), hn::Sub(s0_i, s2_i), d,
+                                              reinterpret_cast<F*>(out + 8 + i));
+                store_interleaved<is_forward>(hn::Sub(s1_r, s3_i), hn::Add(s1_i, s3_r), d,
+                                              reinterpret_cast<F*>(out + 12 + i));
             }
         }
     }
@@ -987,37 +1048,38 @@ namespace zldsp::fft::common {
     /**
      * hardcoded FFT for order = 5
      * @tparam F
+     * @tparam is_forward
      * @param in
      * @param out
      * @param w_r_base
      * @param w_i_base
      */
-    template <typename F>
+    template <typename F, bool is_forward>
     inline void callback_order_5(const std::complex<F>* in, std::complex<F>* out, const F* w_r_base,
                                  const F* w_i_base) {
-        namespace hn = hwy::HWY_NAMESPACE;
-        using D_Max = hn::ScalableTag<F>;
-        static constexpr size_t N = hn::Lanes(D_Max());
+        static constexpr hn::ScalableTag<F> d;
+        static constexpr size_t lanes = hn::Lanes(d);
         static constexpr F kInvSqrt2 = static_cast<F>(1.0 / std::numbers::sqrt2);
 
         alignas(64) F tmp_r[32];
         alignas(64) F tmp_i[32];
 
-        if constexpr (N >= 8) {
-            const hn::CappedTag<F, 8> d8;
-            const hn::CappedTag<F, 4> d4;
+        if constexpr (lanes >= 8) {
+            const hn::FixedTag<F, 4> d4;
             const auto inv_sqrt2 = hn::Set(d4, kInvSqrt2);
 
-            hn::Vec<decltype(d8)> vec_in0_r, vec_in0_i, vec_in16_r, vec_in16_i;
-            hn::Vec<decltype(d8)> vec_in8_r, vec_in8_i, vec_in24_r, vec_in24_i;
+            hn::Vec<decltype(d)> vec_in0_r, vec_in0_i, vec_in16_r, vec_in16_i;
+            hn::Vec<decltype(d)> vec_in8_r, vec_in8_i, vec_in24_r, vec_in24_i;
 
-            hn::LoadInterleaved2(d8, reinterpret_cast<const F*>(in), vec_in0_r, vec_in0_i);
-            hn::LoadInterleaved2(d8, reinterpret_cast<const F*>(in + 16), vec_in16_r, vec_in16_i);
+            load_interleaved<is_forward>(d, reinterpret_cast<const F*>(in), vec_in0_r, vec_in0_i);
+            load_interleaved<is_forward>(d, reinterpret_cast<const F*>(in + 16), vec_in16_r, vec_in16_i);
+
             const auto vec_t0_r = hn::Add(vec_in0_r, vec_in16_r), vec_t0_i = hn::Add(vec_in0_i, vec_in16_i);
             const auto vec_t1_r = hn::Sub(vec_in0_r, vec_in16_r), vec_t1_i = hn::Sub(vec_in0_i, vec_in16_i);
 
-            hn::LoadInterleaved2(d8, reinterpret_cast<const F*>(in + 8), vec_in8_r, vec_in8_i);
-            hn::LoadInterleaved2(d8, reinterpret_cast<const F*>(in + 24), vec_in24_r, vec_in24_i);
+            load_interleaved<is_forward>(d, reinterpret_cast<const F*>(in + 8), vec_in8_r, vec_in8_i);
+            load_interleaved<is_forward>(d, reinterpret_cast<const F*>(in + 24), vec_in24_r, vec_in24_i);
+
             const auto vec_t2_r = hn::Add(vec_in8_r, vec_in24_r), vec_t2_i = hn::Add(vec_in8_i, vec_in24_i);
             const auto vec_t3_r = hn::Sub(vec_in8_r, vec_in24_r), vec_t3_i = hn::Sub(vec_in8_i, vec_in24_i);
 
@@ -1038,10 +1100,10 @@ namespace zldsp::fft::common {
 
             const auto v0_r = y10_r, v0_i = y10_i;
             const auto v1_r = hn::Mul(hn::Add(y11_r, y11_i), inv_sqrt2),
-                       v1_i = hn::Mul(hn::Sub(y11_i, y11_r), inv_sqrt2);
+                v1_i = hn::Mul(hn::Sub(y11_i, y11_r), inv_sqrt2);
             const auto v2_r = y12_i, v2_i = hn::Neg(y12_r);
             const auto v3_r = hn::Mul(hn::Sub(y13_i, y13_r), inv_sqrt2),
-                       v3_i = hn::Mul(hn::Neg(hn::Add(y13_r, y13_i)), inv_sqrt2);
+                v3_i = hn::Mul(hn::Neg(hn::Add(y13_r, y13_i)), inv_sqrt2);
 
             const auto z00_r = hn::Add(y00_r, v0_r), z00_i = hn::Add(y00_i, v0_i);
             const auto z01_r = hn::Add(y01_r, v1_r), z01_i = hn::Add(y01_i, v1_i);
@@ -1076,46 +1138,45 @@ namespace zldsp::fft::common {
             hn::StoreInterleaved4(lower_i0, lower_i1, lower_i2, lower_i3, d4, tmp_i);
             hn::StoreInterleaved4(upper_i0, upper_i1, upper_i2, upper_i3, d4, tmp_i + 16);
 
-            const auto i1 = hn::Load(d8, tmp_i + 8), r1 = hn::Load(d8, tmp_r + 8);
-            const auto w1_r = hn::Load(d8, w_r_base), w1_i = hn::Load(d8, w_i_base);
+            const auto i1 = hn::Load(d, tmp_i + 8), r1 = hn::Load(d, tmp_r + 8);
+            const auto w1_r = hn::Load(d, w_r_base), w1_i = hn::Load(d, w_i_base);
             const auto t1_r = hn::NegMulAdd(i1, w1_i, hn::Mul(r1, w1_r));
             const auto t1_i = hn::MulAdd(i1, w1_r, hn::Mul(r1, w1_i));
 
-            const auto i3 = hn::Load(d8, tmp_i + 24), r3 = hn::Load(d8, tmp_r + 24);
-            const auto w3_r = hn::Load(d8, w_r_base + 16), w3_i = hn::Load(d8, w_i_base + 16);
+            const auto i3 = hn::Load(d, tmp_i + 24), r3 = hn::Load(d, tmp_r + 24);
+            const auto w3_r = hn::Load(d, w_r_base + 16), w3_i = hn::Load(d, w_i_base + 16);
             const auto t3_r = hn::NegMulAdd(i3, w3_i, hn::Mul(r3, w3_r));
             const auto t3_i = hn::MulAdd(i3, w3_r, hn::Mul(r3, w3_i));
 
             const auto s2_r = hn::Add(t1_r, t3_r), s2_i = hn::Add(t1_i, t3_i);
             const auto s3_r = hn::Sub(t1_r, t3_r), s3_i = hn::Sub(t1_i, t3_i);
 
-            const auto i2 = hn::Load(d8, tmp_i + 16), r2 = hn::Load(d8, tmp_r + 16);
-            const auto w2_r = hn::Load(d8, w_r_base + 8), w2_i = hn::Load(d8, w_i_base + 8);
+            const auto i2 = hn::Load(d, tmp_i + 16), r2 = hn::Load(d, tmp_r + 16);
+            const auto w2_r = hn::Load(d, w_r_base + 8), w2_i = hn::Load(d, w_i_base + 8);
             const auto t2_r = hn::NegMulAdd(i2, w2_i, hn::Mul(r2, w2_r));
             const auto t2_i = hn::MulAdd(i2, w2_r, hn::Mul(r2, w2_i));
 
-            const auto r0 = hn::Load(d8, tmp_r), i0 = hn::Load(d8, tmp_i);
+            const auto r0 = hn::Load(d, tmp_r), i0 = hn::Load(d, tmp_i);
             const auto s0_r = hn::Add(r0, t2_r), s0_i = hn::Add(i0, t2_i);
             const auto s1_r = hn::Sub(r0, t2_r), s1_i = hn::Sub(i0, t2_i);
 
-            hn::StoreInterleaved2(hn::Add(s0_r, s2_r), hn::Add(s0_i, s2_i), d8, reinterpret_cast<F*>(out));
-            hn::StoreInterleaved2(hn::Add(s1_r, s3_i), hn::Sub(s1_i, s3_r), d8, reinterpret_cast<F*>(out + 8));
-            hn::StoreInterleaved2(hn::Sub(s0_r, s2_r), hn::Sub(s0_i, s2_i), d8, reinterpret_cast<F*>(out + 16));
-            hn::StoreInterleaved2(hn::Sub(s1_r, s3_i), hn::Add(s1_i, s3_r), d8, reinterpret_cast<F*>(out + 24));
+            store_interleaved<is_forward>(hn::Add(s0_r, s2_r), hn::Add(s0_i, s2_i), d, reinterpret_cast<F*>(out));
+            store_interleaved<is_forward>(hn::Add(s1_r, s3_i), hn::Sub(s1_i, s3_r), d, reinterpret_cast<F*>(out + 8));
+            store_interleaved<is_forward>(hn::Sub(s0_r, s2_r), hn::Sub(s0_i, s2_i), d, reinterpret_cast<F*>(out + 16));
+            store_interleaved<is_forward>(hn::Sub(s1_r, s3_i), hn::Add(s1_i, s3_r), d, reinterpret_cast<F*>(out + 24));
 
-        } else if constexpr (N >= 4) {
-            const hn::CappedTag<F, 4> d;
+        } else if constexpr (lanes >= 4) {
             {
                 const auto inv_sqrt2 = hn::Set(d, kInvSqrt2);
                 hn::Vec<decltype(d)> temp_a_r, temp_a_i, temp_b_r, temp_b_i;
 
-                hn::LoadInterleaved2(d, reinterpret_cast<const F*>(in), temp_a_r, temp_a_i);
-                hn::LoadInterleaved2(d, reinterpret_cast<const F*>(in + 16), temp_b_r, temp_b_i);
+                load_interleaved<is_forward>(d, reinterpret_cast<const F*>(in), temp_a_r, temp_a_i);
+                load_interleaved<is_forward>(d, reinterpret_cast<const F*>(in + 16), temp_b_r, temp_b_i);
                 const auto t0_r = hn::Add(temp_a_r, temp_b_r), t0_i = hn::Add(temp_a_i, temp_b_i);
                 const auto t1_r = hn::Sub(temp_a_r, temp_b_r), t1_i = hn::Sub(temp_a_i, temp_b_i);
 
-                hn::LoadInterleaved2(d, reinterpret_cast<const F*>(in + 8), temp_a_r, temp_a_i);
-                hn::LoadInterleaved2(d, reinterpret_cast<const F*>(in + 24), temp_b_r, temp_b_i);
+                load_interleaved<is_forward>(d, reinterpret_cast<const F*>(in + 8), temp_a_r, temp_a_i);
+                load_interleaved<is_forward>(d, reinterpret_cast<const F*>(in + 24), temp_b_r, temp_b_i);
                 const auto t2_r = hn::Add(temp_a_r, temp_b_r), t2_i = hn::Add(temp_a_i, temp_b_i);
                 const auto t3_r = hn::Sub(temp_a_r, temp_b_r), t3_i = hn::Sub(temp_a_i, temp_b_i);
 
@@ -1124,13 +1185,13 @@ namespace zldsp::fft::common {
                 const auto y02_r = hn::Sub(t0_r, t2_r), y02_i = hn::Sub(t0_i, t2_i);
                 const auto y03_r = hn::Sub(t1_r, t3_i), y03_i = hn::Add(t1_i, t3_r);
 
-                hn::LoadInterleaved2(d, reinterpret_cast<const F*>(in + 4), temp_a_r, temp_a_i);
-                hn::LoadInterleaved2(d, reinterpret_cast<const F*>(in + 20), temp_b_r, temp_b_i);
+                load_interleaved<is_forward>(d, reinterpret_cast<const F*>(in + 4), temp_a_r, temp_a_i);
+                load_interleaved<is_forward>(d, reinterpret_cast<const F*>(in + 20), temp_b_r, temp_b_i);
                 const auto u0_r = hn::Add(temp_a_r, temp_b_r), u0_i = hn::Add(temp_a_i, temp_b_i);
                 const auto u1_r = hn::Sub(temp_a_r, temp_b_r), u1_i = hn::Sub(temp_a_i, temp_b_i);
 
-                hn::LoadInterleaved2(d, reinterpret_cast<const F*>(in + 12), temp_a_r, temp_a_i);
-                hn::LoadInterleaved2(d, reinterpret_cast<const F*>(in + 28), temp_b_r, temp_b_i);
+                load_interleaved<is_forward>(d, reinterpret_cast<const F*>(in + 12), temp_a_r, temp_a_i);
+                load_interleaved<is_forward>(d, reinterpret_cast<const F*>(in + 28), temp_b_r, temp_b_i);
                 const auto u2_r = hn::Add(temp_a_r, temp_b_r), u2_i = hn::Add(temp_a_i, temp_b_i);
                 const auto u3_r = hn::Sub(temp_a_r, temp_b_r), u3_i = hn::Sub(temp_a_i, temp_b_i);
 
@@ -1141,10 +1202,10 @@ namespace zldsp::fft::common {
 
                 const auto v0_r = y10_r, v0_i = y10_i;
                 const auto v1_r = hn::Mul(hn::Add(y11_r, y11_i), inv_sqrt2),
-                           v1_i = hn::Mul(hn::Sub(y11_i, y11_r), inv_sqrt2);
+                    v1_i = hn::Mul(hn::Sub(y11_i, y11_r), inv_sqrt2);
                 const auto v2_r = y12_i, v2_i = hn::Neg(y12_r);
                 const auto v3_r = hn::Mul(hn::Sub(y13_i, y13_r), inv_sqrt2),
-                           v3_i = hn::Mul(hn::Neg(hn::Add(y13_r, y13_i)), inv_sqrt2);
+                    v3_i = hn::Mul(hn::Neg(hn::Add(y13_r, y13_i)), inv_sqrt2);
 
                 const auto z00_r = hn::Add(y00_r, v0_r), z00_i = hn::Add(y00_i, v0_i);
                 const auto z01_r = hn::Add(y01_r, v1_r), z01_i = hn::Add(y01_i, v1_i);
@@ -1206,25 +1267,28 @@ namespace zldsp::fft::common {
                 const auto s0_r = hn::Add(r0, t2_r), s0_i = hn::Add(i0, t2_i);
                 const auto s1_r = hn::Sub(r0, t2_r), s1_i = hn::Sub(i0, t2_i);
 
-                hn::StoreInterleaved2(hn::Add(s0_r, s2_r), hn::Add(s0_i, s2_i), d, reinterpret_cast<F*>(out + k));
-                hn::StoreInterleaved2(hn::Add(s1_r, s3_i), hn::Sub(s1_i, s3_r), d, reinterpret_cast<F*>(out + 8 + k));
-                hn::StoreInterleaved2(hn::Sub(s0_r, s2_r), hn::Sub(s0_i, s2_i), d, reinterpret_cast<F*>(out + 16 + k));
-                hn::StoreInterleaved2(hn::Sub(s1_r, s3_i), hn::Add(s1_i, s3_r), d, reinterpret_cast<F*>(out + 24 + k));
+                store_interleaved<is_forward>(hn::Add(s0_r, s2_r), hn::Add(s0_i, s2_i), d,
+                                              reinterpret_cast<F*>(out + k));
+                store_interleaved<is_forward>(hn::Add(s1_r, s3_i), hn::Sub(s1_i, s3_r), d,
+                                              reinterpret_cast<F*>(out + 8 + k));
+                store_interleaved<is_forward>(hn::Sub(s0_r, s2_r), hn::Sub(s0_i, s2_i), d,
+                                              reinterpret_cast<F*>(out + 16 + k));
+                store_interleaved<is_forward>(hn::Sub(s1_r, s3_i), hn::Add(s1_i, s3_r), d,
+                                              reinterpret_cast<F*>(out + 24 + k));
             }
         } else {
-            const hn::CappedTag<F, 2> d2;
-            const auto inv_sqrt2 = hn::Set(d2, kInvSqrt2);
+            const auto inv_sqrt2 = hn::Set(d, kInvSqrt2);
 
             for (size_t idx = 0; idx < 4; idx += 2) {
-                hn::Vec<decltype(d2)> temp_a_r, temp_a_i, temp_b_r, temp_b_i;
+                hn::Vec<decltype(d)> temp_a_r, temp_a_i, temp_b_r, temp_b_i;
 
-                hn::LoadInterleaved2(d2, reinterpret_cast<const F*>(in + idx), temp_a_r, temp_a_i);
-                hn::LoadInterleaved2(d2, reinterpret_cast<const F*>(in + 16 + idx), temp_b_r, temp_b_i);
+                load_interleaved<is_forward>(d, reinterpret_cast<const F*>(in + idx), temp_a_r, temp_a_i);
+                load_interleaved<is_forward>(d, reinterpret_cast<const F*>(in + 16 + idx), temp_b_r, temp_b_i);
                 const auto t0_r = hn::Add(temp_a_r, temp_b_r), t0_i = hn::Add(temp_a_i, temp_b_i);
                 const auto t1_r = hn::Sub(temp_a_r, temp_b_r), t1_i = hn::Sub(temp_a_i, temp_b_i);
 
-                hn::LoadInterleaved2(d2, reinterpret_cast<const F*>(in + 8 + idx), temp_a_r, temp_a_i);
-                hn::LoadInterleaved2(d2, reinterpret_cast<const F*>(in + 24 + idx), temp_b_r, temp_b_i);
+                load_interleaved<is_forward>(d, reinterpret_cast<const F*>(in + 8 + idx), temp_a_r, temp_a_i);
+                load_interleaved<is_forward>(d, reinterpret_cast<const F*>(in + 24 + idx), temp_b_r, temp_b_i);
                 const auto t2_r = hn::Add(temp_a_r, temp_b_r), t2_i = hn::Add(temp_a_i, temp_b_i);
                 const auto t3_r = hn::Sub(temp_a_r, temp_b_r), t3_i = hn::Sub(temp_a_i, temp_b_i);
 
@@ -1233,13 +1297,13 @@ namespace zldsp::fft::common {
                 const auto y02_r = hn::Sub(t0_r, t2_r), y02_i = hn::Sub(t0_i, t2_i);
                 const auto y03_r = hn::Sub(t1_r, t3_i), y03_i = hn::Add(t1_i, t3_r);
 
-                hn::LoadInterleaved2(d2, reinterpret_cast<const F*>(in + 4 + idx), temp_a_r, temp_a_i);
-                hn::LoadInterleaved2(d2, reinterpret_cast<const F*>(in + 20 + idx), temp_b_r, temp_b_i);
+                load_interleaved<is_forward>(d, reinterpret_cast<const F*>(in + 4 + idx), temp_a_r, temp_a_i);
+                load_interleaved<is_forward>(d, reinterpret_cast<const F*>(in + 20 + idx), temp_b_r, temp_b_i);
                 const auto u0_r = hn::Add(temp_a_r, temp_b_r), u0_i = hn::Add(temp_a_i, temp_b_i);
                 const auto u1_r = hn::Sub(temp_a_r, temp_b_r), u1_i = hn::Sub(temp_a_i, temp_b_i);
 
-                hn::LoadInterleaved2(d2, reinterpret_cast<const F*>(in + 12 + idx), temp_a_r, temp_a_i);
-                hn::LoadInterleaved2(d2, reinterpret_cast<const F*>(in + 28 + idx), temp_b_r, temp_b_i);
+                load_interleaved<is_forward>(d, reinterpret_cast<const F*>(in + 12 + idx), temp_a_r, temp_a_i);
+                load_interleaved<is_forward>(d, reinterpret_cast<const F*>(in + 28 + idx), temp_b_r, temp_b_i);
                 const auto u2_r = hn::Add(temp_a_r, temp_b_r), u2_i = hn::Add(temp_a_i, temp_b_i);
                 const auto u3_r = hn::Sub(temp_a_r, temp_b_r), u3_i = hn::Sub(temp_a_i, temp_b_i);
 
@@ -1250,10 +1314,10 @@ namespace zldsp::fft::common {
 
                 const auto v0_r = y10_r, v0_i = y10_i;
                 const auto v1_r = hn::Mul(hn::Add(y11_r, y11_i), inv_sqrt2),
-                           v1_i = hn::Mul(hn::Sub(y11_i, y11_r), inv_sqrt2);
+                    v1_i = hn::Mul(hn::Sub(y11_i, y11_r), inv_sqrt2);
                 const auto v2_r = y12_i, v2_i = hn::Neg(y12_r);
                 const auto v3_r = hn::Mul(hn::Sub(y13_i, y13_r), inv_sqrt2),
-                           v3_i = hn::Mul(hn::Neg(hn::Add(y13_r, y13_i)), inv_sqrt2);
+                    v3_i = hn::Mul(hn::Neg(hn::Add(y13_r, y13_i)), inv_sqrt2);
 
                 const auto z00_r = hn::Add(y00_r, v0_r), z00_i = hn::Add(y00_i, v0_i);
                 const auto z01_r = hn::Add(y01_r, v1_r), z01_i = hn::Add(y01_i, v1_i);
@@ -1268,22 +1332,22 @@ namespace zldsp::fft::common {
                 alignas(16) F ar0[2], ar1[2], ar2[2], ar3[2], ar4[2], ar5[2], ar6[2], ar7[2];
                 alignas(16) F ai0[2], ai1[2], ai2[2], ai3[2], ai4[2], ai5[2], ai6[2], ai7[2];
 
-                hn::Store(z00_r, d2, ar0);
-                hn::Store(z01_r, d2, ar1);
-                hn::Store(z02_r, d2, ar2);
-                hn::Store(z03_r, d2, ar3);
-                hn::Store(z10_r, d2, ar4);
-                hn::Store(z11_r, d2, ar5);
-                hn::Store(z12_r, d2, ar6);
-                hn::Store(z13_r, d2, ar7);
-                hn::Store(z00_i, d2, ai0);
-                hn::Store(z01_i, d2, ai1);
-                hn::Store(z02_i, d2, ai2);
-                hn::Store(z03_i, d2, ai3);
-                hn::Store(z10_i, d2, ai4);
-                hn::Store(z11_i, d2, ai5);
-                hn::Store(z12_i, d2, ai6);
-                hn::Store(z13_i, d2, ai7);
+                hn::Store(z00_r, d, ar0);
+                hn::Store(z01_r, d, ar1);
+                hn::Store(z02_r, d, ar2);
+                hn::Store(z03_r, d, ar3);
+                hn::Store(z10_r, d, ar4);
+                hn::Store(z11_r, d, ar5);
+                hn::Store(z12_r, d, ar6);
+                hn::Store(z13_r, d, ar7);
+                hn::Store(z00_i, d, ai0);
+                hn::Store(z01_i, d, ai1);
+                hn::Store(z02_i, d, ai2);
+                hn::Store(z03_i, d, ai3);
+                hn::Store(z10_i, d, ai4);
+                hn::Store(z11_i, d, ai5);
+                hn::Store(z12_i, d, ai6);
+                hn::Store(z13_i, d, ai7);
 
                 for (size_t lane = 0; lane < 2; ++lane) {
                     size_t out_idx = (idx + lane) * 8;
@@ -1308,32 +1372,36 @@ namespace zldsp::fft::common {
             }
 
             for (size_t k = 0; k < 8; k += 2) {
-                const auto i1 = hn::Load(d2, tmp_i + 8 + k), r1 = hn::Load(d2, tmp_r + 8 + k);
-                const auto w1_r = hn::Load(d2, w_r_base + k), w1_i = hn::Load(d2, w_i_base + k);
+                const auto i1 = hn::Load(d, tmp_i + 8 + k), r1 = hn::Load(d, tmp_r + 8 + k);
+                const auto w1_r = hn::Load(d, w_r_base + k), w1_i = hn::Load(d, w_i_base + k);
                 const auto t1_r = hn::NegMulAdd(i1, w1_i, hn::Mul(r1, w1_r));
                 const auto t1_i = hn::MulAdd(i1, w1_r, hn::Mul(r1, w1_i));
 
-                const auto i3 = hn::Load(d2, tmp_i + 24 + k), r3 = hn::Load(d2, tmp_r + 24 + k);
-                const auto w3_r = hn::Load(d2, w_r_base + 16 + k), w3_i = hn::Load(d2, w_i_base + 16 + k);
+                const auto i3 = hn::Load(d, tmp_i + 24 + k), r3 = hn::Load(d, tmp_r + 24 + k);
+                const auto w3_r = hn::Load(d, w_r_base + 16 + k), w3_i = hn::Load(d, w_i_base + 16 + k);
                 const auto t3_r = hn::NegMulAdd(i3, w3_i, hn::Mul(r3, w3_r));
                 const auto t3_i = hn::MulAdd(i3, w3_r, hn::Mul(r3, w3_i));
 
                 const auto s2_r = hn::Add(t1_r, t3_r), s2_i = hn::Add(t1_i, t3_i);
                 const auto s3_r = hn::Sub(t1_r, t3_r), s3_i = hn::Sub(t1_i, t3_i);
 
-                const auto i2 = hn::Load(d2, tmp_i + 16 + k), r2 = hn::Load(d2, tmp_r + 16 + k);
-                const auto w2_r = hn::Load(d2, w_r_base + 8 + k), w2_i = hn::Load(d2, w_i_base + 8 + k);
+                const auto i2 = hn::Load(d, tmp_i + 16 + k), r2 = hn::Load(d, tmp_r + 16 + k);
+                const auto w2_r = hn::Load(d, w_r_base + 8 + k), w2_i = hn::Load(d, w_i_base + 8 + k);
                 const auto t2_r = hn::NegMulAdd(i2, w2_i, hn::Mul(r2, w2_r));
                 const auto t2_i = hn::MulAdd(i2, w2_r, hn::Mul(r2, w2_i));
 
-                const auto r0 = hn::Load(d2, tmp_r + k), i0 = hn::Load(d2, tmp_i + k);
+                const auto r0 = hn::Load(d, tmp_r + k), i0 = hn::Load(d, tmp_i + k);
                 const auto s0_r = hn::Add(r0, t2_r), s0_i = hn::Add(i0, t2_i);
                 const auto s1_r = hn::Sub(r0, t2_r), s1_i = hn::Sub(i0, t2_i);
 
-                hn::StoreInterleaved2(hn::Add(s0_r, s2_r), hn::Add(s0_i, s2_i), d2, reinterpret_cast<F*>(out + k));
-                hn::StoreInterleaved2(hn::Add(s1_r, s3_i), hn::Sub(s1_i, s3_r), d2, reinterpret_cast<F*>(out + 8 + k));
-                hn::StoreInterleaved2(hn::Sub(s0_r, s2_r), hn::Sub(s0_i, s2_i), d2, reinterpret_cast<F*>(out + 16 + k));
-                hn::StoreInterleaved2(hn::Sub(s1_r, s3_i), hn::Add(s1_i, s3_r), d2, reinterpret_cast<F*>(out + 24 + k));
+                store_interleaved<is_forward>(hn::Add(s0_r, s2_r), hn::Add(s0_i, s2_i), d,
+                                              reinterpret_cast<F*>(out + k));
+                store_interleaved<is_forward>(hn::Add(s1_r, s3_i), hn::Sub(s1_i, s3_r), d,
+                                              reinterpret_cast<F*>(out + 8 + k));
+                store_interleaved<is_forward>(hn::Sub(s0_r, s2_r), hn::Sub(s0_i, s2_i), d,
+                                              reinterpret_cast<F*>(out + 16 + k));
+                store_interleaved<is_forward>(hn::Sub(s1_r, s3_i), hn::Add(s1_i, s3_r), d,
+                                              reinterpret_cast<F*>(out + 24 + k));
             }
         }
     }
@@ -1463,4 +1531,4 @@ namespace zldsp::fft::common {
             }
         }
     }
-} // namespace zldsp::fft::common
+}
