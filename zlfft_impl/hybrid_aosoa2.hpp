@@ -182,132 +182,6 @@ namespace zlfft {
     }
 
     template <typename F>
-    void FastComplexTranspose(const std::complex<F>* aos_matrix,
-                              std::complex<F>* out_buffer,
-                              size_t l_, size_t M, size_t M_padded) {
-
-        static constexpr hn::ScalableTag<F> d;
-        static constexpr size_t lanes = hn::Lanes(d);
-        static constexpr size_t c_per_vec = lanes / 2; // Number of complex elements per vector
-
-        // Macro-tiles tuned to fit comfortably within L1/L2 caches
-        static constexpr size_t MACRO_TILE_C = (sizeof(F) == 4) ? 128 : 64;
-        static constexpr size_t MACRO_TILE_K = (sizeof(F) == 4) ? 128 : 64;
-
-        const F* ptr_in = reinterpret_cast<const F*>(aos_matrix);
-        F* ptr_out = reinterpret_cast<F*>(out_buffer);
-
-        for (size_t c_macro = 0; c_macro < l_; c_macro += MACRO_TILE_C) {
-            for (size_t k_macro = 0; k_macro < M; k_macro += MACRO_TILE_K) {
-
-                const size_t c_max = std::min(c_macro + MACRO_TILE_C, l_);
-                const size_t k_max = std::min(k_macro + MACRO_TILE_K, M);
-
-                size_t c = c_macro;
-                for (; c + c_per_vec <= c_max; c += c_per_vec) {
-                    size_t k = k_macro;
-
-                    for (; k + c_per_vec <= k_max; k += c_per_vec) {
-
-                        // --- 1. Software Prefetching ---
-                        // Fetch cache lines 2 iterations ahead to hide strided load latency
-                        if (k + c_per_vec * 2 < k_max) {
-                            for (size_t p = 0; p < c_per_vec; ++p) {
-                                hwy::Prefetch(&ptr_in[((c + p) * M_padded + (k + c_per_vec * 2)) * 2]);
-                            }
-                        }
-
-                        // --- 2. In-Register Block Transpose Networks ---
-
-                        // CASE A: 1 Complex Number per Vector (e.g., SSE2 Double, 128-bit)
-                        if constexpr (c_per_vec == 1) {
-                            auto v0 = hn::LoadU(d, &ptr_in[((c + 0) * M_padded + k) * 2]);
-                            hn::Stream(v0, d, &ptr_out[((k + 0) * l_ + c) * 2]);
-                        }
-
-                        // CASE B: 2 Complex Numbers per Vector (e.g., NEON/SSE2 Float or AVX2 Double)
-                        else if constexpr (c_per_vec == 2 && sizeof(F) == 4) {
-                            // Float, 128-bit: Treat as 64-bit blocks
-                            auto v0 = hn::LoadU(d, &ptr_in[((c + 0) * M_padded + k) * 2]);
-                            auto v1 = hn::LoadU(d, &ptr_in[((c + 1) * M_padded + k) * 2]);
-
-                            const hn::Repartition<uint64_t, decltype(d)> d64;
-                            auto v0_64 = hn::BitCast(d64, v0);
-                            auto v1_64 = hn::BitCast(d64, v1);
-
-                            auto tr0 = hn::BitCast(d, hn::InterleaveLower(d64, v0_64, v1_64));
-                            auto tr1 = hn::BitCast(d, hn::InterleaveUpper(d64, v0_64, v1_64));
-
-                            hn::Stream(tr0, d, &ptr_out[((k + 0) * l_ + c) * 2]);
-                            hn::Stream(tr1, d, &ptr_out[((k + 1) * l_ + c) * 2]);
-                        } else if constexpr (c_per_vec == 2 && sizeof(F) == 8) {
-                            // Double, 256-bit: Combine half-vectors
-                            auto v0 = hn::LoadU(d, &ptr_in[((c + 0) * M_padded + k) * 2]);
-                            auto v1 = hn::LoadU(d, &ptr_in[((c + 1) * M_padded + k) * 2]);
-
-                            // Combine puts arg2 in the upper 128-bits and arg1 in the lower 128-bits
-                            auto tr0 = hn::Combine(d, hn::LowerHalf(d, v1), hn::LowerHalf(d, v0));
-                            auto tr1 = hn::Combine(d, hn::UpperHalf(d, v1), hn::UpperHalf(d, v0));
-
-                            hn::Stream(tr0, d, &ptr_out[((k + 0) * l_ + c) * 2]);
-                            hn::Stream(tr1, d, &ptr_out[((k + 1) * l_ + c) * 2]);
-                        }
-
-                        // CASE C: 4 Complex Numbers per Vector (e.g., AVX2 Float, 256-bit)
-                        else if constexpr (c_per_vec == 4 && sizeof(F) == 4) {
-                            auto v0 = hn::LoadU(d, &ptr_in[((c + 0) * M_padded + k) * 2]);
-                            auto v1 = hn::LoadU(d, &ptr_in[((c + 1) * M_padded + k) * 2]);
-                            auto v2 = hn::LoadU(d, &ptr_in[((c + 2) * M_padded + k) * 2]);
-                            auto v3 = hn::LoadU(d, &ptr_in[((c + 3) * M_padded + k) * 2]);
-
-                            const hn::Repartition<uint64_t, decltype(d)> d64;
-                            auto v0_64 = hn::BitCast(d64, v0);
-                            auto v1_64 = hn::BitCast(d64, v1);
-                            auto v2_64 = hn::BitCast(d64, v2);
-                            auto v3_64 = hn::BitCast(d64, v3);
-
-                            // Stage 1: Interleave pairs (operates on 128-bit lane boundaries in AVX2)
-                            auto t0 = hn::InterleaveLower(d64, v0_64, v1_64);
-                            auto t1 = hn::InterleaveUpper(d64, v0_64, v1_64);
-                            auto t2 = hn::InterleaveLower(d64, v2_64, v3_64);
-                            auto t3 = hn::InterleaveUpper(d64, v2_64, v3_64);
-
-                            // Stage 2: Combine 128-bit halves to finalize the 4x4 matrix
-                            auto tr0 = hn::BitCast(d, hn::Combine(d64, hn::LowerHalf(d64, t2), hn::LowerHalf(d64, t0)));
-                            auto tr1 = hn::BitCast(d, hn::Combine(d64, hn::LowerHalf(d64, t3), hn::LowerHalf(d64, t1)));
-                            auto tr2 = hn::BitCast(d, hn::Combine(d64, hn::UpperHalf(d64, t2), hn::UpperHalf(d64, t0)));
-                            auto tr3 = hn::BitCast(d, hn::Combine(d64, hn::UpperHalf(d64, t3), hn::UpperHalf(d64, t1)));
-
-                            hn::Stream(tr0, d, &ptr_out[((k + 0) * l_ + c) * 2]);
-                            hn::Stream(tr1, d, &ptr_out[((k + 1) * l_ + c) * 2]);
-                            hn::Stream(tr2, d, &ptr_out[((k + 2) * l_ + c) * 2]);
-                            hn::Stream(tr3, d, &ptr_out[((k + 3) * l_ + c) * 2]);
-                        } else {
-                            for (size_t i = 0; i < c_per_vec; ++i) {
-                                for (size_t j = 0; j < c_per_vec; ++j) {
-                                    out_buffer[(k + j) * l_ + (c + i)] = aos_matrix[(c + i) * M_padded + (k + j)];
-                                }
-                            }
-                        }
-                    }
-
-                    for (; k < k_max; ++k) {
-                        for (size_t i = 0; i < c_per_vec; ++i) {
-                            out_buffer[k * l_ + (c + i)] = aos_matrix[(c + i) * M_padded + k];
-                        }
-                    }
-                }
-
-                for (; c < c_max; ++c) {
-                    for (size_t k = k_macro; k < k_max; ++k) {
-                        out_buffer[k * l_ + c] = aos_matrix[c * M_padded + k];
-                    }
-                }
-            }
-        }
-    }
-
-    template <typename F>
     class HybridAoSoA2 {
         using C = std::complex<F>;
 
@@ -343,7 +217,7 @@ namespace zlfft {
             size_t max_m_val = (l1d / 2) / working_set_per_item;
             max_m_ = (max_m_val == 0) ? 0 : std::bit_width(max_m_val) - 1;
 
-            if (order_ <= max_m_ + 4 || order_ <= 5) {
+            if (order_ <= max_m_ + 6 || order_ <= 5) {
                 low_order_fft_ = std::make_unique<SIMDLowOrderAOSOA1<F>>(order_);
                 return;
             }
@@ -532,8 +406,16 @@ namespace zlfft {
             for (size_t c_macro = 0; c_macro < l_; c_macro += MACRO_TILE_C) {
                 const size_t c_max = std::min(c_macro + MACRO_TILE_C, l_);
                 const size_t c_chunk_size = c_max - c_macro;
-
                 for (size_t c_offset = 0; c_offset < c_chunk_size; ++c_offset) {
+                    if (c_offset + 2 < c_chunk_size) {
+                        const size_t future_c = c_macro + c_offset + 2;
+                        const size_t future_l_idx = digit_rev_4_[future_c];
+                        const F* future_in = buf0 + 2 * future_l_idx * M;
+
+                        hwy::Prefetch(future_in);
+                        hwy::Prefetch(future_in + 16);
+                    }
+
                     const size_t reversed_c = c_macro + c_offset;
                     const size_t l_idx = digit_rev_4_[reversed_c];
 

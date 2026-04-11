@@ -216,7 +216,7 @@ namespace zlfft {
             size_t max_m_val = (l1d / 2) / working_set_per_item;
             max_m_ = (max_m_val == 0) ? 0 : std::bit_width(max_m_val) - 1;
 
-            if (order_ <= max_m_ + 4 || order_ <= 5) {
+            if (order_ <= max_m_ + 6 || order_ <= 5) {
                 low_order_fft_ = std::make_unique<SIMDLowOrderAOSOA1<F>>(order_);
                 return;
             }
