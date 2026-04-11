@@ -46,10 +46,16 @@ namespace zlfft {
 
             size_t l1d = common::get_l1d_cache_size();
             size_t working_set_per_item = 6 * sizeof(F);
+
             size_t max_m_val = (l1d / 2) / working_set_per_item;
             max_m_ = (max_m_val == 0) ? 0 : std::bit_width(max_m_val) - 1;
 
-            if (order_ <= max_m_ + 5 || order_ <= 5) {
+            size_t l2d = common::get_l2_cache_size();
+            size_t max_l2_elements = (l2d / 2) / working_set_per_item;
+            size_t max_l2_order = (max_l2_elements == 0) ? 0 : std::bit_width(max_l2_elements) - 1;
+            max_l2_order = std::max(max_m_ + 4, max_l2_order);
+
+            if (order_ < max_l2_order || order_ <= 5) {
                 low_order_fft_ = std::make_unique<SIMDLowOrderAOSOA1<F>>(order_);
                 return;
             }

@@ -55,6 +55,38 @@ namespace zlfft::common {
         return l1d_size;
     }
 
+    inline size_t get_l2_cache_size() {
+        size_t l2_size = 262144;
+#if defined(__APPLE__)
+        size_t size = sizeof(l2_size);
+        sysctlbyname("hw.l2cachesize", &l2_size, &size, nullptr, 0);
+#elif defined(__linux__)
+        long size = sysconf(_SC_LEVEL2_CACHE_SIZE);
+        if (size > 0) {
+            l2_size = static_cast<size_t>(size);
+        }
+#elif defined(_WIN32)
+        DWORD buffer_size = 0;
+        GetLogicalProcessorInformation(nullptr, &buffer_size);
+        if (GetLastError() == ERROR_INSUFFICIENT_BUFFER) {
+            std::vector<SYSTEM_LOGICAL_PROCESSOR_INFORMATION> buffer(
+                buffer_size / sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION));
+            if (GetLogicalProcessorInformation(buffer.data(), &buffer_size)) {
+                for (const auto& info : buffer) {
+                    if (info.Relationship == RelationCache) {
+                        if (info.Cache.Level == 2 &&
+                           (info.Cache.Type == CacheData || info.Cache.Type == CacheUnified)) {
+                            l2_size = info.Cache.Size;
+                            break;
+                           }
+                    }
+                }
+            }
+        }
+#endif
+        return l2_size;
+    }
+
     template <typename F>
     inline void radix4_first_pass_dif_aosoa(const std::complex<F>* __restrict in,
                                             F* __restrict out_aosoa,
