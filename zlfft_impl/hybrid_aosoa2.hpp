@@ -7,6 +7,7 @@
 #include <memory>
 #include <vector>
 #include <iostream>
+#include <hwy/cache_control.h>
 
 #if defined(__APPLE__)
 #include <sys/types.h>
@@ -181,7 +182,133 @@ namespace zlfft {
     }
 
     template <typename F>
-    class HybridAoSoA1 {
+    void FastComplexTranspose(const std::complex<F>* aos_matrix,
+                              std::complex<F>* out_buffer,
+                              size_t l_, size_t M, size_t M_padded) {
+
+        static constexpr hn::ScalableTag<F> d;
+        static constexpr size_t lanes = hn::Lanes(d);
+        static constexpr size_t c_per_vec = lanes / 2; // Number of complex elements per vector
+
+        // Macro-tiles tuned to fit comfortably within L1/L2 caches
+        static constexpr size_t MACRO_TILE_C = (sizeof(F) == 4) ? 128 : 64;
+        static constexpr size_t MACRO_TILE_K = (sizeof(F) == 4) ? 128 : 64;
+
+        const F* ptr_in = reinterpret_cast<const F*>(aos_matrix);
+        F* ptr_out = reinterpret_cast<F*>(out_buffer);
+
+        for (size_t c_macro = 0; c_macro < l_; c_macro += MACRO_TILE_C) {
+            for (size_t k_macro = 0; k_macro < M; k_macro += MACRO_TILE_K) {
+
+                const size_t c_max = std::min(c_macro + MACRO_TILE_C, l_);
+                const size_t k_max = std::min(k_macro + MACRO_TILE_K, M);
+
+                size_t c = c_macro;
+                for (; c + c_per_vec <= c_max; c += c_per_vec) {
+                    size_t k = k_macro;
+
+                    for (; k + c_per_vec <= k_max; k += c_per_vec) {
+
+                        // --- 1. Software Prefetching ---
+                        // Fetch cache lines 2 iterations ahead to hide strided load latency
+                        if (k + c_per_vec * 2 < k_max) {
+                            for (size_t p = 0; p < c_per_vec; ++p) {
+                                hwy::Prefetch(&ptr_in[((c + p) * M_padded + (k + c_per_vec * 2)) * 2]);
+                            }
+                        }
+
+                        // --- 2. In-Register Block Transpose Networks ---
+
+                        // CASE A: 1 Complex Number per Vector (e.g., SSE2 Double, 128-bit)
+                        if constexpr (c_per_vec == 1) {
+                            auto v0 = hn::LoadU(d, &ptr_in[((c + 0) * M_padded + k) * 2]);
+                            hn::Stream(v0, d, &ptr_out[((k + 0) * l_ + c) * 2]);
+                        }
+
+                        // CASE B: 2 Complex Numbers per Vector (e.g., NEON/SSE2 Float or AVX2 Double)
+                        else if constexpr (c_per_vec == 2 && sizeof(F) == 4) {
+                            // Float, 128-bit: Treat as 64-bit blocks
+                            auto v0 = hn::LoadU(d, &ptr_in[((c + 0) * M_padded + k) * 2]);
+                            auto v1 = hn::LoadU(d, &ptr_in[((c + 1) * M_padded + k) * 2]);
+
+                            const hn::Repartition<uint64_t, decltype(d)> d64;
+                            auto v0_64 = hn::BitCast(d64, v0);
+                            auto v1_64 = hn::BitCast(d64, v1);
+
+                            auto tr0 = hn::BitCast(d, hn::InterleaveLower(d64, v0_64, v1_64));
+                            auto tr1 = hn::BitCast(d, hn::InterleaveUpper(d64, v0_64, v1_64));
+
+                            hn::Stream(tr0, d, &ptr_out[((k + 0) * l_ + c) * 2]);
+                            hn::Stream(tr1, d, &ptr_out[((k + 1) * l_ + c) * 2]);
+                        } else if constexpr (c_per_vec == 2 && sizeof(F) == 8) {
+                            // Double, 256-bit: Combine half-vectors
+                            auto v0 = hn::LoadU(d, &ptr_in[((c + 0) * M_padded + k) * 2]);
+                            auto v1 = hn::LoadU(d, &ptr_in[((c + 1) * M_padded + k) * 2]);
+
+                            // Combine puts arg2 in the upper 128-bits and arg1 in the lower 128-bits
+                            auto tr0 = hn::Combine(d, hn::LowerHalf(d, v1), hn::LowerHalf(d, v0));
+                            auto tr1 = hn::Combine(d, hn::UpperHalf(d, v1), hn::UpperHalf(d, v0));
+
+                            hn::Stream(tr0, d, &ptr_out[((k + 0) * l_ + c) * 2]);
+                            hn::Stream(tr1, d, &ptr_out[((k + 1) * l_ + c) * 2]);
+                        }
+
+                        // CASE C: 4 Complex Numbers per Vector (e.g., AVX2 Float, 256-bit)
+                        else if constexpr (c_per_vec == 4 && sizeof(F) == 4) {
+                            auto v0 = hn::LoadU(d, &ptr_in[((c + 0) * M_padded + k) * 2]);
+                            auto v1 = hn::LoadU(d, &ptr_in[((c + 1) * M_padded + k) * 2]);
+                            auto v2 = hn::LoadU(d, &ptr_in[((c + 2) * M_padded + k) * 2]);
+                            auto v3 = hn::LoadU(d, &ptr_in[((c + 3) * M_padded + k) * 2]);
+
+                            const hn::Repartition<uint64_t, decltype(d)> d64;
+                            auto v0_64 = hn::BitCast(d64, v0);
+                            auto v1_64 = hn::BitCast(d64, v1);
+                            auto v2_64 = hn::BitCast(d64, v2);
+                            auto v3_64 = hn::BitCast(d64, v3);
+
+                            // Stage 1: Interleave pairs (operates on 128-bit lane boundaries in AVX2)
+                            auto t0 = hn::InterleaveLower(d64, v0_64, v1_64);
+                            auto t1 = hn::InterleaveUpper(d64, v0_64, v1_64);
+                            auto t2 = hn::InterleaveLower(d64, v2_64, v3_64);
+                            auto t3 = hn::InterleaveUpper(d64, v2_64, v3_64);
+
+                            // Stage 2: Combine 128-bit halves to finalize the 4x4 matrix
+                            auto tr0 = hn::BitCast(d, hn::Combine(d64, hn::LowerHalf(d64, t2), hn::LowerHalf(d64, t0)));
+                            auto tr1 = hn::BitCast(d, hn::Combine(d64, hn::LowerHalf(d64, t3), hn::LowerHalf(d64, t1)));
+                            auto tr2 = hn::BitCast(d, hn::Combine(d64, hn::UpperHalf(d64, t2), hn::UpperHalf(d64, t0)));
+                            auto tr3 = hn::BitCast(d, hn::Combine(d64, hn::UpperHalf(d64, t3), hn::UpperHalf(d64, t1)));
+
+                            hn::Stream(tr0, d, &ptr_out[((k + 0) * l_ + c) * 2]);
+                            hn::Stream(tr1, d, &ptr_out[((k + 1) * l_ + c) * 2]);
+                            hn::Stream(tr2, d, &ptr_out[((k + 2) * l_ + c) * 2]);
+                            hn::Stream(tr3, d, &ptr_out[((k + 3) * l_ + c) * 2]);
+                        } else {
+                            for (size_t i = 0; i < c_per_vec; ++i) {
+                                for (size_t j = 0; j < c_per_vec; ++j) {
+                                    out_buffer[(k + j) * l_ + (c + i)] = aos_matrix[(c + i) * M_padded + (k + j)];
+                                }
+                            }
+                        }
+                    }
+
+                    for (; k < k_max; ++k) {
+                        for (size_t i = 0; i < c_per_vec; ++i) {
+                            out_buffer[k * l_ + (c + i)] = aos_matrix[(c + i) * M_padded + k];
+                        }
+                    }
+                }
+
+                for (; c < c_max; ++c) {
+                    for (size_t k = k_macro; k < k_max; ++k) {
+                        out_buffer[k * l_ + c] = aos_matrix[c * M_padded + k];
+                    }
+                }
+            }
+        }
+    }
+
+    template <typename F>
+    class HybridAoSoA2 {
         using C = std::complex<F>;
 
     private:
@@ -207,7 +334,7 @@ namespace zlfft {
         std::unique_ptr<SIMDLowOrderAOSOA1<F>> low_order_fft_;
 
     public:
-        explicit HybridAoSoA1(const size_t order) :
+        explicit HybridAoSoA2(const size_t order) :
             order_(order) {
             n_ = static_cast<size_t>(1) << order_;
 
@@ -397,78 +524,82 @@ namespace zlfft {
 
             F* __restrict l1_buf_A = workspace_.get() + 4 * stride_;
             F* __restrict l1_buf_B = workspace_.get() + 4 * stride_ + 2 * M;
-            for (size_t l_idx = 0; l_idx < l_; ++l_idx) {
-                F* __restrict main_mem_in = buf0 + 2 * l_idx * M;
-                F* current_in = main_mem_in;
-                F* current_out = l1_buf_A;
-
-                if (micro_stages_[0] == common::StageType::kRadix4FirstPass) {
-                    common::radix4_first_pass_aosoa(current_in, current_out, M);
-                } else {
-                    common::radix8_first_pass_aosoa(current_in, current_out, M);
-                }
-
-                current_in = l1_buf_A;
-                current_out = l1_buf_B;
-                const F* __restrict uw_ptr = micro_twiddles_.get();
-
-                size_t width = (micro_stages_[0] == common::StageType::kRadix4FirstPass) ? 4 : 8;
-                for (size_t i = 1; i < micro_stages_.size() - 1; ++i) {
-                    const auto stage = micro_stages_[i];
-                    switch (stage) {
-                    case common::StageType::kRadix4Width4: {
-                        common::radix4_width4_aosoa(current_in, current_out, M, uw_ptr);
-                        uw_ptr += 6 * width4_vec;
-                        width = width << 2;
-                        break;
-                    }
-                    case common::StageType::kRadix4: {
-                        common::radix4_aosoa(current_in, current_out, M, width, uw_ptr);
-                        const size_t num_blocks = std::max<size_t>(1, width / lanes);
-                        uw_ptr += num_blocks * 6 * lanes;
-                        width = width << 2;
-                        break;
-                    }
-                    case common::StageType::kRadix8: {
-                        common::radix8_aosoa(current_in, current_out, M, width, uw_ptr);
-                        const size_t num_blocks = std::max<size_t>(1, width / lanes);
-                        uw_ptr += num_blocks * 14 * lanes;
-                        width = width << 3;
-                        break;
-                    }
-                    default:
-                        break;
-                    }
-                    std::swap(current_in, current_out);
-                }
-
-                const size_t reversed_c = digit_rev_4_[l_idx];
-                std::complex<F>* out_aos = aos_matrix + reversed_c * M_padded;
-                common::radix4_last_pass_fused_aosoa(current_in, out_aos, M, width, uw_ptr);
-            }
 
             static constexpr size_t MACRO_TILE_C = 64;
             static constexpr size_t MACRO_TILE_K = 64;
             static constexpr size_t c_per_vec = lanes / 2;
 
             for (size_t c_macro = 0; c_macro < l_; c_macro += MACRO_TILE_C) {
+                const size_t c_max = std::min(c_macro + MACRO_TILE_C, l_);
+                const size_t c_chunk_size = c_max - c_macro;
+
+                for (size_t c_offset = 0; c_offset < c_chunk_size; ++c_offset) {
+                    const size_t reversed_c = c_macro + c_offset;
+                    const size_t l_idx = digit_rev_4_[reversed_c];
+
+                    F* __restrict main_mem_in = buf0 + 2 * l_idx * M;
+                    F* current_in = main_mem_in;
+                    F* current_out = l1_buf_A;
+
+                    if (micro_stages_[0] == common::StageType::kRadix4FirstPass) {
+                        common::radix4_first_pass_aosoa(current_in, current_out, M);
+                    } else {
+                        common::radix8_first_pass_aosoa(current_in, current_out, M);
+                    }
+
+                    current_in = l1_buf_A;
+                    current_out = l1_buf_B;
+                    const F* __restrict uw_ptr = micro_twiddles_.get();
+
+                    size_t width = (micro_stages_[0] == common::StageType::kRadix4FirstPass) ? 4 : 8;
+                    for (size_t i = 1; i < micro_stages_.size() - 1; ++i) {
+                        const auto stage = micro_stages_[i];
+                        switch (stage) {
+                        case common::StageType::kRadix4Width4: {
+                            common::radix4_width4_aosoa(current_in, current_out, M, uw_ptr);
+                            uw_ptr += 6 * width4_vec;
+                            width = width << 2;
+                            break;
+                        }
+                        case common::StageType::kRadix4: {
+                            common::radix4_aosoa(current_in, current_out, M, width, uw_ptr);
+                            const size_t num_blocks = std::max<size_t>(1, width / lanes);
+                            uw_ptr += num_blocks * 6 * lanes;
+                            width = width << 2;
+                            break;
+                        }
+                        case common::StageType::kRadix8: {
+                            common::radix8_aosoa(current_in, current_out, M, width, uw_ptr);
+                            const size_t num_blocks = std::max<size_t>(1, width / lanes);
+                            uw_ptr += num_blocks * 14 * lanes;
+                            width = width << 3;
+                            break;
+                        }
+                        default:
+                            break;
+                        }
+                        std::swap(current_in, current_out);
+                    }
+
+                    std::complex<F>* out_aos = aos_matrix + c_offset * M_padded;
+                    common::radix4_last_pass_fused_aosoa(current_in, out_aos, M, width, uw_ptr);
+                }
+
                 for (size_t k_macro = 0; k_macro < M; k_macro += MACRO_TILE_K) {
-
-                    const size_t c_max = std::min(c_macro + MACRO_TILE_C, l_);
                     const size_t k_max = std::min(k_macro + MACRO_TILE_K, M);
-
                     for (size_t k = k_macro; k < k_max; ++k) {
-                        size_t c = c_macro;
-                        for (; c + c_per_vec <= c_max; c += c_per_vec) {
+                        size_t c = 0;
+                        const size_t out_shift = k * l_ + c_macro;
+                        for (; c + c_per_vec <= c_chunk_size; c += c_per_vec) {
                             alignas(64) std::complex<F> tmp[32];
                             for (size_t i = 0; i < c_per_vec; ++i) {
                                 tmp[i] = aos_matrix[(c + i) * M_padded + k];
                             }
                             auto v = hn::Load(d, reinterpret_cast<const F*>(tmp));
-                            hn::Stream(v, d, reinterpret_cast<F*>(out_buffer.data() + k * l_ + c));
+                            hn::Stream(v, d, reinterpret_cast<F*>(out_buffer.data() + out_shift + c));
                         }
-                        for (; c < c_max; ++c) {
-                            out_buffer[k * l_ + c] = aos_matrix[c * M_padded + k];
+                        for (; c < c_chunk_size; ++c) {
+                            out_buffer[out_shift + c] = aos_matrix[c * M_padded + k];
                         }
                     }
                 }
