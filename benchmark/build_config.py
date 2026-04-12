@@ -44,7 +44,7 @@ algos = ["naive_stockham_radix2", "naive_cooley_radix2", "naive_stockham_radix4"
 
 def get_algo_list(full=False):
     if not full:
-        return ["kfr", "vdsp", "ipp", "zldsp", "pffft", "zldsp", "hybrid_aosoa3"]
+        return ["kfr", "vdsp", "ipp", "zldsp", "pffft", "zldsp", "hybrid_aosoa2", "hybrid_aosoa3"]
     else:
         return ["fftw3", "fftw3_estimate", "kfr", "vdsp", "ipp", "pffft", "zldsp", "simd_low_order_aosoa9", "hybrid_aosoa2", "hybrid_aosoa3"]
 
