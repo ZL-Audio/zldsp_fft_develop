@@ -45,13 +45,11 @@ namespace zlfft {
             n_ = static_cast<size_t>(1) << order_;
 
             size_t l1d = common::get_l1d_cache_size();
-            size_t working_set_per_item = 6 * sizeof(F);
-
-            size_t max_m_val = (l1d / 2) / working_set_per_item;
+            size_t max_m_val = l1d / (8 * sizeof(F));
             max_m_ = (max_m_val == 0) ? 0 : std::bit_width(max_m_val) - 1;
 
             size_t l2d = common::get_l2_cache_size();
-            size_t max_l2_elements = (l2d / 2) / working_set_per_item;
+            size_t max_l2_elements = l2d / (12 * sizeof(F));
             size_t max_l2_order = (max_l2_elements == 0) ? 0 : std::bit_width(max_l2_elements) - 1;
             max_l2_order = std::max(max_m_ + 4, max_l2_order);
 
