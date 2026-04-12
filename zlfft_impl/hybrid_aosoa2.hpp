@@ -316,20 +316,16 @@ namespace zlfft {
                 }
 
                 for (size_t k_macro = 0; k_macro < M; k_macro += MACRO_TILE_K) {
-                    const size_t k_max = std::min(k_macro + MACRO_TILE_K, M);
+                    const size_t k_max = k_macro + MACRO_TILE_K;
                     for (size_t k = k_macro; k < k_max; ++k) {
-                        size_t c = 0;
                         const size_t out_shift = k * l_ + c_macro;
-                        for (; c + c_per_vec <= c_chunk_size; c += c_per_vec) {
+                        for (size_t c = 0; c < c_chunk_size; c += c_per_vec) {
                             alignas(64) std::complex<F> tmp[32];
                             for (size_t i = 0; i < c_per_vec; ++i) {
                                 tmp[i] = aos_matrix[(c + i) * M_padded + k];
                             }
                             auto v = hn::Load(d, reinterpret_cast<const F*>(tmp));
                             hn::Stream(v, d, reinterpret_cast<F*>(out_buffer.data() + out_shift + c));
-                        }
-                        for (; c < c_chunk_size; ++c) {
-                            out_buffer[out_shift + c] = aos_matrix[c * M_padded + k];
                         }
                     }
                 }
