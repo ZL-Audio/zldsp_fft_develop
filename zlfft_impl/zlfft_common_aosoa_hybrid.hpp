@@ -75,16 +75,47 @@ namespace zlfft::common {
                 for (const auto& info : buffer) {
                     if (info.Relationship == RelationCache) {
                         if (info.Cache.Level == 2 &&
-                           (info.Cache.Type == CacheData || info.Cache.Type == CacheUnified)) {
+                            (info.Cache.Type == CacheData || info.Cache.Type == CacheUnified)) {
                             l2_size = info.Cache.Size;
                             break;
-                           }
+                        }
                     }
                 }
             }
         }
 #endif
         return l2_size;
+    }
+
+    inline size_t get_l3_cache_size() {
+        size_t l3_size = 0;
+#if defined(__APPLE__)
+        l3_size = 0;
+#elif defined(__linux__)
+        long size = sysconf(_SC_LEVEL3_CACHE_SIZE);
+        if (size > 0) {
+            l3_size = static_cast<size_t>(size);
+        }
+#elif defined(_WIN32)
+        DWORD buffer_size = 0;
+        GetLogicalProcessorInformation(nullptr, &buffer_size);
+        if (GetLastError() == ERROR_INSUFFICIENT_BUFFER) {
+            std::vector<SYSTEM_LOGICAL_PROCESSOR_INFORMATION> buffer(
+                buffer_size / sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION));
+            if (GetLogicalProcessorInformation(buffer.data(), &buffer_size)) {
+                for (const auto& info : buffer) {
+                    if (info.Relationship == RelationCache) {
+                        if (info.Cache.Level == 3 &&
+                            (info.Cache.Type == CacheData || info.Cache.Type == CacheUnified)) {
+                            l3_size = info.Cache.Size;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+#endif
+        return l3_size;
     }
 
     template <typename F>

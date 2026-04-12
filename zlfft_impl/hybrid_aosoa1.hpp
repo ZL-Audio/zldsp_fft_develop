@@ -5,6 +5,7 @@
 #include "zlfft_common_aosoa_hybrid.hpp"
 #include "zlfft_common_high_order.hpp"
 #include "simd_low_order_aosoa1.hpp"
+#include <thread>
 #include <memory>
 #include <vector>
 #include <iostream>
@@ -41,19 +42,30 @@ namespace zlfft {
 
     public:
         explicit HybridAoSoA1(const size_t order) :
-            order_(order) {
+        order_(order) {
             n_ = static_cast<size_t>(1) << order_;
 
-            size_t l1d = common::get_l1d_cache_size();
+            const size_t l1d = common::get_l1d_cache_size();
             size_t max_m_val = l1d / (8 * sizeof(F));
             max_m_ = (max_m_val == 0) ? 0 : std::bit_width(max_m_val) - 1;
 
-            size_t l2d = common::get_l2_cache_size();
-            size_t max_l2_elements = l2d / (12 * sizeof(F));
-            size_t max_l2_order = (max_l2_elements == 0) ? 0 : std::bit_width(max_l2_elements) - 1;
-            max_l2_order = std::max(max_m_ + 4, max_l2_order);
+            const size_t l2d = common::get_l2_cache_size();
+            const size_t max_l2_elements = l2d / (12 * sizeof(F));
+            const size_t max_l2_order = (max_l2_elements == 0) ? 0 : std::bit_width(max_l2_elements) - 1;
 
-            if (order_ < max_l2_order || order_ <= 5) {
+            const size_t l3d = common::get_l3_cache_size();
+            const auto num_threads = std::thread::hardware_concurrency();
+
+            const bool is_safe_l3 = (l3d > (64ULL * 1024 * 1024) || num_threads > 32);
+
+            size_t pure_stockham_limit = std::max(max_m_ + 4, max_l2_order);
+            if (is_safe_l3 && l3d > 0) {
+                const size_t max_l3_elements = l3d / (12 * sizeof(F));
+                const size_t max_l3_order = (max_l3_elements == 0) ? 0 : std::bit_width(max_l3_elements) - 1;
+                pure_stockham_limit = std::max(pure_stockham_limit, max_l3_order);
+            }
+
+            if (order_ < pure_stockham_limit) {
                 low_order_fft_ = std::make_unique<SIMDLowOrderAOSOA1<F>>(order_);
                 return;
             }
