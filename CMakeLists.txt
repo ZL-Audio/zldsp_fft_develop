@@ -351,7 +351,6 @@ if (ACCURACY_MID_TEST AND TARGET zlfft_accuracy_mid)
     endif ()
     target_link_libraries(zlfft_accuracy_mid PRIVATE PFFFT)
 
-    # ── KFR ──
     if (NOT TARGET kfr)
         set(KFR_USE_BOOST_MATH OFF CACHE BOOL "" FORCE)
         set(KFR_USE_BOOST OFF CACHE BOOL "" FORCE)
@@ -368,7 +367,6 @@ if (ACCURACY_MID_TEST AND TARGET zlfft_accuracy_mid)
     endif ()
     target_link_libraries(zlfft_accuracy_mid PRIVATE kfr kfr_dft)
 
-    # ── FFTW3 ──
     set(BUILD_TESTS OFF CACHE BOOL "" FORCE)
     if (USE_DOUBLE)
         set(ENABLE_FLOAT OFF CACHE BOOL "" FORCE)
@@ -402,7 +400,6 @@ if (ACCURACY_MID_TEST AND TARGET zlfft_accuracy_mid)
     target_link_libraries(zlfft_accuracy_mid PRIVATE ${FFTW_MID_TARGET})
     target_include_directories(zlfft_accuracy_mid PRIVATE fftw3_impl/fftw3/api)
 
-    # ── Compile options ──
     if (MSVC)
         target_compile_options(zlfft_accuracy_mid PRIVATE $<$<CONFIG:RELEASE>:/fp:precise>)
     else ()
