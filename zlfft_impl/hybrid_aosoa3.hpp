@@ -15,7 +15,7 @@ namespace zlfft {
     namespace hn = hwy::HWY_NAMESPACE;
 
     template <typename F>
-    class HybridAoSoA2 {
+    class HybridAoSoA3 {
         using C = std::complex<F>;
 
     private:
@@ -41,7 +41,7 @@ namespace zlfft {
         std::unique_ptr<SIMDLowOrderAOSOA1<F>> low_order_fft_;
 
     public:
-        explicit HybridAoSoA2(const size_t order) :
+        explicit HybridAoSoA3(const size_t order) :
             order_(order) {
             n_ = static_cast<size_t>(1) << order_;
 
@@ -255,15 +255,6 @@ namespace zlfft {
                 const size_t c_max = std::min(c_macro + MACRO_TILE_C, l_);
                 const size_t c_chunk_size = c_max - c_macro;
                 for (size_t c_offset = 0; c_offset < c_chunk_size; ++c_offset) {
-                    if (c_offset + 2 < c_chunk_size) {
-                        const size_t future_c = c_macro + c_offset + 2;
-                        const size_t future_l_idx = digit_rev_4_[future_c];
-                        const F* future_in = buf0 + 2 * future_l_idx * M;
-
-                        hwy::Prefetch(future_in);
-                        hwy::Prefetch(future_in + 16);
-                    }
-
                     const size_t reversed_c = c_macro + c_offset;
                     const size_t l_idx = digit_rev_4_[reversed_c];
 
@@ -309,6 +300,17 @@ namespace zlfft {
                             break;
                         }
                         std::swap(current_in, current_out);
+                    }
+                    if (const size_t future_c = c_macro + c_offset + 1; future_c < l_) {
+                        const size_t future_l_idx = digit_rev_4_[future_c];
+                        const F* future_in = buf0 + 2 * future_l_idx * M;
+                        static constexpr size_t elements_per_line = 64 / sizeof(F);
+                        static constexpr size_t max_prefetch_lines = 8;
+                        const size_t total_lines = (2 * M) / elements_per_line;
+                        const size_t lines_to_fetch = std::min<size_t>(total_lines, max_prefetch_lines);
+                        for (size_t line = 0; line < lines_to_fetch; ++line) {
+                            hwy::Prefetch(future_in + line * elements_per_line);
+                        }
                     }
                     std::complex<F>* out_aos = aos_matrix + c_offset * M_padded;
                     common::radix4_last_pass_fused_aosoa(current_in, out_aos, M, width, uw_ptr);
