@@ -44,9 +44,9 @@ algos = ["naive_stockham_radix2", "naive_cooley_radix2", "naive_stockham_radix4"
 
 def get_algo_list(full=False):
     if not full:
-        return ["kfr", "vdsp", "ipp", "zldsp", "pffft", "zldsp", "hybrid_aosoa2", "hybrid_aosoa3"]
+        return ["kfr", "vdsp", "ipp", "zldsp", "pffft", "simd_low_order_aosoa1", "simd_low_order_aosoa9", "hybrid_aosoa3"]
     else:
-        return ["fftw3", "fftw3_estimate", "kfr", "vdsp", "ipp", "pffft", "zldsp", "simd_low_order_aosoa9", "hybrid_aosoa2", "hybrid_aosoa3"]
+        return ["fftw3", "fftw3_estimate", "kfr", "vdsp", "ipp", "pffft", "simd_low_order_aosoa1", "simd_low_order_aosoa9", "hybrid_aosoa3"]
 
 def replace_result_keys(results):
     r = {}
@@ -60,7 +60,7 @@ def replace_result_keys(results):
         elif key == "simd_low_order_opt2":
             r["radix-8"] = value
         elif key == "simd_low_order_aosoa1":
-            r["radix-4 AoSoA"] = value
+            r["Naive AoSoA"] = value
         elif key == "simd_low_order_aosoa2":
             r["radix-8 AoSoA"] = value
         elif key == "simd_low_order_aosoa5":
@@ -70,13 +70,13 @@ def replace_result_keys(results):
         elif key == "simd_low_order_aosoa8":
             r["radix-8 AoSoA Shuffle"] = value
         elif key == "simd_low_order_aosoa9":
-            r["Mix AoSoA Shuffle"] = value
+            r["Shuffle AoSoA"] = value
         elif key == "hybrid_aosoa1":
             r["Hybrid AoSoA1"] = value
         elif key == "hybrid_aosoa2":
             r["Hybrid AoSoA2"] = value
         elif key == "hybrid_aosoa3":
-            r["Hybrid AoSoA3"] = value
+            r["Hybrid AoSoA"] = value
         else:
             r[key] = value
     return r
