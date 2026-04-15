@@ -46,8 +46,7 @@ int main(int argc, char** argv) {
 
     benchmark::RegisterBenchmark("BM_Fft_Throughput", BM_Fft_Throughput)
         ->DenseRange(n0, n1, 1)
-        ->Unit(benchmark::kMicrosecond)
-        ->Repetitions(10);
+        ->Unit(benchmark::kMicrosecond);
 
     benchmark::RunSpecifiedBenchmarks();
     benchmark::Shutdown();
