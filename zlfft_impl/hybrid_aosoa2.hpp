@@ -54,9 +54,7 @@ namespace zlfft {
             const size_t max_l2_order = (max_l2_elements == 0) ? 0 : std::bit_width(max_l2_elements) - 1;
 
             const size_t l3d = common::get_l3_cache_size();
-            const auto num_threads = std::thread::hardware_concurrency();
-
-            const bool is_safe_l3 = (l3d > (64ULL * 1024 * 1024) || num_threads > 32);
+            const bool is_safe_l3 = (l3d > (64ULL * 1024 * 1024));
 
             size_t pure_stockham_limit = std::max(max_m_ + 4, max_l2_order);
             if (is_safe_l3 && l3d > 0) {
