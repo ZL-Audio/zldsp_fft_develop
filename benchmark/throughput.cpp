@@ -21,9 +21,11 @@ static void BM_Fft_Throughput(benchmark::State& state) {
 
     for (auto _ : state) {
         fft.forward(in, out);
+        benchmark::DoNotOptimize(out.data()[0]);
         benchmark::DoNotOptimize(out.data());
         benchmark::ClobberMemory();
         fft.forward(out, in);
+        benchmark::DoNotOptimize(in.data()[0]);
         benchmark::DoNotOptimize(in.data());
         benchmark::ClobberMemory();
     }
@@ -44,7 +46,8 @@ int main(int argc, char** argv) {
 
     benchmark::RegisterBenchmark("BM_Fft_Throughput", BM_Fft_Throughput)
         ->DenseRange(n0, n1, 1)
-        ->Unit(benchmark::kMicrosecond);
+        ->Unit(benchmark::kMicrosecond)
+        ->Repetitions(10);
 
     benchmark::RunSpecifiedBenchmarks();
     benchmark::Shutdown();
