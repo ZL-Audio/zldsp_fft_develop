@@ -142,6 +142,9 @@ using FFTClass = zlfft::HybridAoSoA2<F>;
 #elif defined(ENABLE_HYBRID_AOSOA3)
 #include "../zlfft_impl/hybrid_aosoa3.hpp"
 using FFTClass = zlfft::HybridAoSoA3<F>;
+#elif defined(ENABLE_HYBRID_AOSOA4)
+#include "../zlfft_impl/hybrid_aosoa4.hpp"
+using FFTClass = zlfft::HybridAoSoA4<F>;
 #elif defined(ENABLE_ZLDSP)
 #include "../zlfft/zldsp_fft_cfft.hpp"
 using FFTClass = zldsp::fft::CFFT<F>;

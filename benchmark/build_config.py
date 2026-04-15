@@ -37,6 +37,7 @@ algos = ["naive_stockham_radix2", "naive_cooley_radix2", "naive_stockham_radix4"
          "hybrid_aosoa1",
          "hybrid_aosoa2",
          "hybrid_aosoa3",
+         "hybrid_aosoa4",
          "zldsp",
 
          "fftw3", "fftw3_estimate", "kfr", "vdsp", "vdsp_stride_2", "pffft", "ipp"]
@@ -44,9 +45,9 @@ algos = ["naive_stockham_radix2", "naive_cooley_radix2", "naive_stockham_radix4"
 
 def get_algo_list(full=False):
     if not full:
-        return ["kfr", "vdsp", "ipp", "zldsp", "pffft", "simd_low_order_aosoa1", "simd_low_order_aosoa9", "hybrid_aosoa3"]
+        return ["kfr", "vdsp", "ipp", "zldsp", "pffft", "simd_low_order_aosoa1", "simd_low_order_aosoa9", "hybrid_aosoa3", "hybrid_aosoa4"]
     else:
-        return ["fftw3", "fftw3_estimate", "kfr", "vdsp", "ipp", "pffft", "simd_low_order_aosoa1", "simd_low_order_aosoa9", "hybrid_aosoa3"]
+        return ["fftw3", "fftw3_estimate", "kfr", "vdsp", "ipp", "pffft", "simd_low_order_aosoa1", "simd_low_order_aosoa9", "hybrid_aosoa2", "hybrid_aosoa3", "hybrid_aosoa4"]
 
 def replace_result_keys(results):
     r = {}
@@ -76,6 +77,8 @@ def replace_result_keys(results):
         elif key == "hybrid_aosoa2":
             r["Hybrid AoSoA2"] = value
         elif key == "hybrid_aosoa3":
+            r["Hybrid AoSoA3"] = value
+        elif key == "hybrid_aosoa4":
             r["Hybrid AoSoA"] = value
         else:
             r[key] = value

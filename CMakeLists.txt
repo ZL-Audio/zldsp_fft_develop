@@ -13,11 +13,7 @@ option(PROFILER_TEST "Profiler Test (no Google Benchmark)" OFF)
 option(USE_AVX2 "Use AVX2 for benchmarking" OFF)
 
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64" OR CMAKE_SYSTEM_PROCESSOR MATCHES "arm64")
-    if(APPLE)
-        set(GLOBAL_ARCH_FLAGS "-march=armv8-a+simd")
-    else ()
-        set(GLOBAL_ARCH_FLAGS "-mcpu=apple-m1")
-    endif ()
+    set(GLOBAL_ARCH_FLAGS "-march=armv8-a+simd")
 else ()
     if (USE_AVX2)
         if (USE_AMDZEN3)
@@ -116,6 +112,7 @@ set(ZLFFT_ALGO_OPTIONS
     ENABLE_HYBRID_AOSOA1
     ENABLE_HYBRID_AOSOA2
     ENABLE_HYBRID_AOSOA3
+    ENABLE_HYBRID_AOSOA4
     ENABLE_ZLDSP
 )
 
