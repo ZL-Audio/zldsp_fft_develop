@@ -7,7 +7,7 @@ import json
 import shutil
 from build_config import replace_result_keys
 
-ALGO_NAMES = ["kfr", "fftw3", "zldsp", "pffft", "hybrid_aosoa2"]
+ALGO_NAMES = ["kfr", "fftw3", "pffft", "hybrid_aosoa3"]
 NUM_REPS = 10
 
 
