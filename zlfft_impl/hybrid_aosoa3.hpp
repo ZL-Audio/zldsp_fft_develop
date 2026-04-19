@@ -5,6 +5,7 @@
 #include "zlfft_common_aosoa_hybrid.hpp"
 #include "zlfft_common_high_order.hpp"
 #include "simd_low_order_aosoa1.hpp"
+#include "zlfft_common_math.hpp"
 #include <thread>
 #include <memory>
 #include <vector>
@@ -109,18 +110,17 @@ namespace zlfft {
                 size_t sub_n = n_ >> (2 * p);
                 size_t width = sub_n >> 2;
                 size_t num_blocks = std::max<size_t>(1, width / lanes);
-                const double angle_step = -2.0 * std::numbers::pi / static_cast<double>(sub_n);
-
+                const double step = -2.0 / static_cast<double>(sub_n);
                 for (size_t b = 0; b < num_blocks; ++b) {
                     for (size_t l = 0; l < lanes; ++l) {
                         const size_t idx = (b * lanes + l) % width;
-                        const double angle = static_cast<double>(idx) * angle_step;
-                        macro_twiddles_[offset + l] = static_cast<F>(std::cos(angle * 1));
-                        macro_twiddles_[offset + lanes + l] = static_cast<F>(std::sin(angle * 1));
-                        macro_twiddles_[offset + 2 * lanes + l] = static_cast<F>(std::cos(angle * 2));
-                        macro_twiddles_[offset + 3 * lanes + l] = static_cast<F>(std::sin(angle * 2));
-                        macro_twiddles_[offset + 4 * lanes + l] = static_cast<F>(std::cos(angle * 3));
-                        macro_twiddles_[offset + 5 * lanes + l] = static_cast<F>(std::sin(angle * 3));
+                        const double angle = static_cast<double>(idx) * step;
+                        macro_twiddles_[offset + l] = static_cast<F>(math::cospi(angle));
+                        macro_twiddles_[offset + lanes + l] = static_cast<F>(math::sinpi(angle));
+                        macro_twiddles_[offset + 2 * lanes + l] = static_cast<F>(math::cospi(angle * 2.0));
+                        macro_twiddles_[offset + 3 * lanes + l] = static_cast<F>(math::sinpi(angle * 2.0));
+                        macro_twiddles_[offset + 4 * lanes + l] = static_cast<F>(math::cospi(angle * 3.0));
+                        macro_twiddles_[offset + 5 * lanes + l] = static_cast<F>(math::sinpi(angle * 3.0));
                     }
                     offset += 6 * lanes;
                 }
@@ -152,50 +152,46 @@ namespace zlfft {
             for (size_t i = 1; i < micro_stages_.size(); ++i) {
                 const auto stage = micro_stages_[i];
                 if (stage == common::StageType::kRadix4Width4) {
-                    const double angle_step = -2.0 * std::numbers::pi / static_cast<double>(gen_width << 2);
+                    const double step = -2.0 / static_cast<double>(gen_width << 2);
                     for (size_t l = 0; l < width4_vec; ++l) {
-                        const double angle = static_cast<double>(l % 4) * angle_step;
-                        micro_twiddles_[micro_offset + l] = static_cast<F>(std::cos(angle * 1));
-                        micro_twiddles_[micro_offset + width4_vec + l] = static_cast<F>(std::sin(angle * 1));
-                        micro_twiddles_[micro_offset + width4_vec * 2 + l] = static_cast<F>(std::cos(angle * 2));
-                        micro_twiddles_[micro_offset + width4_vec * 3 + l] = static_cast<F>(std::sin(angle * 2));
-                        micro_twiddles_[micro_offset + width4_vec * 4 + l] = static_cast<F>(std::cos(angle * 3));
-                        micro_twiddles_[micro_offset + width4_vec * 5 + l] = static_cast<F>(std::sin(angle * 3));
+                        const double angle = static_cast<double>(l % 4) * step;
+                        micro_twiddles_[micro_offset + l] = static_cast<F>(math::cospi(angle));
+                        micro_twiddles_[micro_offset + width4_vec + l] = static_cast<F>(math::sinpi(angle));
+                        micro_twiddles_[micro_offset + width4_vec * 2 + l] = static_cast<F>(math::cospi(angle * 2.0));
+                        micro_twiddles_[micro_offset + width4_vec * 3 + l] = static_cast<F>(math::sinpi(angle * 2.0));
+                        micro_twiddles_[micro_offset + width4_vec * 4 + l] = static_cast<F>(math::cospi(angle * 3.0));
+                        micro_twiddles_[micro_offset + width4_vec * 5 + l] = static_cast<F>(math::sinpi(angle * 3.0));
                     }
                     micro_offset += 6 * width4_vec;
                     gen_width = gen_width << 2;
                 } else if (stage == common::StageType::kRadix4 || stage == common::StageType::kRadix4LastPass) {
                     size_t num_blocks = std::max<size_t>(1, gen_width / lanes);
-                    const double angle_step = -2.0 * std::numbers::pi / static_cast<double>(gen_width << 2);
-
+                    const double step = -2.0 / static_cast<double>(gen_width << 2);
                     for (size_t b = 0; b < num_blocks; ++b) {
                         for (size_t l = 0; l < lanes; ++l) {
                             const size_t idx = (b * lanes + l) % gen_width;
-                            const double angle = static_cast<double>(idx) * angle_step;
-                            micro_twiddles_[micro_offset + l] = static_cast<F>(std::cos(angle * 1));
-                            micro_twiddles_[micro_offset + lanes + l] = static_cast<F>(std::sin(angle * 1));
-                            micro_twiddles_[micro_offset + 2 * lanes + l] = static_cast<F>(std::cos(angle * 2));
-                            micro_twiddles_[micro_offset + 3 * lanes + l] = static_cast<F>(std::sin(angle * 2));
-                            micro_twiddles_[micro_offset + 4 * lanes + l] = static_cast<F>(std::cos(angle * 3));
-                            micro_twiddles_[micro_offset + 5 * lanes + l] = static_cast<F>(std::sin(angle * 3));
+                            const double angle = static_cast<double>(idx) * step;
+                            micro_twiddles_[micro_offset + l] = static_cast<F>(math::cospi(angle));
+                            micro_twiddles_[micro_offset + lanes + l] = static_cast<F>(math::sinpi(angle));
+                            micro_twiddles_[micro_offset + 2 * lanes + l] = static_cast<F>(math::cospi(angle * 2.0));
+                            micro_twiddles_[micro_offset + 3 * lanes + l] = static_cast<F>(math::sinpi(angle * 2.0));
+                            micro_twiddles_[micro_offset + 4 * lanes + l] = static_cast<F>(math::cospi(angle * 3.0));
+                            micro_twiddles_[micro_offset + 5 * lanes + l] = static_cast<F>(math::sinpi(angle * 3.0));
                         }
                         micro_offset += 6 * lanes;
                     }
                     gen_width = gen_width << 2;
                 } else if (stage == common::StageType::kRadix8) {
                     size_t num_blocks = std::max<size_t>(1, gen_width / lanes);
-                    const double angle_step = -2.0 * std::numbers::pi / static_cast<double>(gen_width << 3);
-
+                    const double step = -2.0 / static_cast<double>(gen_width << 3);
                     for (size_t b = 0; b < num_blocks; ++b) {
                         for (size_t l = 0; l < lanes; ++l) {
                             const size_t idx = (b * lanes + l) % gen_width;
-                            const double angle = static_cast<double>(idx) * angle_step;
                             const int muls[7] = {3, 1, 5, 0, 4, 2, 6};
-                            for (int m_val = 0; m_val < 7; ++m_val) {
-                                micro_twiddles_[micro_offset + 2 * m_val * lanes + l] = static_cast<F>(std::cos(
-                                    angle * muls[m_val]));
-                                micro_twiddles_[micro_offset + (2 * m_val + 1) * lanes + l] = static_cast<F>(std::sin(
-                                    angle * muls[m_val]));
+                            for (int m = 0; m < 7; ++m) {
+                                const double angle = static_cast<double>(idx) * step * muls[m];
+                                micro_twiddles_[micro_offset + 2 * m * lanes + l] = static_cast<F>(math::cospi(angle));
+                                micro_twiddles_[micro_offset + (2 * m + 1) * lanes + l] = static_cast<F>(math::sinpi(angle));
                             }
                         }
                         micro_offset += 14 * lanes;

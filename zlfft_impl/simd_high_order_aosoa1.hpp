@@ -2,6 +2,7 @@
 
 #include "zlfft_common_aosoa.hpp"
 #include "zlfft_common_high_order.hpp"
+#include "zlfft_common_math.hpp"
 
 namespace zlfft {
     namespace hn = hwy::HWY_NAMESPACE;
@@ -66,47 +67,46 @@ namespace zlfft {
             for (size_t i = 1; i < stages_.size(); ++i) {
                 const auto stage = stages_[i];
                 if (stage == common::StageType::kRadix4Width4) {
-                    const double angle_step = -2.0 * std::numbers::pi / static_cast<double>(gen_width << 2);
+                    const double step = -2.0 / static_cast<double>(gen_width << 2);
                     for (size_t l = 0; l < width4_vec; ++l) {
-                        const double angle = static_cast<double>(l % 4) * angle_step;
-                        sub_twiddles_aosoa_[offset + l] = static_cast<F>(std::cos(angle * 1));
-                        sub_twiddles_aosoa_[offset + width4_vec + l] = static_cast<F>(std::sin(angle * 1));
-                        sub_twiddles_aosoa_[offset + width4_vec * 2 + l] = static_cast<F>(std::cos(angle * 2));
-                        sub_twiddles_aosoa_[offset + width4_vec * 3 + l] = static_cast<F>(std::sin(angle * 2));
-                        sub_twiddles_aosoa_[offset + width4_vec * 4 + l] = static_cast<F>(std::cos(angle * 3));
-                        sub_twiddles_aosoa_[offset + width4_vec * 5 + l] = static_cast<F>(std::sin(angle * 3));
+                        const double angle = static_cast<double>(l % 4) * step;
+                        sub_twiddles_aosoa_[offset + l] = static_cast<F>(math::cospi(angle));
+                        sub_twiddles_aosoa_[offset + width4_vec + l] = static_cast<F>(math::sinpi(angle));
+                        sub_twiddles_aosoa_[offset + width4_vec * 2 + l] = static_cast<F>(math::cospi(angle * 2.0));
+                        sub_twiddles_aosoa_[offset + width4_vec * 3 + l] = static_cast<F>(math::sinpi(angle * 2.0));
+                        sub_twiddles_aosoa_[offset + width4_vec * 4 + l] = static_cast<F>(math::cospi(angle * 3.0));
+                        sub_twiddles_aosoa_[offset + width4_vec * 5 + l] = static_cast<F>(math::sinpi(angle * 3.0));
                     }
                     offset += 6 * width4_vec;
                     gen_width = gen_width << 2;
                 } else if (stage == common::StageType::kRadix4) {
                     size_t num_blocks = std::max<size_t>(1, gen_width / lanes);
-                    const double angle_step = -2.0 * std::numbers::pi / static_cast<double>(gen_width << 2);
+                    const double step = -2.0 / static_cast<double>(gen_width << 2);
                     for (size_t b = 0; b < num_blocks; ++b) {
                         for (size_t l = 0; l < lanes; ++l) {
                             const size_t idx = (b * lanes + l) % gen_width;
-                            const double angle = static_cast<double>(idx) * angle_step;
-                            sub_twiddles_aosoa_[offset + l] = static_cast<F>(std::cos(angle));
-                            sub_twiddles_aosoa_[offset + lanes + l] = static_cast<F>(std::sin(angle));
-                            sub_twiddles_aosoa_[offset + 2 * lanes + l] = static_cast<F>(std::cos(angle * 2));
-                            sub_twiddles_aosoa_[offset + 3 * lanes + l] = static_cast<F>(std::sin(angle * 2));
-                            sub_twiddles_aosoa_[offset + 4 * lanes + l] = static_cast<F>(std::cos(angle * 3));
-                            sub_twiddles_aosoa_[offset + 5 * lanes + l] = static_cast<F>(std::sin(angle * 3));
+                            const double angle = static_cast<double>(idx) * step;
+                            sub_twiddles_aosoa_[offset + l] = static_cast<F>(math::cospi(angle));
+                            sub_twiddles_aosoa_[offset + lanes + l] = static_cast<F>(math::sinpi(angle));
+                            sub_twiddles_aosoa_[offset + 2 * lanes + l] = static_cast<F>(math::cospi(angle * 2.0));
+                            sub_twiddles_aosoa_[offset + 3 * lanes + l] = static_cast<F>(math::sinpi(angle * 2.0));
+                            sub_twiddles_aosoa_[offset + 4 * lanes + l] = static_cast<F>(math::cospi(angle * 3.0));
+                            sub_twiddles_aosoa_[offset + 5 * lanes + l] = static_cast<F>(math::sinpi(angle * 3.0));
                         }
                         offset += 6 * lanes;
                     }
                     gen_width = gen_width << 2;
                 } else if (stage == common::StageType::kRadix8) {
                     size_t num_blocks = std::max<size_t>(1, gen_width / lanes);
-                    const double angle_step = -2.0 * std::numbers::pi / static_cast<double>(gen_width << 3);
-
+                    const double step = -2.0 / static_cast<double>(gen_width << 3);
                     for (size_t b = 0; b < num_blocks; ++b) {
                         for (size_t l = 0; l < lanes; ++l) {
                             const size_t idx = (b * lanes + l) % gen_width;
-                            const double angle = static_cast<double>(idx) * angle_step;
                             const int muls[7] = {3, 1, 5, 0, 4, 2, 6};
                             for (int m = 0; m < 7; ++m) {
-                                sub_twiddles_aosoa_[offset + 2 * m * lanes + l] = static_cast<F>(std::cos(angle * muls[m]));
-                                sub_twiddles_aosoa_[offset + (2 * m + 1) * lanes + l] = static_cast<F>(std::sin(angle * muls[m]));
+                                const double angle = static_cast<double>(idx) * step * muls[m];
+                                sub_twiddles_aosoa_[offset + 2 * m * lanes + l] = static_cast<F>(math::cospi(angle));
+                                sub_twiddles_aosoa_[offset + (2 * m + 1) * lanes + l] = static_cast<F>(math::sinpi(angle));
                             }
                         }
                         offset += 14 * lanes;
