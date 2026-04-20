@@ -295,7 +295,7 @@ namespace zlfft {
                         }
                         std::swap(current_in, current_out);
                     }
-                    if (const size_t future_c = c_macro + c_offset + 1; future_c < l_) {
+                    if (const size_t future_c = c_macro + c_offset + 1; c_offset + 1 < c_chunk_size) {
                         const size_t future_l_idx = digit_rev_4_[future_c];
                         const F* future_in = buf0 + 2 * future_l_idx * M;
                         static constexpr size_t elements_per_line = 64 / sizeof(F);

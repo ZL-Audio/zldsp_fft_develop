@@ -47,12 +47,16 @@ def get_algo_list(full=False):
     if not full:
         return ["kfr", "vdsp", "ipp", "zldsp", "pffft", "simd_low_order_aosoa1", "simd_low_order_aosoa9", "hybrid_aosoa3", "hybrid_aosoa4"]
     else:
-        return ["fftw3", "fftw3_estimate", "kfr", "vdsp", "ipp", "pffft", "simd_low_order_aosoa1", "simd_low_order_aosoa9", "hybrid_aosoa2", "hybrid_aosoa3", "hybrid_aosoa4"]
+        return ["vdsp", "ipp", "fftw3", "fftw3_estimate", "kfr", "pffft", "simd_low_order_aosoa1", "simd_low_order_aosoa9", "hybrid_aosoa3"]
 
 def replace_result_keys(results):
     r = {}
     for key, value in results.items():
-        if key == "pffft":
+        if key == "vdsp":
+            r["vDSP"] = value
+        elif key == "ipp":
+            r["IPP"] = value
+        elif key == "pffft":
             r["PFFFT"] = value
         elif key == "kfr":
             r["KFR"] = value
