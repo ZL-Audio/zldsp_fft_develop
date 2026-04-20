@@ -3,18 +3,6 @@
 #include <cmath>
 #include <numbers>
 
-#if defined(__linux__) && defined(__GLIBC__)
-extern "C" {
-double sinpi(double);
-
-double cospi(double);
-
-float sinpif(float);
-
-float cospif(float);
-}
-#endif
-
 namespace zlfft::math {
 
 #if defined(__APPLE__)
@@ -24,15 +12,7 @@ namespace zlfft::math {
     inline float cospi_f(const float x) { return ::__cospif(x); }
     inline float sinpi_f(const float x) { return ::__sinpif(x); }
 
-#elif defined(__linux__) && defined(__GLIBC__)
-
-    inline double cospi_d(const double x) { return ::cospi(x); }
-    inline double sinpi_d(const double x) { return ::sinpi(x); }
-    inline float cospi_f(const float x) { return ::cospif(x); }
-    inline float sinpi_f(const float x) { return ::sinpif(x); }
-
 #else
-
     constexpr double PI_D = std::numbers::pi_v<double>;
     constexpr float PI_F = std::numbers::pi_v<float>;
 
@@ -42,6 +22,7 @@ namespace zlfft::math {
             return 0.0;
         return std::cos(x * PI_D);
     }
+
     inline double sinpi_d(const double x) {
         double rem = std::fmod(std::abs(x), 1.0);
         if (rem == 0.0)
@@ -55,13 +36,13 @@ namespace zlfft::math {
             return 0.0f;
         return std::cos(x * PI_F);
     }
+
     inline float sinpi_f(const float x) {
         float rem = std::fmod(std::abs(x), 1.0f);
         if (rem == 0.0f)
             return 0.0f;
         return std::sin(x * PI_F);
     }
-
 #endif
 
     template <typename T>
