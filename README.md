@@ -64,7 +64,7 @@ Naive algorithms, which rely on compiler optimization:
 - `stockham_radix2_kernel24`
 - `stockham_radix2_kernel248`
 
-SIMD-accelerated algorithms, which utilize Google Highway:
+SIMD-accelerated algorithms:
 
 - `simd_stockham_radix2`
 - `simd_stockham_radix2_kernel1` 
@@ -73,9 +73,17 @@ SIMD-accelerated algorithms, which utilize Google Highway:
 - `simd_stockham_radix4`
 - see more in `benchmark/build_config.py`
 
-Optimized algorithm:
+SIMD-accelerated Naive Algorithm:
 
-- `zldsp`
+- `simd_low_order_aosos1`
+
+SIMD-accelerated Shuffle Algorithm:
+
+- `simd_low_order_aosos9`
+
+SIMD-accelerated Hybrid Algorithm:
+
+- `hybrid_aosoa3`
 
 External libraries:
 
