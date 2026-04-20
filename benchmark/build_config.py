@@ -52,16 +52,20 @@ def get_algo_list(full=False):
 def replace_result_keys(results):
     r = {}
     for key, value in results.items():
-        if key == "fftw3":
-            r["fftw3 measure"] = value
+        if key == "pffft":
+            r["PFFFT"] = value
+        elif key == "kfr":
+            r["KFR"] = value
+        elif key == "fftw3":
+            r["FFTW3"] = value
         elif key == "fftw3_estimate":
-            r["fftw3 estimate"] = value
+            r["FFTW3 estimate"] = value
         elif key == "simd_low_order_opt1":
             r["radix-4"] = value
         elif key == "simd_low_order_opt2":
             r["radix-8"] = value
         elif key == "simd_low_order_aosoa1":
-            r["Naive AoSoA"] = value
+            r["Naive"] = value
         elif key == "simd_low_order_aosoa2":
             r["radix-8 AoSoA"] = value
         elif key == "simd_low_order_aosoa5":
@@ -71,15 +75,13 @@ def replace_result_keys(results):
         elif key == "simd_low_order_aosoa8":
             r["radix-8 AoSoA Shuffle"] = value
         elif key == "simd_low_order_aosoa9":
-            r["Shuffle AoSoA"] = value
+            r["Shuffle"] = value
         elif key == "hybrid_aosoa1":
             r["Hybrid AoSoA1"] = value
         elif key == "hybrid_aosoa2":
             r["Hybrid AoSoA2"] = value
         elif key == "hybrid_aosoa3":
-            r["Hybrid AoSoA3"] = value
-        elif key == "hybrid_aosoa4":
-            r["Hybrid AoSoA"] = value
+            r["Hybrid"] = value
         else:
             r[key] = value
     return r
