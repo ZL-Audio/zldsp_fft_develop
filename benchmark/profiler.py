@@ -1,8 +1,25 @@
 import argparse
 import subprocess
 import sys
+import re
+import os
 
 from build_config import build_benchmark
+
+def clean_sde_trace(file_path):
+    print("Cleaning up SDE trace output...")
+    with open(file_path, 'r') as f:
+        lines = f.readlines()
+    with open(file_path, 'w') as f:
+        for line in lines:
+            if line.startswith("INS "):
+                parts = re.split(r'\s{2,}', line.strip())
+                
+                if len(parts) >= 3:
+                    assembly = parts[-1]
+                    f.write(f"{assembly}\n")
+                else:
+                    f.write(line)
 
 
 def main():
@@ -44,6 +61,14 @@ def main():
 
         if args.sde:
             print(f"\n[+] Trace successfully isolated and saved to: {trace_file}")
+            default_out = "sde-debugtrace-out.txt"
+            if os.path.exists(default_out):
+                os.rename(default_out, trace_file)
+                clean_sde_trace(trace_file)
+                
+                print(f"\n[+] Trace successfully isolated and cleaned: {trace_file}")
+            else:
+                print(f"\n[-] Warning: Expected SDE output file '{default_out}' not found.")
 
     except subprocess.CalledProcessError as e:
         print(f"Error: {e}")
