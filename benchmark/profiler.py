@@ -13,6 +13,8 @@ def main():
     parser.add_argument("--avx2", action="store_true", help="Enable AVX2 architecture")
     parser.add_argument("--build-only", action="store_true", help="Only build, do not run")
 
+    parser.add_argument("--sde", type=str, metavar="PATH", help="Path to sde64 executable to automatically generate execution trace")
+
     args = parser.parse_args()
 
     try:
@@ -23,8 +25,26 @@ def main():
             return
 
         cmd = [exe_path, str(args.order), str(args.iterations)]
-        print(f"Running: {' '.join(cmd)}")
+
+        if args.sde:
+            trace_file = f"trace_{args.algorithm}_order{args.order}.txt"
+            sde_prefix = [
+                args.sde,
+                "-debugtrace",
+                "-control", "start:enter_func:target_fft_execution",
+                "-control", "stop:exit_func:target_fft_execution",
+                "--"
+            ]
+            cmd = sde_prefix + cmd
+            print(f"Running SDE Trace: {' '.join(cmd)}")
+        else:
+            print(f"Running: {' '.join(cmd)}")
+
         subprocess.run(cmd, check=True)
+
+        if args.sde:
+            print(f"\n[+] Trace successfully isolated and saved to: {trace_file}")
+
     except subprocess.CalledProcessError as e:
         print(f"Error: {e}")
         if e.stdout:
