@@ -30,52 +30,20 @@ namespace zldsp::fft {
                 common::generate_order_4_5_twiddles(order, twiddles_r_, twiddles_i_);
                 return;
             }
-            if (order < 11) {
-                const auto mod_result = order % 2;
-                if (mod_result == 1) {
-                    stages_.emplace_back(common::StageType::kRadix8FirstPass);
-                    for (size_t i = 3; i < order - 2; i += 2) {
-                        stages_.emplace_back(common::StageType::kRadix4);
-                    }
-                } else {
-                    stages_.emplace_back(common::StageType::kRadix4FirstPass);
-                    stages_.emplace_back(common::StageType::kRadix4Width4);
-                    for (size_t i = 4; i < order - 2; i += 2) {
-                        stages_.emplace_back(common::StageType::kRadix4);
-                    }
-                }
-                stages_.emplace_back(common::StageType::kRadix4LastPass);
-            } else {
-                const size_t target_order = order - 2;
-                const size_t bytes_per_complex = sizeof(F) * 2;
-                const size_t page_size = common::get_system_page_size();
-                const size_t danger_zone_start = std::countr_zero(page_size / bytes_per_complex);
-                const size_t max_safe_k = (danger_zone_start + 2) / 3;
-                const size_t max_target_k = target_order / 3;
-                size_t k = std::min(max_safe_k, max_target_k);
-                if ((k % 2) != (target_order % 2)) {
-                    if (k > 0) {
-                        k -= 1;
-                    }
-                }
-                size_t current_order = 0;
-                if (k > 0) {
-                    stages_.emplace_back(common::StageType::kRadix8FirstPass);
-                    current_order += 3;
-                    for (size_t i = 1; i < k; ++i) {
-                        stages_.emplace_back(common::StageType::kRadix8);
-                        current_order += 3;
-                    }
-                } else {
-                    stages_.emplace_back(common::StageType::kRadix4FirstPass);
-                    current_order += 2;
-                }
-                while (current_order < target_order) {
+            const auto mod_result = order % 2;
+            if (mod_result == 1) {
+                stages_.emplace_back(common::StageType::kRadix8FirstPass);
+                for (size_t i = 3; i < order - 2; i += 2) {
                     stages_.emplace_back(common::StageType::kRadix4);
-                    current_order += 2;
                 }
-                stages_.emplace_back(common::StageType::kRadix4LastPass);
+            } else {
+                stages_.emplace_back(common::StageType::kRadix4FirstPass);
+                stages_.emplace_back(common::StageType::kRadix4Width4);
+                for (size_t i = 4; i < order - 2; i += 2) {
+                    stages_.emplace_back(common::StageType::kRadix4);
+                }
             }
+            stages_.emplace_back(common::StageType::kRadix4LastPass);
 
             twiddles_shift_.resize(stages_.size());
             twiddles_shift_[0] = 0;
@@ -114,11 +82,11 @@ namespace zldsp::fft {
                 return;
             case 4:
                 common::callback_order_4<F, is_forward>(in_buffer.data(), out_buffer.data(),
-                                         twiddles_r_.get(), twiddles_i_.get());
+                                                        twiddles_r_.get(), twiddles_i_.get());
                 return;
             case 5:
                 common::callback_order_5<F, is_forward>(in_buffer.data(), out_buffer.data(),
-                                         twiddles_r_.get(), twiddles_i_.get());
+                                                        twiddles_r_.get(), twiddles_i_.get());
                 return;
             case 6: {
                 F* __restrict in_aosoa = workspace_.get();
