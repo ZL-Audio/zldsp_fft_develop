@@ -18,8 +18,8 @@ namespace zldsp::fft::common {
     struct AoSPtr {
         F* __restrict comp;
 
-        [[nodiscard]] HWY_INLINE constexpr AoSPtr shift(const size_t shift) const {
-            return AoSPtr{comp + shift};
+        [[nodiscard]] HWY_INLINE constexpr AoSPtr shift(const size_t offset) const {
+            return AoSPtr{comp + offset};
         }
 
         [[nodiscard]] static constexpr size_t get_complex_offset(const size_t offset) {
@@ -32,8 +32,8 @@ namespace zldsp::fft::common {
         F* __restrict real;
         F* __restrict imag;
 
-        [[nodiscard]] HWY_INLINE constexpr SoAPtr shift(const size_t shift) const {
-            return SoAPtr{real + shift, imag + shift};
+        [[nodiscard]] HWY_INLINE constexpr SoAPtr shift(const size_t offset) const {
+            return SoAPtr{real + offset, imag + offset};
         }
 
         [[nodiscard]] static constexpr size_t get_complex_offset(const size_t offset) {
@@ -1005,7 +1005,7 @@ namespace zldsp::fft::common {
         alignas(64) F tmp_r[16];
         alignas(64) F tmp_i[16];
 
-        if constexpr (lanes >= 8) {
+        if constexpr (lanes == 8) {
             hn::FixedTag<F, 4> d4;
             {
                 hn::Vec<decltype(d)> x0_r, x0_i, x1_r, x1_i;
@@ -1071,7 +1071,7 @@ namespace zldsp::fft::common {
                 store_complex<is_forward>(d, out.shift(OutPtr::get_complex_offset(8)),
                                           hn::Combine(d, f3_r, f2_r), hn::Combine(d, f3_i, f2_i));
             }
-        } else {
+        } else if constexpr (lanes <= 4) {
             for (size_t i = 0; i < 4; i += lanes) {
                 hn::Vec<decltype(d)> x0_r, x0_i, x1_r, x1_i, x2_r, x2_i, x3_r, x3_i;
 
