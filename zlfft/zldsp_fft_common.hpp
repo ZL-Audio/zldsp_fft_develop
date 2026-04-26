@@ -1025,7 +1025,8 @@ namespace zldsp::fft::common {
                 const auto sum_i = hn::Add(A_i, B_i);
                 const auto diff_i = hn::Sub(A_i, B_i);
 
-                hn::StoreInterleaved4(hn::LowerHalf(d4, out01_r), hn::UpperHalf(d4, out01_r), hn::LowerHalf(d4, out23_r),
+                hn::StoreInterleaved4(hn::LowerHalf(d4, out01_r), hn::UpperHalf(d4, out01_r),
+                                      hn::LowerHalf(d4, out23_r),
                                       hn::UpperHalf(d4, out23_r), d4, tmp_r);
                 hn::StoreInterleaved4(hn::LowerHalf(d4, sum_i), hn::UpperHalf(d4, diff_i), hn::LowerHalf(d4, diff_i),
                                       hn::UpperHalf(d4, sum_i), d4, tmp_i);
@@ -1062,13 +1063,13 @@ namespace zldsp::fft::common {
                 const auto f0_r = hn::Add(s0_r, s2_r), f0_i = hn::Add(s0_i, s2_i);
                 const auto f1_r = hn::Add(s1_r, s3_i), f1_i = hn::Sub(s1_i, s3_r);
                 store_complex<is_forward>(d, out,
-                    hn::Combine(d, f1_r, f0_r), hn::Combine(d, f1_i, f0_i));
+                                          hn::Combine(d, f1_r, f0_r), hn::Combine(d, f1_i, f0_i));
             }
             {
                 const auto f2_r = hn::Sub(s0_r, s2_r), f2_i = hn::Sub(s0_i, s2_i);
                 const auto f3_r = hn::Sub(s1_r, s3_i), f3_i = hn::Add(s1_i, s3_r);
                 store_complex<is_forward>(d, out.shift(OutPtr::get_complex_offset(8)),
-                    hn::Combine(d, f3_r, f2_r), hn::Combine(d, f3_i, f2_i));
+                                          hn::Combine(d, f3_r, f2_r), hn::Combine(d, f3_i, f2_i));
             }
         } else {
             for (size_t i = 0; i < 4; i += lanes) {
@@ -1118,13 +1119,13 @@ namespace zldsp::fft::common {
                 const auto s1_r = hn::Sub(r0, t2_r), s1_i = hn::Sub(i0, t2_i);
 
                 store_complex<is_forward>(d, out.shift(OutPtr::get_complex_offset(i)),
-                hn::Add(s0_r, s2_r), hn::Add(s0_i, s2_i));
+                                          hn::Add(s0_r, s2_r), hn::Add(s0_i, s2_i));
                 store_complex<is_forward>(d, out.shift(OutPtr::get_complex_offset(i + 8)),
-                hn::Sub(s0_r, s2_r), hn::Sub(s0_i, s2_i));
+                                          hn::Sub(s0_r, s2_r), hn::Sub(s0_i, s2_i));
                 store_complex<is_forward>(d, out.shift(OutPtr::get_complex_offset(i + 4)),
-                    hn::Add(s1_r, s3_i), hn::Sub(s1_i, s3_r));
+                                          hn::Add(s1_r, s3_i), hn::Sub(s1_i, s3_r));
                 store_complex<is_forward>(d, out.shift(OutPtr::get_complex_offset(i + 12)),
-                    hn::Sub(s1_r, s3_i), hn::Add(s1_i, s3_r));
+                                          hn::Sub(s1_r, s3_i), hn::Add(s1_i, s3_r));
             }
         }
     }
@@ -1242,26 +1243,27 @@ namespace zldsp::fft::common {
             const auto s1_r = hn::Sub(r0, t2_r), s1_i = hn::Sub(i0, t2_i);
 
             store_complex<is_forward>(d, out,
-                hn::Add(s0_r, s2_r), hn::Add(s0_i, s2_i));
+                                      hn::Add(s0_r, s2_r), hn::Add(s0_i, s2_i));
             store_complex<is_forward>(d, out.shift(OutPtr::get_complex_offset(8)),
-                    hn::Add(s1_r, s3_i), hn::Sub(s1_i, s3_r));
+                                      hn::Add(s1_r, s3_i), hn::Sub(s1_i, s3_r));
             store_complex<is_forward>(d, out.shift(OutPtr::get_complex_offset(16)),
-                    hn::Sub(s0_r, s2_r), hn::Sub(s0_i, s2_i));
+                                      hn::Sub(s0_r, s2_r), hn::Sub(s0_i, s2_i));
             store_complex<is_forward>(d, out.shift(OutPtr::get_complex_offset(24)),
-                    hn::Sub(s1_r, s3_i), hn::Add(s1_i, s3_r));
+                                      hn::Sub(s1_r, s3_i), hn::Add(s1_i, s3_r));
 
-        } else if constexpr (lanes == 4) {
-            {
-                const auto inv_sqrt2 = hn::Set(d, kInvSqrt2);
+        } else if constexpr (lanes <= 4) {
+            const auto inv_sqrt2 = hn::Set(d, kInvSqrt2);
+
+            for (size_t idx = 0; idx < 4; idx += lanes) {
                 hn::Vec<decltype(d)> a_r, a_i, b_r, b_i;
 
-                load_complex<is_forward>(d, in, a_r, a_i);
-                load_complex<is_forward>(d, in.shift(InPtr::get_complex_offset(16)), b_r, b_i);
+                load_complex<is_forward>(d, in.shift(InPtr::get_complex_offset(idx)), a_r, a_i);
+                load_complex<is_forward>(d, in.shift(InPtr::get_complex_offset(idx + 16)), b_r, b_i);
                 const auto t0_r = hn::Add(a_r, b_r), t0_i = hn::Add(a_i, b_i);
                 const auto t1_r = hn::Sub(a_r, b_r), t1_i = hn::Sub(a_i, b_i);
 
-                load_complex<is_forward>(d, in.shift(InPtr::get_complex_offset(8)), a_r, a_i);
-                load_complex<is_forward>(d, in.shift(InPtr::get_complex_offset(24)), b_r, b_i);
+                load_complex<is_forward>(d, in.shift(InPtr::get_complex_offset(idx + 8)), a_r, a_i);
+                load_complex<is_forward>(d, in.shift(InPtr::get_complex_offset(idx + 24)), b_r, b_i);
                 const auto t2_r = hn::Add(a_r, b_r), t2_i = hn::Add(a_i, b_i);
                 const auto t3_r = hn::Sub(a_r, b_r), t3_i = hn::Sub(a_i, b_i);
 
@@ -1270,13 +1272,13 @@ namespace zldsp::fft::common {
                 const auto y02_r = hn::Sub(t0_r, t2_r), y02_i = hn::Sub(t0_i, t2_i);
                 const auto y03_r = hn::Sub(t1_r, t3_i), y03_i = hn::Add(t1_i, t3_r);
 
-                load_complex<is_forward>(d, in.shift(InPtr::get_complex_offset(4)), a_r, a_i);
-                load_complex<is_forward>(d, in.shift(InPtr::get_complex_offset(20)), b_r, b_i);
+                load_complex<is_forward>(d, in.shift(InPtr::get_complex_offset(idx + 4)), a_r, a_i);
+                load_complex<is_forward>(d, in.shift(InPtr::get_complex_offset(idx + 20)), b_r, b_i);
                 const auto u0_r = hn::Add(a_r, b_r), u0_i = hn::Add(a_i, b_i);
                 const auto u1_r = hn::Sub(a_r, b_r), u1_i = hn::Sub(a_i, b_i);
 
-                load_complex<is_forward>(d, in.shift(InPtr::get_complex_offset(12)), a_r, a_i);
-                load_complex<is_forward>(d, in.shift(InPtr::get_complex_offset(28)), b_r, b_i);
+                load_complex<is_forward>(d, in.shift(InPtr::get_complex_offset(idx + 12)), a_r, a_i);
+                load_complex<is_forward>(d, in.shift(InPtr::get_complex_offset(idx + 28)), b_r, b_i);
                 const auto u2_r = hn::Add(a_r, b_r), u2_i = hn::Add(a_i, b_i);
                 const auto u3_r = hn::Sub(a_r, b_r), u3_i = hn::Sub(a_i, b_i);
 
@@ -1322,16 +1324,16 @@ namespace zldsp::fft::common {
                 const auto lower_i3 = hn::InterleaveLower(d, z03_i, z13_i);
                 const auto upper_i3 = hn::InterleaveUpper(d, z03_i, z13_i);
 
-                hn::StoreInterleaved4(lower_r0, lower_r1, lower_r2, lower_r3, d, tmp_r);
-                hn::StoreInterleaved4(upper_r0, upper_r1, upper_r2, upper_r3, d, tmp_r + 16);
-                hn::StoreInterleaved4(lower_i0, lower_i1, lower_i2, lower_i3, d, tmp_i);
-                hn::StoreInterleaved4(upper_i0, upper_i1, upper_i2, upper_i3, d, tmp_i + 16);
+                hn::StoreInterleaved4(lower_r0, lower_r1, lower_r2, lower_r3, d, tmp_r + idx * 8);
+                hn::StoreInterleaved4(upper_r0, upper_r1, upper_r2, upper_r3, d, tmp_r + idx * 8 + lanes * 4);
+                hn::StoreInterleaved4(lower_i0, lower_i1, lower_i2, lower_i3, d, tmp_i + idx * 8);
+                hn::StoreInterleaved4(upper_i0, upper_i1, upper_i2, upper_i3, d, tmp_i + idx * 8 + lanes * 4);
             }
 
-            static constexpr size_t off1 = (sizeof(F) == 8) ? 16 : 8;
-            static constexpr size_t off2 = (sizeof(F) == 8) ? 8 : 16;
+            static constexpr size_t off1 = (sizeof(F) == 8 && lanes == 4) ? 16 : 8;
+            static constexpr size_t off2 = (sizeof(F) == 8 && lanes == 4) ? 8 : 16;
 
-            for (size_t k = 0; k < 8; k += 4) {
+            for (size_t k = 0; k < 8; k += lanes) {
                 const auto i1 = hn::Load(d, tmp_i + off1 + k), r1 = hn::Load(d, tmp_r + off1 + k);
                 const auto w1_r = hn::Load(d, w_r_base + k), w1_i = hn::Load(d, w_i_base + k);
                 const auto t1_r = hn::NegMulAdd(i1, w1_i, hn::Mul(r1, w1_r));
@@ -1355,140 +1357,13 @@ namespace zldsp::fft::common {
                 const auto s1_r = hn::Sub(r0, t2_r), s1_i = hn::Sub(i0, t2_i);
 
                 store_complex<is_forward>(d, out.shift(OutPtr::get_complex_offset(k)),
-                hn::Add(s0_r, s2_r), hn::Add(s0_i, s2_i));
+                                          hn::Add(s0_r, s2_r), hn::Add(s0_i, s2_i));
                 store_complex<is_forward>(d, out.shift(OutPtr::get_complex_offset(k + 8)),
-                        hn::Add(s1_r, s3_i), hn::Sub(s1_i, s3_r));
+                                          hn::Add(s1_r, s3_i), hn::Sub(s1_i, s3_r));
                 store_complex<is_forward>(d, out.shift(OutPtr::get_complex_offset(k + 16)),
-                        hn::Sub(s0_r, s2_r), hn::Sub(s0_i, s2_i));
+                                          hn::Sub(s0_r, s2_r), hn::Sub(s0_i, s2_i));
                 store_complex<is_forward>(d, out.shift(OutPtr::get_complex_offset(k + 24)),
-                        hn::Sub(s1_r, s3_i), hn::Add(s1_i, s3_r));
-            }
-        } else {
-            const auto inv_sqrt2 = hn::Set(d, kInvSqrt2);
-
-            for (size_t idx = 0; idx < 4; idx += 2) {
-                hn::Vec<decltype(d)> a_r, a_i, b_r, b_i;
-
-                load_complex<is_forward>(d, in.shift(InPtr::get_complex_offset(idx)), a_r, a_i);
-                load_complex<is_forward>(d, in.shift(InPtr::get_complex_offset(idx + 16)), b_r, b_i);
-                const auto t0_r = hn::Add(a_r, b_r), t0_i = hn::Add(a_i, b_i);
-                const auto t1_r = hn::Sub(a_r, b_r), t1_i = hn::Sub(a_i, b_i);
-
-                load_complex<is_forward>(d, in.shift(InPtr::get_complex_offset(idx + 8)), a_r, a_i);
-                load_complex<is_forward>(d, in.shift(InPtr::get_complex_offset(idx + 24)), b_r, b_i);
-                const auto t2_r = hn::Add(a_r, b_r), t2_i = hn::Add(a_i, b_i);
-                const auto t3_r = hn::Sub(a_r, b_r), t3_i = hn::Sub(a_i, b_i);
-
-                const auto y00_r = hn::Add(t0_r, t2_r), y00_i = hn::Add(t0_i, t2_i);
-                const auto y01_r = hn::Add(t1_r, t3_i), y01_i = hn::Sub(t1_i, t3_r);
-                const auto y02_r = hn::Sub(t0_r, t2_r), y02_i = hn::Sub(t0_i, t2_i);
-                const auto y03_r = hn::Sub(t1_r, t3_i), y03_i = hn::Add(t1_i, t3_r);
-
-                load_complex<is_forward>(d, in.shift(InPtr::get_complex_offset(idx + 4)), a_r, a_i);
-                load_complex<is_forward>(d, in.shift(InPtr::get_complex_offset(idx + 20)), b_r, b_i);
-                const auto u0_r = hn::Add(a_r, b_r), u0_i = hn::Add(a_i, b_i);
-                const auto u1_r = hn::Sub(a_r, b_r), u1_i = hn::Sub(a_i, b_i);
-
-                load_complex<is_forward>(d, in.shift(InPtr::get_complex_offset(idx + 12)), a_r, a_i);
-                load_complex<is_forward>(d, in.shift(InPtr::get_complex_offset(idx + 28)), b_r, b_i);
-                const auto u2_r = hn::Add(a_r, b_r), u2_i = hn::Add(a_i, b_i);
-                const auto u3_r = hn::Sub(a_r, b_r), u3_i = hn::Sub(a_i, b_i);
-
-                const auto y10_r = hn::Add(u0_r, u2_r), y10_i = hn::Add(u0_i, u2_i);
-                const auto y11_r = hn::Add(u1_r, u3_i), y11_i = hn::Sub(u1_i, u3_r);
-                const auto y12_r = hn::Sub(u0_r, u2_r), y12_i = hn::Sub(u0_i, u2_i);
-                const auto y13_r = hn::Sub(u1_r, u3_i), y13_i = hn::Add(u1_i, u3_r);
-
-                const auto v0_r = y10_r, v0_i = y10_i;
-                const auto v1_r = hn::Mul(hn::Add(y11_r, y11_i), inv_sqrt2),
-                    v1_i = hn::Mul(hn::Sub(y11_i, y11_r), inv_sqrt2);
-                const auto v2_r = y12_i, v2_i = hn::Neg(y12_r);
-                const auto v3_r = hn::Mul(hn::Sub(y13_i, y13_r), inv_sqrt2),
-                    v3_i = hn::Mul(hn::Neg(hn::Add(y13_r, y13_i)), inv_sqrt2);
-
-                const auto z00_r = hn::Add(y00_r, v0_r), z00_i = hn::Add(y00_i, v0_i);
-                const auto z01_r = hn::Add(y01_r, v1_r), z01_i = hn::Add(y01_i, v1_i);
-                const auto z02_r = hn::Add(y02_r, v2_r), z02_i = hn::Add(y02_i, v2_i);
-                const auto z03_r = hn::Add(y03_r, v3_r), z03_i = hn::Add(y03_i, v3_i);
-
-                const auto z10_r = hn::Sub(y00_r, v0_r), z10_i = hn::Sub(y00_i, v0_i);
-                const auto z11_r = hn::Sub(y01_r, v1_r), z11_i = hn::Sub(y01_i, v1_i);
-                const auto z12_r = hn::Sub(y02_r, v2_r), z12_i = hn::Sub(y02_i, v2_i);
-                const auto z13_r = hn::Sub(y03_r, v3_r), z13_i = hn::Sub(y03_i, v3_i);
-
-                alignas(16) F ar0[2], ar1[2], ar2[2], ar3[2], ar4[2], ar5[2], ar6[2], ar7[2];
-                alignas(16) F ai0[2], ai1[2], ai2[2], ai3[2], ai4[2], ai5[2], ai6[2], ai7[2];
-
-                hn::Store(z00_r, d, ar0);
-                hn::Store(z01_r, d, ar1);
-                hn::Store(z02_r, d, ar2);
-                hn::Store(z03_r, d, ar3);
-                hn::Store(z10_r, d, ar4);
-                hn::Store(z11_r, d, ar5);
-                hn::Store(z12_r, d, ar6);
-                hn::Store(z13_r, d, ar7);
-                hn::Store(z00_i, d, ai0);
-                hn::Store(z01_i, d, ai1);
-                hn::Store(z02_i, d, ai2);
-                hn::Store(z03_i, d, ai3);
-                hn::Store(z10_i, d, ai4);
-                hn::Store(z11_i, d, ai5);
-                hn::Store(z12_i, d, ai6);
-                hn::Store(z13_i, d, ai7);
-
-                for (size_t lane = 0; lane < 2; ++lane) {
-                    size_t out_idx = (idx + lane) * 8;
-                    tmp_r[out_idx + 0] = ar0[lane];
-                    tmp_r[out_idx + 1] = ar1[lane];
-                    tmp_r[out_idx + 2] = ar2[lane];
-                    tmp_r[out_idx + 3] = ar3[lane];
-                    tmp_r[out_idx + 4] = ar4[lane];
-                    tmp_r[out_idx + 5] = ar5[lane];
-                    tmp_r[out_idx + 6] = ar6[lane];
-                    tmp_r[out_idx + 7] = ar7[lane];
-
-                    tmp_i[out_idx + 0] = ai0[lane];
-                    tmp_i[out_idx + 1] = ai1[lane];
-                    tmp_i[out_idx + 2] = ai2[lane];
-                    tmp_i[out_idx + 3] = ai3[lane];
-                    tmp_i[out_idx + 4] = ai4[lane];
-                    tmp_i[out_idx + 5] = ai5[lane];
-                    tmp_i[out_idx + 6] = ai6[lane];
-                    tmp_i[out_idx + 7] = ai7[lane];
-                }
-            }
-
-            for (size_t k = 0; k < 8; k += 2) {
-                const auto i1 = hn::Load(d, tmp_i + 8 + k), r1 = hn::Load(d, tmp_r + 8 + k);
-                const auto w1_r = hn::Load(d, w_r_base + k), w1_i = hn::Load(d, w_i_base + k);
-                const auto t1_r = hn::NegMulAdd(i1, w1_i, hn::Mul(r1, w1_r));
-                const auto t1_i = hn::MulAdd(i1, w1_r, hn::Mul(r1, w1_i));
-
-                const auto i3 = hn::Load(d, tmp_i + 24 + k), r3 = hn::Load(d, tmp_r + 24 + k);
-                const auto w3_r = hn::Load(d, w_r_base + 16 + k), w3_i = hn::Load(d, w_i_base + 16 + k);
-                const auto t3_r = hn::NegMulAdd(i3, w3_i, hn::Mul(r3, w3_r));
-                const auto t3_i = hn::MulAdd(i3, w3_r, hn::Mul(r3, w3_i));
-
-                const auto s2_r = hn::Add(t1_r, t3_r), s2_i = hn::Add(t1_i, t3_i);
-                const auto s3_r = hn::Sub(t1_r, t3_r), s3_i = hn::Sub(t1_i, t3_i);
-
-                const auto i2 = hn::Load(d, tmp_i + 16 + k), r2 = hn::Load(d, tmp_r + 16 + k);
-                const auto w2_r = hn::Load(d, w_r_base + 8 + k), w2_i = hn::Load(d, w_i_base + 8 + k);
-                const auto t2_r = hn::NegMulAdd(i2, w2_i, hn::Mul(r2, w2_r));
-                const auto t2_i = hn::MulAdd(i2, w2_r, hn::Mul(r2, w2_i));
-
-                const auto r0 = hn::Load(d, tmp_r + k), i0 = hn::Load(d, tmp_i + k);
-                const auto s0_r = hn::Add(r0, t2_r), s0_i = hn::Add(i0, t2_i);
-                const auto s1_r = hn::Sub(r0, t2_r), s1_i = hn::Sub(i0, t2_i);
-
-                store_complex<is_forward>(d, out.shift(OutPtr::get_complex_offset(k)),
-                hn::Add(s0_r, s2_r), hn::Add(s0_i, s2_i));
-                store_complex<is_forward>(d, out.shift(OutPtr::get_complex_offset(k + 8)),
-                        hn::Add(s1_r, s3_i), hn::Sub(s1_i, s3_r));
-                store_complex<is_forward>(d, out.shift(OutPtr::get_complex_offset(k + 16)),
-                        hn::Sub(s0_r, s2_r), hn::Sub(s0_i, s2_i));
-                store_complex<is_forward>(d, out.shift(OutPtr::get_complex_offset(k + 24)),
-                        hn::Sub(s1_r, s3_i), hn::Add(s1_i, s3_r));
+                                          hn::Sub(s1_r, s3_i), hn::Add(s1_i, s3_r));
             }
         }
     }
