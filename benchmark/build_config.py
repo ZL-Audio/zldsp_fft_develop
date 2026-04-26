@@ -96,13 +96,15 @@ def build_benchmark(algorithm, benchmark_type, use_avx2=False, use_double=False,
 
     cmake_cmd = ["cmake", "..", "-DCMAKE_BUILD_TYPE=Release", "-G", "Ninja"]
     if benchmark_type == "accuracy":
-        cmake_cmd += ["-DACCURACY_TEST=ON", "-DTHROUGHPUT_TEST=OFF", "-DSTAGE_TIMING_TEST=OFF", "-DPROFILER_TEST=OFF"]
+        cmake_cmd += ["-DACCURACY_TEST=ON", "-DTHROUGHPUT_TEST=OFF", "-DSTAGE_TIMING_TEST=OFF", "-DPROFILER_TEST=OFF", "-DACCURACY_CFFT_TEST=OFF"]
+    elif benchmark_type == "accuracy_cfft":
+        cmake_cmd += ["-DACCURACY_TEST=OFF", "-DTHROUGHPUT_TEST=OFF", "-DSTAGE_TIMING_TEST=OFF", "-DPROFILER_TEST=OFF", "-DACCURACY_CFFT_TEST=ON"]
     elif benchmark_type == "throughput":
-        cmake_cmd += ["-DACCURACY_TEST=OFF", "-DTHROUGHPUT_TEST=ON", "-DSTAGE_TIMING_TEST=OFF", "-DPROFILER_TEST=OFF"]
+        cmake_cmd += ["-DACCURACY_TEST=OFF", "-DTHROUGHPUT_TEST=ON", "-DSTAGE_TIMING_TEST=OFF", "-DPROFILER_TEST=OFF", "-DACCURACY_CFFT_TEST=OFF"]
     elif benchmark_type == "stage_timing":
-        cmake_cmd += ["-DACCURACY_TEST=OFF", "-DTHROUGHPUT_TEST=OFF", "-DSTAGE_TIMING_TEST=ON", "-DPROFILER_TEST=OFF"]
+        cmake_cmd += ["-DACCURACY_TEST=OFF", "-DTHROUGHPUT_TEST=OFF", "-DSTAGE_TIMING_TEST=ON", "-DPROFILER_TEST=OFF", "-DACCURACY_CFFT_TEST=OFF"]
     elif benchmark_type == "profiler":
-        cmake_cmd += ["-DACCURACY_TEST=OFF", "-DTHROUGHPUT_TEST=OFF", "-DSTAGE_TIMING_TEST=OFF", "-DPROFILER_TEST=ON"]
+        cmake_cmd += ["-DACCURACY_TEST=OFF", "-DTHROUGHPUT_TEST=OFF", "-DSTAGE_TIMING_TEST=OFF", "-DPROFILER_TEST=ON", "-DACCURACY_CFFT_TEST=OFF"]
 
     if use_avx2:
         cmake_cmd += ["-DUSE_AVX2=ON"]
@@ -125,7 +127,12 @@ def build_benchmark(algorithm, benchmark_type, use_avx2=False, use_double=False,
         else:
             cmake_cmd.append(f"-DENABLE_{algo.upper()}=OFF")
 
-    target_name = "zlfft_profiler" if benchmark_type == "profiler" else "zlfft_benchmark"
+    if benchmark_type == "profiler":
+        target_name = "zlfft_profiler"
+    elif benchmark_type == "accuracy_cfft":
+        target_name = "zlfft_accuracy_cfft"
+    else:
+        target_name = "zlfft_benchmark"
     build_cmd = ["cmake", "--build", ".", "--target", target_name, "--config", "Release", "-j"]
 
     if platform.system() == "Windows":
