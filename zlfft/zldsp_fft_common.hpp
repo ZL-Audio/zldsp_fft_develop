@@ -1031,21 +1031,21 @@ namespace zldsp::fft::common {
                 hn::StoreInterleaved4(hn::LowerHalf(d4, sum_i), hn::UpperHalf(d4, diff_i), hn::LowerHalf(d4, diff_i),
                                       hn::UpperHalf(d4, sum_i), d4, tmp_i);
             }
-            hn::Vec<decltype(d)> t1_r, t1_i;
+            hn::Vec<decltype(d4)> t1_r, t1_i;
             {
                 const auto r1 = hn::Load(d4, tmp_r + 4), i1 = hn::Load(d4, tmp_i + 4);
                 const auto w1_r = hn::Load(d4, w_r_base), w1_i = hn::Load(d4, w_i_base);
                 t1_r = hn::NegMulAdd(i1, w1_i, hn::Mul(r1, w1_r));
                 t1_i = hn::MulAdd(i1, w1_r, hn::Mul(r1, w1_i));
             }
-            hn::Vec<decltype(d)> t3_r, t3_i;
+            hn::Vec<decltype(d4)> t3_r, t3_i;
             {
                 const auto r3 = hn::Load(d4, tmp_r + 12), i3 = hn::Load(d4, tmp_i + 12);
                 const auto w3_r = hn::Load(d4, w_r_base + 8), w3_i = hn::Load(d4, w_i_base + 8);
                 t3_r = hn::NegMulAdd(i3, w3_i, hn::Mul(r3, w3_r));
                 t3_i = hn::MulAdd(i3, w3_r, hn::Mul(r3, w3_i));
             }
-            hn::Vec<decltype(d)> t2_r, t2_i;
+            hn::Vec<decltype(d4)> t2_r, t2_i;
             {
                 const auto r2 = hn::Load(d4, tmp_r + 8), i2 = hn::Load(d4, tmp_i + 8);
                 const auto w2_r = hn::Load(d4, w_r_base + 4), w2_i = hn::Load(d4, w_i_base + 4);
