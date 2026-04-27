@@ -11,12 +11,14 @@
 #include <hwy/aligned_allocator.h>
 #include <hwy/highway.h>
 
+#include "zldsp_fft_common_math.hpp"
+
 namespace zldsp::fft::common {
     namespace hn = hwy::HWY_NAMESPACE;
 
     template <typename F>
     struct AoSPtr {
-        F* __restrict comp;
+        F* HWY_RESTRICT comp;
 
         [[nodiscard]] HWY_INLINE constexpr AoSPtr shift(const size_t offset) const {
             return AoSPtr{comp + offset};
@@ -29,8 +31,8 @@ namespace zldsp::fft::common {
 
     template <typename F>
     struct SoAPtr {
-        F* __restrict real;
-        F* __restrict imag;
+        F* HWY_RESTRICT real;
+        F* HWY_RESTRICT imag;
 
         [[nodiscard]] HWY_INLINE constexpr SoAPtr shift(const size_t offset) const {
             return SoAPtr{real + offset, imag + offset};
@@ -81,24 +83,6 @@ namespace zldsp::fft::common {
         }
     }
 
-    template <bool is_forward, class D, typename V, typename F>
-    HWY_INLINE void load_interleaved(D d, const F* __restrict ptr, V& r, V& i) {
-        if constexpr (is_forward) {
-            hn::LoadInterleaved2(d, ptr, r, i);
-        } else {
-            hn::LoadInterleaved2(d, ptr, i, r);
-        }
-    }
-
-    template <bool is_forward, class D, typename V, typename F>
-    HWY_INLINE void store_interleaved(D d, F* __restrict ptr, const V r, const V i) {
-        if constexpr (is_forward) {
-            hn::StoreInterleaved2(r, i, d, ptr);
-        } else {
-            hn::StoreInterleaved2(i, r, d, ptr);
-        }
-    }
-
     template <bool is_forward, typename F, typename Ptr>
     HWY_INLINE void load_scalar(Ptr ptr, F& r, F& i) {
         if constexpr (std::is_same_v<Ptr, SoAPtr<F>>) {
@@ -126,7 +110,6 @@ namespace zldsp::fft::common {
         kRadix4FirstPass,
         kRadix4Width4,
         kRadix4,
-        kRadix8,
         kRadix4LastPass,
     };
 
@@ -199,9 +182,16 @@ namespace zldsp::fft::common {
      * @param w_ptr
      */
     template <typename F>
-    inline void radix4_aosoa(const F* __restrict in_aosoa,
-                             F* __restrict out_aosoa,
-                             const size_t n, const size_t width, const F* __restrict w_ptr) {
+    inline void radix4_aosoa(const F* HWY_RESTRICT in_aosoa,
+                             F* HWY_RESTRICT out_aosoa,
+                             const size_t n, const size_t width, const F* HWY_RESTRICT w_ptr) {
+        in_aosoa = static_cast<const F*>(HWY_ASSUME_ALIGNED(in_aosoa, HWY_ALIGNMENT));
+        out_aosoa = static_cast<F*>(HWY_ASSUME_ALIGNED(out_aosoa, HWY_ALIGNMENT));
+        w_ptr = static_cast<const F*>(HWY_ASSUME_ALIGNED(w_ptr, HWY_ALIGNMENT));
+
+        static constexpr hn::ScalableTag<F> d;
+        static constexpr size_t lanes = hn::Lanes(d);
+
         const auto quarter_n = n >> 2;
         const auto half_n = n >> 1;
         const auto three_quarter_n = quarter_n + half_n;
@@ -212,18 +202,16 @@ namespace zldsp::fft::common {
         const auto quad_width = width << 2;
         const auto sextuple_width = triple_width << 1;
 
-        static constexpr hn::ScalableTag<F> d;
-        static constexpr size_t lanes = hn::Lanes(d);
-
         const size_t mask = width - 1;
 
+        HWY_ASSUME(quarter_n >= lanes);
+        HWY_ASSUME((quarter_n % lanes) == 0);
         for (size_t i = 0; i < quarter_n; i += lanes) {
-            const F* __restrict in_shift = in_aosoa + (i << 1);
+            const F* HWY_RESTRICT in_shift = in_aosoa + (i << 1);
             const size_t k = i & mask;
-            const F* __restrict w_shift = w_ptr + k * 6;
+            const F* HWY_RESTRICT w_shift = w_ptr + k * 6;
 
             hn::Vec<decltype(d)> s2_r, s2_i, s3_r, s3_i;
-
             {
                 const auto w1_r = hn::Load(d, w_shift);
                 const auto w1_i = hn::Load(d, w_shift + lanes);
@@ -264,7 +252,7 @@ namespace zldsp::fft::common {
 
             const size_t j_times_4 = (i & ~mask) << 2;
             const size_t out_idx = j_times_4 + k;
-            F* __restrict out_shift = out_aosoa + (out_idx << 1);
+            F* HWY_RESTRICT out_shift = out_aosoa + (out_idx << 1);
 
             hn::Store(hn::Add(s0_r, s2_r), d, out_shift);
             hn::Store(hn::Add(s0_i, s2_i), d, out_shift + lanes);
@@ -287,15 +275,19 @@ namespace zldsp::fft::common {
      * @param n
      */
     template <bool is_forward, typename F, typename Ptr>
-    inline void radix4_first_pass_fused_aosoa(Ptr in, F* __restrict out_aosoa, const size_t n) {
+    inline void radix4_first_pass_fused_aosoa(Ptr in, F* HWY_RESTRICT out_aosoa, const size_t n) {
+        out_aosoa = static_cast<F*>(HWY_ASSUME_ALIGNED(out_aosoa, HWY_ALIGNMENT));
+
+        static constexpr hn::ScalableTag<F> d;
+        static constexpr size_t lanes = hn::Lanes(d);
+
         const size_t quarter_n = n >> 2;
         const size_t in_offset1 = Ptr::get_complex_offset(n >> 2);
         const size_t in_offset2 = Ptr::get_complex_offset(n >> 1);
         const size_t in_offset3 = in_offset1 + in_offset2;
 
-        static constexpr hn::ScalableTag<F> d;
-        static constexpr size_t lanes = hn::Lanes(d);
-
+        HWY_ASSUME(quarter_n >= lanes);
+        HWY_ASSUME((quarter_n % lanes) == 0);
         for (size_t j = 0; j < quarter_n; j += lanes) {
             const Ptr in_shift = in.shift(Ptr::get_complex_offset(j));
             hn::Vec<decltype(d)> x0_r, x0_i, x2_r, x2_i;
@@ -317,7 +309,7 @@ namespace zldsp::fft::common {
             const auto t3_r = hn::Sub(x1_r, x3_r);
             const auto t3_i = hn::Sub(x1_i, x3_i);
 
-            F* __restrict out_shift = out_aosoa + (j << 3);
+            F* HWY_RESTRICT out_shift = out_aosoa + (j << 3);
             {
                 const auto out0_r = hn::Add(t0_r, t2_r);
                 const auto out2_r = hn::Sub(t0_r, t2_r);
@@ -354,27 +346,24 @@ namespace zldsp::fft::common {
      * @param w_ptr
      */
     template <typename F>
-    inline void radix4_width4_aosoa(const F* __restrict in_aosoa, F* __restrict out_aosoa, const size_t n,
-                                    const F* __restrict w_ptr) {
+    inline void radix4_width4_aosoa(const F* HWY_RESTRICT in_aosoa, F* HWY_RESTRICT out_aosoa, const size_t n,
+                                    const F* HWY_RESTRICT w_ptr) {
+        in_aosoa = static_cast<const F*>(HWY_ASSUME_ALIGNED(in_aosoa, HWY_ALIGNMENT));
+        out_aosoa = static_cast<F*>(HWY_ASSUME_ALIGNED(out_aosoa, HWY_ALIGNMENT));
+        w_ptr = static_cast<const F*>(HWY_ASSUME_ALIGNED(w_ptr, HWY_ALIGNMENT));
+
         static constexpr hn::ScalableTag<F> d;
         static constexpr size_t lanes = hn::Lanes(d);
-
-        if constexpr (lanes > 8) {
-            common::radix4_aosoa<F>(in_aosoa, out_aosoa, n, 4, w_ptr);
-            return;
-        }
+        static constexpr size_t step = (lanes > 4) ? lanes : 4;
+        static constexpr size_t vecs_per_step = step / lanes;
+        static constexpr size_t width4_vec = step;
 
         const size_t quarter_n = n >> 2;
         const size_t half_n = n >> 1;
         const size_t three_quarter_n = quarter_n * 3;
         const auto three_over_two_n = three_quarter_n << 1;
 
-        static constexpr size_t step = (lanes > 4) ? lanes : 4;
-        static constexpr size_t vecs_per_step = step / lanes;
-        static constexpr size_t width4_vec = step;
-
         hn::Vec<decltype(d)> w1_r_hoist, w1_i_hoist, w2_r_hoist, w2_i_hoist, w3_r_hoist, w3_i_hoist;
-
         if constexpr (vecs_per_step == 1) {
             w1_r_hoist = hn::Load(d, w_ptr);
             w1_i_hoist = hn::Load(d, w_ptr + width4_vec);
@@ -384,14 +373,14 @@ namespace zldsp::fft::common {
             w3_i_hoist = hn::Load(d, w_ptr + width4_vec * 5);
         }
 
+        HWY_ASSUME(quarter_n >= step);
+        HWY_ASSUME((quarter_n % step) == 0);
         for (size_t i = 0; i < quarter_n; i += step) {
-
-#pragma clang loop unroll(full)
+            HWY_UNROLL(2)
             for (size_t v = 0; v < vecs_per_step; ++v) {
                 const size_t vec_i = i + v * lanes;
-                const F* __restrict in_shift = in_aosoa + (vec_i << 1);
+                const F* HWY_RESTRICT in_shift = in_aosoa + (vec_i << 1);
                 hn::Vec<decltype(d)> w1_r, w1_i, w2_r, w2_i, w3_r, w3_i;
-
                 if constexpr (vecs_per_step == 1) {
                     w1_r = w1_r_hoist;
                     w1_i = w1_i_hoist;
@@ -449,7 +438,7 @@ namespace zldsp::fft::common {
                 const auto out3_i = hn::Add(s1_i, s3_r);
 
                 if constexpr (lanes > 4) {
-                    F* __restrict out_shift = out_aosoa + (i << 3);
+                    F* HWY_RESTRICT out_shift = out_aosoa + (i << 3);
 
                     const auto out01_r_lo = hn::ConcatLowerLower(d, out1_r, out0_r);
                     const auto out01_i_lo = hn::ConcatLowerLower(d, out1_i, out0_i);
@@ -471,7 +460,7 @@ namespace zldsp::fft::common {
                     hn::Store(out23_i_hi, d, out_shift + lanes * 7);
                 } else {
                     const size_t k = (v * lanes) & 3;
-                    F* __restrict out_shift = out_aosoa + (i << 3) + k * 2;
+                    F* HWY_RESTRICT out_shift = out_aosoa + (i << 3) + k * 2;
 
                     hn::Store(out0_r, d, out_shift);
                     hn::Store(out0_i, d, out_shift + lanes);
@@ -498,8 +487,14 @@ namespace zldsp::fft::common {
      * @param w_ptr
      */
     template <bool is_forward, typename F, typename Ptr>
-    inline void radix4_last_pass_fused_aosoa(const F* __restrict in_aosoa, Ptr out,
-                                             const size_t n, const size_t width, const F* __restrict w_ptr) {
+    inline void radix4_last_pass_fused_aosoa(const F* HWY_RESTRICT in_aosoa, Ptr out,
+                                             const size_t n, const size_t width, const F* HWY_RESTRICT w_ptr) {
+        in_aosoa = static_cast<const F*>(HWY_ASSUME_ALIGNED(in_aosoa, HWY_ALIGNMENT));
+        w_ptr = static_cast<const F*>(HWY_ASSUME_ALIGNED(w_ptr, HWY_ALIGNMENT));
+
+        static constexpr hn::ScalableTag<F> d;
+        static constexpr size_t lanes = hn::Lanes(d);
+
         const size_t quarter_n = n >> 2;
         const size_t half_n = n >> 1;
         const size_t three_quarter_n = quarter_n * 3;
@@ -508,13 +503,13 @@ namespace zldsp::fft::common {
         const size_t out_offset2 = Ptr::get_complex_offset(width << 1);
         const size_t out_offset3 = out_offset1 + out_offset2;
 
-        static constexpr hn::ScalableTag<F> d;
-        static constexpr size_t lanes = hn::Lanes(d);
         const size_t mask = width - 1;
 
+        HWY_ASSUME(quarter_n >= lanes);
+        HWY_ASSUME((quarter_n % lanes) == 0);
         for (size_t i = 0; i < quarter_n; i += lanes) {
             const size_t k = i & mask;
-            const F* __restrict w_shift = w_ptr + k * 6;
+            const F* HWY_RESTRICT w_shift = w_ptr + k * 6;
 
             const auto w1_r = hn::Load(d, w_shift);
             const auto w1_i = hn::Load(d, w_shift + lanes);
@@ -570,25 +565,33 @@ namespace zldsp::fft::common {
      * @param w_ptr
      */
     template <typename F>
-    inline void radix8_aosoa(const F* __restrict in_aosoa, F* __restrict out_aosoa, const size_t n, const size_t width,
-                             const F* __restrict w_ptr) {
-        const size_t eighth_n = n >> 3;
+    inline void radix8_aosoa(const F* HWY_RESTRICT in_aosoa, F* HWY_RESTRICT out_aosoa, const size_t n,
+                             const size_t width,
+                             const F* HWY_RESTRICT w_ptr) {
+        in_aosoa = static_cast<const F*>(HWY_ASSUME_ALIGNED(in_aosoa, HWY_ALIGNMENT));
+        out_aosoa = static_cast<F*>(HWY_ASSUME_ALIGNED(out_aosoa, HWY_ALIGNMENT));
+        w_ptr = static_cast<const F*>(HWY_ASSUME_ALIGNED(w_ptr, HWY_ALIGNMENT));
+
         static constexpr hn::ScalableTag<F> d;
         static constexpr size_t lanes = hn::Lanes(d);
+
+        const size_t one_eight_n = n >> 3;
         const size_t mask = width - 1;
 
         static constexpr F kInvSqrt2 = static_cast<F>(1.0 / std::numbers::sqrt2);
         const auto inv_sqrt2 = hn::Set(d, kInvSqrt2);
 
-        const size_t out_stride1 = width * 2;
-        const size_t out_stride2 = out_stride1 * 2;
-        const size_t out_stride3 = out_stride1 * 3;
-        const size_t out_stride4 = out_stride1 * 4;
-        const size_t out_stride5 = out_stride1 * 5;
-        const size_t out_stride6 = out_stride1 * 6;
-        const size_t out_stride7 = out_stride1 * 7;
+        const size_t out_offset1 = width * 2;
+        const size_t out_offset2 = out_offset1 * 2;
+        const size_t out_offset3 = out_offset1 * 3;
+        const size_t out_offset4 = out_offset1 * 4;
+        const size_t out_offset5 = out_offset1 * 5;
+        const size_t out_offset6 = out_offset1 * 6;
+        const size_t out_offset7 = out_offset1 * 7;
 
-        for (size_t i = 0; i < eighth_n; i += lanes) {
+        HWY_ASSUME(one_eight_n >= lanes);
+        HWY_ASSUME((one_eight_n % lanes) == 0);
+        for (size_t i = 0; i < one_eight_n; i += lanes) {
             const size_t k = i & mask;
             const size_t w_offset = k * 14;
             const size_t j_times_8 = (i & ~mask) << 3;
@@ -610,13 +613,13 @@ namespace zldsp::fft::common {
             auto r0 = hn::Load(d, in_aosoa + 2 * i);
             auto i0 = hn::Load(d, in_aosoa + 2 * i + lanes);
 
-            load_twiddle_mul(eighth_n * 4, 0, tmp_r, tmp_i);
+            load_twiddle_mul(one_eight_n * 4, 0, tmp_r, tmp_i);
             auto t1_r = hn::Sub(r0, tmp_r), t1_i = hn::Sub(i0, tmp_i);
             auto t0_r = hn::Add(r0, tmp_r), t0_i = hn::Add(i0, tmp_i);
 
             hn::Vec<decltype(d)> r2, i2;
-            load_twiddle_mul(eighth_n * 2, 1, r2, i2);
-            load_twiddle_mul(eighth_n * 6, 2, tmp_r, tmp_i);
+            load_twiddle_mul(one_eight_n * 2, 1, r2, i2);
+            load_twiddle_mul(one_eight_n * 6, 2, tmp_r, tmp_i);
             auto t3_r = hn::Sub(r2, tmp_r), t3_i = hn::Sub(i2, tmp_i);
             auto t2_r = hn::Add(r2, tmp_r), t2_i = hn::Add(i2, tmp_i);
 
@@ -626,14 +629,14 @@ namespace zldsp::fft::common {
             auto y03_r = hn::Sub(t1_r, t3_i), y03_i = hn::Add(t1_i, t3_r);
 
             hn::Vec<decltype(d)> r1, i1;
-            load_twiddle_mul(eighth_n * 1, 3, r1, i1);
-            load_twiddle_mul(eighth_n * 5, 4, tmp_r, tmp_i);
+            load_twiddle_mul(one_eight_n * 1, 3, r1, i1);
+            load_twiddle_mul(one_eight_n * 5, 4, tmp_r, tmp_i);
             auto u1_r = hn::Sub(r1, tmp_r), u1_i = hn::Sub(i1, tmp_i);
             auto u0_r = hn::Add(r1, tmp_r), u0_i = hn::Add(i1, tmp_i);
 
             hn::Vec<decltype(d)> r3, i3;
-            load_twiddle_mul(eighth_n * 3, 5, r3, i3);
-            load_twiddle_mul(eighth_n * 7, 6, tmp_r, tmp_i);
+            load_twiddle_mul(one_eight_n * 3, 5, r3, i3);
+            load_twiddle_mul(one_eight_n * 7, 6, tmp_r, tmp_i);
             auto u3_r = hn::Sub(r3, tmp_r), u3_i = hn::Sub(i3, tmp_i);
             auto u2_r = hn::Add(r3, tmp_r), u2_i = hn::Add(i3, tmp_i);
 
@@ -645,30 +648,30 @@ namespace zldsp::fft::common {
             {
                 hn::Store(hn::Add(y00_r, y10_r), d, out_ptr);
                 hn::Store(hn::Add(y00_i, y10_i), d, out_ptr + lanes);
-                hn::Store(hn::Sub(y00_r, y10_r), d, out_ptr + out_stride4);
-                hn::Store(hn::Sub(y00_i, y10_i), d, out_ptr + out_stride4 + lanes);
+                hn::Store(hn::Sub(y00_r, y10_r), d, out_ptr + out_offset4);
+                hn::Store(hn::Sub(y00_i, y10_i), d, out_ptr + out_offset4 + lanes);
             }
             {
                 const auto v1_r = hn::Mul(hn::Add(y11_r, y11_i), inv_sqrt2);
                 const auto v1_i = hn::Mul(hn::Sub(y11_i, y11_r), inv_sqrt2);
-                hn::Store(hn::Add(y01_r, v1_r), d, out_ptr + out_stride1);
-                hn::Store(hn::Add(y01_i, v1_i), d, out_ptr + out_stride1 + lanes);
-                hn::Store(hn::Sub(y01_r, v1_r), d, out_ptr + out_stride5);
-                hn::Store(hn::Sub(y01_i, v1_i), d, out_ptr + out_stride5 + lanes);
+                hn::Store(hn::Add(y01_r, v1_r), d, out_ptr + out_offset1);
+                hn::Store(hn::Add(y01_i, v1_i), d, out_ptr + out_offset1 + lanes);
+                hn::Store(hn::Sub(y01_r, v1_r), d, out_ptr + out_offset5);
+                hn::Store(hn::Sub(y01_i, v1_i), d, out_ptr + out_offset5 + lanes);
             }
             {
-                hn::Store(hn::Add(y02_r, y12_i), d, out_ptr + out_stride2);
-                hn::Store(hn::Sub(y02_i, y12_r), d, out_ptr + out_stride2 + lanes);
-                hn::Store(hn::Sub(y02_r, y12_i), d, out_ptr + out_stride6);
-                hn::Store(hn::Add(y02_i, y12_r), d, out_ptr + out_stride6 + lanes);
+                hn::Store(hn::Add(y02_r, y12_i), d, out_ptr + out_offset2);
+                hn::Store(hn::Sub(y02_i, y12_r), d, out_ptr + out_offset2 + lanes);
+                hn::Store(hn::Sub(y02_r, y12_i), d, out_ptr + out_offset6);
+                hn::Store(hn::Add(y02_i, y12_r), d, out_ptr + out_offset6 + lanes);
             }
             {
                 const auto v3_r = hn::Mul(hn::Sub(y13_i, y13_r), inv_sqrt2);
                 const auto v3_i = hn::Mul(hn::Neg(hn::Add(y13_r, y13_i)), inv_sqrt2);
-                hn::Store(hn::Add(y03_r, v3_r), d, out_ptr + out_stride3);
-                hn::Store(hn::Add(y03_i, v3_i), d, out_ptr + out_stride3 + lanes);
-                hn::Store(hn::Sub(y03_r, v3_r), d, out_ptr + out_stride7);
-                hn::Store(hn::Sub(y03_i, v3_i), d, out_ptr + out_stride7 + lanes);
+                hn::Store(hn::Add(y03_r, v3_r), d, out_ptr + out_offset3);
+                hn::Store(hn::Add(y03_i, v3_i), d, out_ptr + out_offset3 + lanes);
+                hn::Store(hn::Sub(y03_r, v3_r), d, out_ptr + out_offset7);
+                hn::Store(hn::Sub(y03_i, v3_i), d, out_ptr + out_offset7 + lanes);
             }
         }
     }
@@ -683,7 +686,12 @@ namespace zldsp::fft::common {
      * @param n
      */
     template <bool is_forward, typename F, typename Ptr>
-    inline void radix8_first_pass_fused_aosoa(Ptr in, F* __restrict out_aosoa, const size_t n) {
+    inline void radix8_first_pass_fused_aosoa(Ptr in, F* HWY_RESTRICT out_aosoa, const size_t n) {
+        out_aosoa = static_cast<F*>(HWY_ASSUME_ALIGNED(out_aosoa, HWY_ALIGNMENT));
+
+        static constexpr hn::ScalableTag<F> d;
+        static constexpr size_t lanes = hn::Lanes(d);
+
         const size_t one_eight_n = n >> 3;
 
         const size_t in_offset1 = Ptr::get_complex_offset(one_eight_n);
@@ -694,12 +702,11 @@ namespace zldsp::fft::common {
         const size_t in_offset6 = in_offset2 + in_offset4;
         const size_t in_offset7 = in_offset1 + in_offset6;
 
-        static constexpr hn::ScalableTag<F> d;
-        static constexpr size_t lanes = hn::Lanes(d);
-
         static constexpr F kInvSqrt2 = static_cast<F>(1.0 / std::numbers::sqrt2);
         const auto inv_sqrt2 = hn::Set(d, kInvSqrt2);
 
+        HWY_ASSUME(one_eight_n >= lanes);
+        HWY_ASSUME((one_eight_n % lanes) == 0);
         for (size_t j = 0; j + lanes <= one_eight_n; j += lanes) {
             const Ptr in_shift = in.shift(Ptr::get_complex_offset(j));
 
@@ -768,7 +775,7 @@ namespace zldsp::fft::common {
                 y13_i = v3_i;
             }
 
-            F* __restrict out_shift = out_aosoa + (j << 4);
+            F* HWY_RESTRICT out_shift = out_aosoa + (j << 4);
             static constexpr bool is_wide = (lanes > 4) || (sizeof(F) == 8 && lanes == 4);
             {
                 const auto il_00 = hn::InterleaveLower(d, hn::Add(y00_r, y10_r), hn::Sub(y00_r, y10_r));
@@ -1002,8 +1009,8 @@ namespace zldsp::fft::common {
         static constexpr hn::ScalableTag<F> d;
         static constexpr size_t lanes = hn::Lanes(d);
 
-        alignas(64) F tmp_r[16];
-        alignas(64) F tmp_i[16];
+        HWY_ALIGN F tmp_r[16];
+        HWY_ALIGN F tmp_i[16];
 
         if constexpr (lanes == 8) {
             hn::FixedTag<F, 4> d4;
@@ -1147,8 +1154,8 @@ namespace zldsp::fft::common {
         static constexpr size_t lanes = hn::Lanes(d);
         static constexpr F kInvSqrt2 = static_cast<F>(1.0 / std::numbers::sqrt2);
 
-        alignas(64) F tmp_r[32];
-        alignas(64) F tmp_i[32];
+        HWY_ALIGN F tmp_r[32];
+        HWY_ALIGN F tmp_i[32];
 
         if constexpr (lanes == 8) {
             const hn::FixedTag<F, 4> d4;
@@ -1253,17 +1260,16 @@ namespace zldsp::fft::common {
 
         } else if constexpr (lanes <= 4) {
             const auto inv_sqrt2 = hn::Set(d, kInvSqrt2);
-
-            for (size_t idx = 0; idx < 4; idx += lanes) {
+            if constexpr (lanes == 4) {
                 hn::Vec<decltype(d)> a_r, a_i, b_r, b_i;
 
-                load_complex<is_forward>(d, in.shift(InPtr::get_complex_offset(idx)), a_r, a_i);
-                load_complex<is_forward>(d, in.shift(InPtr::get_complex_offset(idx + 16)), b_r, b_i);
+                load_complex<is_forward>(d, in, a_r, a_i);
+                load_complex<is_forward>(d, in.shift(InPtr::get_complex_offset(16)), b_r, b_i);
                 const auto t0_r = hn::Add(a_r, b_r), t0_i = hn::Add(a_i, b_i);
                 const auto t1_r = hn::Sub(a_r, b_r), t1_i = hn::Sub(a_i, b_i);
 
-                load_complex<is_forward>(d, in.shift(InPtr::get_complex_offset(idx + 8)), a_r, a_i);
-                load_complex<is_forward>(d, in.shift(InPtr::get_complex_offset(idx + 24)), b_r, b_i);
+                load_complex<is_forward>(d, in.shift(InPtr::get_complex_offset(8)), a_r, a_i);
+                load_complex<is_forward>(d, in.shift(InPtr::get_complex_offset(24)), b_r, b_i);
                 const auto t2_r = hn::Add(a_r, b_r), t2_i = hn::Add(a_i, b_i);
                 const auto t3_r = hn::Sub(a_r, b_r), t3_i = hn::Sub(a_i, b_i);
 
@@ -1272,13 +1278,13 @@ namespace zldsp::fft::common {
                 const auto y02_r = hn::Sub(t0_r, t2_r), y02_i = hn::Sub(t0_i, t2_i);
                 const auto y03_r = hn::Sub(t1_r, t3_i), y03_i = hn::Add(t1_i, t3_r);
 
-                load_complex<is_forward>(d, in.shift(InPtr::get_complex_offset(idx + 4)), a_r, a_i);
-                load_complex<is_forward>(d, in.shift(InPtr::get_complex_offset(idx + 20)), b_r, b_i);
+                load_complex<is_forward>(d, in.shift(InPtr::get_complex_offset(4)), a_r, a_i);
+                load_complex<is_forward>(d, in.shift(InPtr::get_complex_offset(20)), b_r, b_i);
                 const auto u0_r = hn::Add(a_r, b_r), u0_i = hn::Add(a_i, b_i);
                 const auto u1_r = hn::Sub(a_r, b_r), u1_i = hn::Sub(a_i, b_i);
 
-                load_complex<is_forward>(d, in.shift(InPtr::get_complex_offset(idx + 12)), a_r, a_i);
-                load_complex<is_forward>(d, in.shift(InPtr::get_complex_offset(idx + 28)), b_r, b_i);
+                load_complex<is_forward>(d, in.shift(InPtr::get_complex_offset(12)), a_r, a_i);
+                load_complex<is_forward>(d, in.shift(InPtr::get_complex_offset(28)), b_r, b_i);
                 const auto u2_r = hn::Add(a_r, b_r), u2_i = hn::Add(a_i, b_i);
                 const auto u3_r = hn::Sub(a_r, b_r), u3_i = hn::Sub(a_i, b_i);
 
@@ -1324,10 +1330,86 @@ namespace zldsp::fft::common {
                 const auto lower_i3 = hn::InterleaveLower(d, z03_i, z13_i);
                 const auto upper_i3 = hn::InterleaveUpper(d, z03_i, z13_i);
 
-                hn::StoreInterleaved4(lower_r0, lower_r1, lower_r2, lower_r3, d, tmp_r + idx * 8);
-                hn::StoreInterleaved4(upper_r0, upper_r1, upper_r2, upper_r3, d, tmp_r + idx * 8 + lanes * 4);
-                hn::StoreInterleaved4(lower_i0, lower_i1, lower_i2, lower_i3, d, tmp_i + idx * 8);
-                hn::StoreInterleaved4(upper_i0, upper_i1, upper_i2, upper_i3, d, tmp_i + idx * 8 + lanes * 4);
+                hn::StoreInterleaved4(lower_r0, lower_r1, lower_r2, lower_r3, d, tmp_r);
+                hn::StoreInterleaved4(upper_r0, upper_r1, upper_r2, upper_r3, d, tmp_r + lanes * 4);
+                hn::StoreInterleaved4(lower_i0, lower_i1, lower_i2, lower_i3, d, tmp_i);
+                hn::StoreInterleaved4(upper_i0, upper_i1, upper_i2, upper_i3, d, tmp_i + lanes * 4);
+            } else {
+                for (size_t idx = 0; idx < 4; idx += lanes) {
+                    hn::Vec<decltype(d)> a_r, a_i, b_r, b_i;
+
+                    load_complex<is_forward>(d, in.shift(InPtr::get_complex_offset(idx)), a_r, a_i);
+                    load_complex<is_forward>(d, in.shift(InPtr::get_complex_offset(idx + 16)), b_r, b_i);
+                    const auto t0_r = hn::Add(a_r, b_r), t0_i = hn::Add(a_i, b_i);
+                    const auto t1_r = hn::Sub(a_r, b_r), t1_i = hn::Sub(a_i, b_i);
+
+                    load_complex<is_forward>(d, in.shift(InPtr::get_complex_offset(idx + 8)), a_r, a_i);
+                    load_complex<is_forward>(d, in.shift(InPtr::get_complex_offset(idx + 24)), b_r, b_i);
+                    const auto t2_r = hn::Add(a_r, b_r), t2_i = hn::Add(a_i, b_i);
+                    const auto t3_r = hn::Sub(a_r, b_r), t3_i = hn::Sub(a_i, b_i);
+
+                    const auto y00_r = hn::Add(t0_r, t2_r), y00_i = hn::Add(t0_i, t2_i);
+                    const auto y01_r = hn::Add(t1_r, t3_i), y01_i = hn::Sub(t1_i, t3_r);
+                    const auto y02_r = hn::Sub(t0_r, t2_r), y02_i = hn::Sub(t0_i, t2_i);
+                    const auto y03_r = hn::Sub(t1_r, t3_i), y03_i = hn::Add(t1_i, t3_r);
+
+                    load_complex<is_forward>(d, in.shift(InPtr::get_complex_offset(idx + 4)), a_r, a_i);
+                    load_complex<is_forward>(d, in.shift(InPtr::get_complex_offset(idx + 20)), b_r, b_i);
+                    const auto u0_r = hn::Add(a_r, b_r), u0_i = hn::Add(a_i, b_i);
+                    const auto u1_r = hn::Sub(a_r, b_r), u1_i = hn::Sub(a_i, b_i);
+
+                    load_complex<is_forward>(d, in.shift(InPtr::get_complex_offset(idx + 12)), a_r, a_i);
+                    load_complex<is_forward>(d, in.shift(InPtr::get_complex_offset(idx + 28)), b_r, b_i);
+                    const auto u2_r = hn::Add(a_r, b_r), u2_i = hn::Add(a_i, b_i);
+                    const auto u3_r = hn::Sub(a_r, b_r), u3_i = hn::Sub(a_i, b_i);
+
+                    const auto y10_r = hn::Add(u0_r, u2_r), y10_i = hn::Add(u0_i, u2_i);
+                    const auto y11_r = hn::Add(u1_r, u3_i), y11_i = hn::Sub(u1_i, u3_r);
+                    const auto y12_r = hn::Sub(u0_r, u2_r), y12_i = hn::Sub(u0_i, u2_i);
+                    const auto y13_r = hn::Sub(u1_r, u3_i), y13_i = hn::Add(u1_i, u3_r);
+
+                    const auto v0_r = y10_r;
+                    const auto v0_i = y10_i;
+                    const auto v1_r = hn::Mul(hn::Add(y11_r, y11_i), inv_sqrt2);
+                    const auto v1_i = hn::Mul(hn::Sub(y11_i, y11_r), inv_sqrt2);
+                    const auto v2_r = y12_i;
+                    const auto v2_i = hn::Neg(y12_r);
+                    const auto v3_r = hn::Mul(hn::Sub(y13_i, y13_r), inv_sqrt2);
+                    const auto v3_i = hn::Mul(hn::Neg(hn::Add(y13_r, y13_i)), inv_sqrt2);
+
+                    const auto z00_r = hn::Add(y00_r, v0_r), z00_i = hn::Add(y00_i, v0_i);
+                    const auto z01_r = hn::Add(y01_r, v1_r), z01_i = hn::Add(y01_i, v1_i);
+                    const auto z02_r = hn::Add(y02_r, v2_r), z02_i = hn::Add(y02_i, v2_i);
+                    const auto z03_r = hn::Add(y03_r, v3_r), z03_i = hn::Add(y03_i, v3_i);
+
+                    const auto z10_r = hn::Sub(y00_r, v0_r), z10_i = hn::Sub(y00_i, v0_i);
+                    const auto z11_r = hn::Sub(y01_r, v1_r), z11_i = hn::Sub(y01_i, v1_i);
+                    const auto z12_r = hn::Sub(y02_r, v2_r), z12_i = hn::Sub(y02_i, v2_i);
+                    const auto z13_r = hn::Sub(y03_r, v3_r), z13_i = hn::Sub(y03_i, v3_i);
+
+                    const auto lower_r0 = hn::InterleaveLower(d, z00_r, z10_r);
+                    const auto upper_r0 = hn::InterleaveUpper(d, z00_r, z10_r);
+                    const auto lower_r1 = hn::InterleaveLower(d, z01_r, z11_r);
+                    const auto upper_r1 = hn::InterleaveUpper(d, z01_r, z11_r);
+                    const auto lower_r2 = hn::InterleaveLower(d, z02_r, z12_r);
+                    const auto upper_r2 = hn::InterleaveUpper(d, z02_r, z12_r);
+                    const auto lower_r3 = hn::InterleaveLower(d, z03_r, z13_r);
+                    const auto upper_r3 = hn::InterleaveUpper(d, z03_r, z13_r);
+
+                    const auto lower_i0 = hn::InterleaveLower(d, z00_i, z10_i);
+                    const auto upper_i0 = hn::InterleaveUpper(d, z00_i, z10_i);
+                    const auto lower_i1 = hn::InterleaveLower(d, z01_i, z11_i);
+                    const auto upper_i1 = hn::InterleaveUpper(d, z01_i, z11_i);
+                    const auto lower_i2 = hn::InterleaveLower(d, z02_i, z12_i);
+                    const auto upper_i2 = hn::InterleaveUpper(d, z02_i, z12_i);
+                    const auto lower_i3 = hn::InterleaveLower(d, z03_i, z13_i);
+                    const auto upper_i3 = hn::InterleaveUpper(d, z03_i, z13_i);
+
+                    hn::StoreInterleaved4(lower_r0, lower_r1, lower_r2, lower_r3, d, tmp_r + idx * 8);
+                    hn::StoreInterleaved4(upper_r0, upper_r1, upper_r2, upper_r3, d, tmp_r + idx * 8 + lanes * 4);
+                    hn::StoreInterleaved4(lower_i0, lower_i1, lower_i2, lower_i3, d, tmp_i + idx * 8);
+                    hn::StoreInterleaved4(upper_i0, upper_i1, upper_i2, upper_i3, d, tmp_i + idx * 8 + lanes * 4);
+                }
             }
 
             static constexpr size_t off1 = (sizeof(F) == 8 && lanes == 4) ? 16 : 8;
@@ -1386,13 +1468,13 @@ namespace zldsp::fft::common {
         size_t offset = 0;
         size_t width = (order == 4 ? 4 : 8);
         for (size_t i = 0; i < 2; ++i) {
-            const double angle_step = -2.0 * std::numbers::pi / static_cast<double>(width << 2);
+            const double phase_step = -2.0 / static_cast<double>(width << 2);
             for (int mul = 1; mul < 4; ++mul) {
-                const auto step = angle_step * static_cast<double>(mul);
+                const auto step = phase_step * static_cast<double>(mul);
                 for (size_t k = 0; k < width; ++k, ++offset) {
-                    const double angle = static_cast<double>(k) * step;
-                    twiddles_r[offset] = static_cast<F>(std::cos(angle));
-                    twiddles_i[offset] = static_cast<F>(std::sin(angle));
+                    const double phase = static_cast<double>(k) * step;
+                    twiddles_r[offset] = static_cast<F>(math::cospi(phase));
+                    twiddles_i[offset] = static_cast<F>(math::sinpi(phase));
                 }
             }
             width = width << 2;
@@ -1423,10 +1505,6 @@ namespace zldsp::fft::common {
                     const size_t num_blocks = std::max<size_t>(1, width / lanes);
                     twiddles_shift[i] = num_blocks * 6 * lanes;
                     width = width << 2;
-                } else if (stage == StageType::kRadix8) {
-                    const size_t num_blocks = std::max<size_t>(1, width / lanes);
-                    twiddles_shift[i] = num_blocks * 14 * lanes;
-                    width = width << 3;
                 }
             }
         }
@@ -1443,52 +1521,35 @@ namespace zldsp::fft::common {
             for (size_t i = 1; i < stages.size(); ++i) {
                 const auto stage = stages[i];
                 if (stage == StageType::kRadix4Width4) {
-                    const double angle_step = -2.0 * std::numbers::pi / static_cast<double>(width << 2);
+                    const double phase_step = -2.0 / static_cast<double>(width << 2);
                     for (size_t l = 0; l < width4_vec; ++l) {
-                        const auto angle = static_cast<double>(l % 4) * angle_step;
+                        const auto phase = static_cast<double>(l % 4) * phase_step;
                         static constexpr int muls[3] = {1, 2, 3};
-                        for (int m = 0; m < 3; ++m) {
-                            const auto a = angle * muls[m];
-                            twiddles_aosoa[offset + 2 * m * width4_vec + l] = static_cast<F>(std::cos(a));
-                            twiddles_aosoa[offset + (2 * m + 1) * width4_vec + l] = static_cast<F>(std::sin(a));
+                        for (size_t m = 0; m < 3; ++m) {
+                            const auto a = phase * static_cast<double>(muls[m]);
+                            twiddles_aosoa[offset + 2 * m * width4_vec + l] = static_cast<F>(math::cospi(a));
+                            twiddles_aosoa[offset + (2 * m + 1) * width4_vec + l] = static_cast<F>(math::sinpi(a));
                         }
                     }
                     offset += twiddles_shift[i];
                     width = width << 2;
                 } else if (stage == StageType::kRadix4 || stage == StageType::kRadix4LastPass) {
                     const size_t num_blocks = std::max<size_t>(1, width / lanes);
-                    const double angle_step = -2.0 * std::numbers::pi / static_cast<double>(width << 2);
+                    const double phase_step = -2.0 / static_cast<double>(width << 2);
                     for (size_t b = 0; b < num_blocks; ++b) {
                         for (size_t l = 0; l < lanes; ++l) {
                             const size_t idx = (b * lanes + l) % width;
-                            const auto angle = static_cast<double>(idx) * angle_step;
+                            const auto phase = static_cast<double>(idx) * phase_step;
                             static constexpr int muls[3] = {1, 2, 3};
-                            for (int m = 0; m < 3; ++m) {
-                                const auto a = angle * muls[m];
-                                twiddles_aosoa[offset + 2 * m * lanes + l] = static_cast<F>(std::cos(a));
-                                twiddles_aosoa[offset + (2 * m + 1) * lanes + l] = static_cast<F>(std::sin(a));
+                            for (size_t m = 0; m < 3; ++m) {
+                                const auto a = phase * static_cast<double>(muls[m]);
+                                twiddles_aosoa[offset + 2 * m * lanes + l] = static_cast<F>(math::cospi(a));
+                                twiddles_aosoa[offset + (2 * m + 1) * lanes + l] = static_cast<F>(math::sinpi(a));
                             }
                         }
                         offset += 6 * lanes;
                     }
                     width = width << 2;
-                } else if (stage == StageType::kRadix8) {
-                    const size_t num_blocks = std::max<size_t>(1, width / lanes);
-                    const double angle_step = -2.0 * std::numbers::pi / static_cast<double>(width << 3);
-                    for (size_t b = 0; b < num_blocks; ++b) {
-                        for (size_t l = 0; l < lanes; ++l) {
-                            const size_t idx = (b * lanes + l) % width;
-                            const auto angle = static_cast<double>(idx) * angle_step;
-                            static constexpr int muls[7] = {4, 2, 6, 1, 5, 3, 7};
-                            for (int m = 0; m < 7; ++m) {
-                                const auto a = angle * muls[m];
-                                twiddles_aosoa[offset + 2 * m * lanes + l] = static_cast<F>(std::cos(a));
-                                twiddles_aosoa[offset + (2 * m + 1) * lanes + l] = static_cast<F>(std::sin(a));
-                            }
-                        }
-                        offset += 14 * lanes;
-                    }
-                    width = width << 3;
                 }
             }
         }
