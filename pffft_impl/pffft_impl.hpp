@@ -78,4 +78,101 @@ namespace zlbenchmark {
         float* work_ = nullptr;
     };
 
+    template <typename F>
+    class PffftRFFT;
+
+    template <>
+    class PffftRFFT<double> final {
+        using C = std::complex<double>;
+
+    public:
+        explicit PffftRFFT(const size_t order) :
+            size_(1 << order) {
+            setup_ = pffftd_new_setup(static_cast<int>(size_), PFFFT_REAL);
+
+            work_ = static_cast<double*>(pffft_aligned_malloc(size_ * 2 * sizeof(double)));
+            out_real_ = static_cast<double*>(pffft_aligned_malloc(size_ * sizeof(double)));
+        }
+
+        ~PffftRFFT() {
+            if (out_real_)
+                pffft_aligned_free(out_real_);
+            if (work_)
+                pffft_aligned_free(work_);
+            if (setup_)
+                pffftd_destroy_setup(setup_);
+        }
+
+        void forward(std::span<const double> in_buffer, std::span<C> out_buffer) {
+            if (!setup_) {
+                for (auto& c : out_buffer) c = C(0.0, 0.0);
+                return;
+            }
+            auto* in_ptr = reinterpret_cast<const double*>(in_buffer.data());
+
+            pffftd_transform_ordered(setup_, in_ptr, out_real_, work_, PFFFT_FORWARD);
+            
+#ifndef THROUGHPUT_RFFT_TEST
+            out_buffer[0] = C(out_real_[0], 0.0);
+            out_buffer[size_ / 2] = C(out_real_[1], 0.0);
+            for (size_t k = 1; k < size_ / 2; ++k) {
+                out_buffer[k] = C(out_real_[2 * k], out_real_[2 * k + 1]);
+            }
+#endif
+        }
+
+    private:
+        size_t size_;
+        PFFFTD_Setup* setup_ = nullptr;
+        double* work_ = nullptr;
+        double* out_real_ = nullptr;
+    };
+
+    template <>
+    class PffftRFFT<float> final {
+        using C = std::complex<float>;
+
+    public:
+        explicit PffftRFFT(const size_t order) :
+            size_(1 << order) {
+            setup_ = pffft_new_setup(static_cast<int>(size_), PFFFT_REAL);
+
+            work_ = static_cast<float*>(pffft_aligned_malloc(size_ * 2 * sizeof(float)));
+            out_real_ = static_cast<float*>(pffft_aligned_malloc(size_ * sizeof(float)));
+        }
+
+        ~PffftRFFT() {
+            if (out_real_)
+                pffft_aligned_free(out_real_);
+            if (work_)
+                pffft_aligned_free(work_);
+            if (setup_)
+                pffft_destroy_setup(setup_);
+        }
+
+        void forward(std::span<const float> in_buffer, std::span<C> out_buffer) {
+            if (!setup_) {
+                for (auto& c : out_buffer) c = C(0.0f, 0.0f);
+                return;
+            }
+            auto* in_ptr = reinterpret_cast<const float*>(in_buffer.data());
+
+            pffft_transform_ordered(setup_, in_ptr, out_real_, work_, PFFFT_FORWARD);
+            
+#ifndef THROUGHPUT_RFFT_TEST
+            out_buffer[0] = C(out_real_[0], 0.0f);
+            out_buffer[size_ / 2] = C(out_real_[1], 0.0f);
+            for (size_t k = 1; k < size_ / 2; ++k) {
+                out_buffer[k] = C(out_real_[2 * k], out_real_[2 * k + 1]);
+            }
+#endif
+        }
+
+    private:
+        size_t size_;
+        PFFFT_Setup* setup_ = nullptr;
+        float* work_ = nullptr;
+        float* out_real_ = nullptr;
+    };
+
 }

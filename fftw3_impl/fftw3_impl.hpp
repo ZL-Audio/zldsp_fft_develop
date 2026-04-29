@@ -68,4 +68,65 @@ namespace zlbenchmark {
         size_t size_;
         fftwf_plan plan_;
     };
+
+    template <typename F, unsigned Flags = FFTW_MEASURE>
+    class FFTW3RFFT;
+
+    template <unsigned Flags>
+    class FFTW3RFFT<double, Flags> final {
+        using C = std::complex<double>;
+
+    public:
+        explicit FFTW3RFFT(const size_t order) : size_(1 << order) {
+            auto* dummy_in = fftw_alloc_real(size_);
+            auto* dummy_out = fftw_alloc_complex(size_ / 2 + 1);
+
+            plan_ = fftw_plan_dft_r2c_1d(size_, dummy_in, dummy_out, Flags);
+
+            fftw_free(dummy_in);
+            fftw_free(dummy_out);
+        }
+
+        ~FFTW3RFFT() { fftw_destroy_plan(plan_); }
+
+        void forward(std::span<const double> in_buffer, std::span<C> out_buffer) {
+            auto* in_ptr = const_cast<double*>(in_buffer.data());
+            auto* out_ptr = reinterpret_cast<fftw_complex*>(out_buffer.data());
+
+            fftw_execute_dft_r2c(plan_, in_ptr, out_ptr);
+        }
+
+    private:
+        size_t size_;
+        fftw_plan plan_;
+    };
+
+    template <unsigned Flags>
+    class FFTW3RFFT<float, Flags> final {
+        using C = std::complex<float>;
+
+    public:
+        explicit FFTW3RFFT(const size_t order) : size_(1 << order) {
+            auto* dummy_in = fftwf_alloc_real(size_);
+            auto* dummy_out = fftwf_alloc_complex(size_ / 2 + 1);
+
+            plan_ = fftwf_plan_dft_r2c_1d(size_, dummy_in, dummy_out, Flags);
+
+            fftwf_free(dummy_in);
+            fftwf_free(dummy_out);
+        }
+
+        ~FFTW3RFFT() { fftwf_destroy_plan(plan_); }
+
+        void forward(std::span<const float> in_buffer, std::span<C> out_buffer) {
+            auto* in_ptr = const_cast<float*>(in_buffer.data());
+            auto* out_ptr = reinterpret_cast<fftwf_complex*>(out_buffer.data());
+
+            fftwf_execute_dft_r2c(plan_, in_ptr, out_ptr);
+        }
+
+    private:
+        size_t size_;
+        fftwf_plan plan_;
+    };
 } // namespace zlbenchmark

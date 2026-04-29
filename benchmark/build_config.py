@@ -100,7 +100,9 @@ def build_benchmark(algorithm, benchmark_type, use_avx2=False, use_double=False,
     elif benchmark_type == "accuracy_cfft":
         cmake_cmd += ["-DACCURACY_TEST=OFF", "-DTHROUGHPUT_TEST=OFF", "-DSTAGE_TIMING_TEST=OFF", "-DPROFILER_TEST=OFF", "-DACCURACY_CFFT_TEST=ON"]
     elif benchmark_type == "throughput":
-        cmake_cmd += ["-DACCURACY_TEST=OFF", "-DTHROUGHPUT_TEST=ON", "-DSTAGE_TIMING_TEST=OFF", "-DPROFILER_TEST=OFF", "-DACCURACY_CFFT_TEST=OFF"]
+        cmake_cmd += ["-DACCURACY_TEST=OFF", "-DTHROUGHPUT_TEST=ON", "-DTHROUGHPUT_RFFT_TEST=OFF", "-DSTAGE_TIMING_TEST=OFF", "-DPROFILER_TEST=OFF", "-DACCURACY_CFFT_TEST=OFF"]
+    elif benchmark_type == "throughput_rfft":
+        cmake_cmd += ["-DACCURACY_TEST=OFF", "-DTHROUGHPUT_TEST=OFF", "-DTHROUGHPUT_RFFT_TEST=ON", "-DSTAGE_TIMING_TEST=OFF", "-DPROFILER_TEST=OFF", "-DACCURACY_CFFT_TEST=OFF"]
     elif benchmark_type == "stage_timing":
         cmake_cmd += ["-DACCURACY_TEST=OFF", "-DTHROUGHPUT_TEST=OFF", "-DSTAGE_TIMING_TEST=ON", "-DPROFILER_TEST=OFF", "-DACCURACY_CFFT_TEST=OFF"]
     elif benchmark_type == "profiler":
