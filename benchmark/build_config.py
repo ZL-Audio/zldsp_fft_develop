@@ -11,9 +11,9 @@ algos = ["zldsp",
 
 def get_algo_list(full=False):
     if not full:
-        return ["kfr", "vdsp", "ipp", "zldsp", "pffft"]
+        return ["vdsp", "ipp", "kfr", "pffft", "zldsp"]
     else:
-        return ["vdsp", "ipp", "fftw3", "fftw3_estimate", "kfr", "pffft"]
+        return ["vdsp", "ipp", "fftw3", "fftw3_estimate", "kfr", "pffft", "zldsp"]
 
 def replace_result_keys(results):
     r = {}
