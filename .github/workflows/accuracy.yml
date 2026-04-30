@@ -1,6 +1,8 @@
 name: Accuracy Test
 
 on:
+  push:
+    branches: [ rfft ]
   workflow_dispatch:
 
 concurrency:
@@ -55,32 +57,54 @@ jobs:
         shell: cmd
         run: nuget install intelipp.static.win-x64 -Version 2022.3.0.387
 
-      - name: Accuracy Test AVX2 (Linux)
+      - name: CFFT Accuracy Mid Test AVX2 Double (Linux)
         if: runner.os == 'Linux'
         shell: bash
-        run: python -u benchmark/accuracy_all.py 4 25 --avx2
+        run: |
+          python -u benchmark/accuracy_mid.py 2 20 --avx2 --double
+          python -u benchmark/accuracy_cfft.py 2 20 zldsp --avx2 --double
 
-      - name: Accuracy Test (Linux)
+      - name: CFFT Accuracy Mid Test AVX2 (Linux)
         if: runner.os == 'Linux'
         shell: bash
-        run: python -u benchmark/accuracy_all.py 4 25
+        run: |
+          python -u benchmark/accuracy_mid.py 2 20 --avx2
+          python -u benchmark/accuracy_cfft.py 2 20 zldsp --avx2
+          
+      - name: CFFT Accuracy Mid Test Double
+        shell: bash
+        run: |
+          python -u benchmark/accuracy_mid.py 2 20 --double
+          python -u benchmark/accuracy_cfft.py 2 20 zldsp --double
 
-      - name: Accuracy Test 2 AVX2 (Linux)
+      - name: CFFT Accuracy Mid Test
+        shell: bash
+        run: |
+          python -u benchmark/accuracy_mid.py 2 20
+          python -u benchmark/accuracy_cfft.py 2 20 zldsp
+
+      - name: RFFT Accuracy Mid Test AVX2 Double (Linux)
         if: runner.os == 'Linux'
         shell: bash
-        run: python -u benchmark/accuracy_cfft.py 1 25 zldsp --avx2
+        run: |
+          python -u benchmark/accuracy_mid_rfft.py 2 20 --avx2 --double
+          python -u benchmark/accuracy_rfft.py 2 20 zldsp --avx2 --double
 
-      - name: Accuracy Test 2 (Linux)
+      - name: RFFT Accuracy Mid Test AVX2 (Linux)
         if: runner.os == 'Linux'
         shell: bash
-        run: python -u benchmark/accuracy_cfft.py 1 25 zldsp
+        run: |
+          python -u benchmark/accuracy_mid_rfft.py 2 20 --avx2
+          python -u benchmark/accuracy_rfft.py 2 20 zldsp --avx2
 
-      - name: Accuracy Test (macOS)
-        if: runner.os == 'macOS'
+      - name: RFFT Accuracy Mid Test Double
         shell: bash
-        run: python -u benchmark/accuracy_all.py 4 25
+        run: |
+          python -u benchmark/accuracy_mid_rfft.py 2 20 --double
+          python -u benchmark/accuracy_rfft.py 2 20 zldsp --double
 
-      - name: Accuracy Test 2 (macOS)
-        if: runner.os == 'macOS'
+      - name: RFFT Accuracy Mid Test
         shell: bash
-        run: python -u benchmark/accuracy_cfft.py 1 25 zldsp
+        run: |
+          python -u benchmark/accuracy_mid_rfft.py 2 20
+          python -u benchmark/accuracy_rfft.py 2 20 zldsp
