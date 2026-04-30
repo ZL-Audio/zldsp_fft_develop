@@ -217,11 +217,12 @@ namespace zldsp::fft::common {
         const size_t twiddle_size = num_blocks * lanes * 2;
         rfft_twiddles = hwy::AllocateAligned<F>(twiddle_size);
 
+        const double phase_step = 2.0 / static_cast<double>(rfft_size);
         for (size_t b = 0; b < num_blocks; ++b) {
             for (size_t l = 0; l < lanes; ++l) {
                 const size_t idx = b * lanes + l + 1;
                 if (idx <= num_elements) {
-                    const auto a = 2.0 * static_cast<double>(idx) / static_cast<double>(rfft_size);
+                    const auto a = static_cast<double>(idx) * phase_step;
                     rfft_twiddles[b * lanes * 2 + l] = static_cast<F>(0.5 * math::cospi(a));
                     rfft_twiddles[b * lanes * 2 + lanes + l] = static_cast<F>(0.5 * math::sinpi(a) + 0.5);
                 } else {

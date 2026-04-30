@@ -1,8 +1,6 @@
 name: Accuracy Test
 
 on:
-  push:
-    branches: [ rfft ]
   workflow_dispatch:
 
 concurrency:

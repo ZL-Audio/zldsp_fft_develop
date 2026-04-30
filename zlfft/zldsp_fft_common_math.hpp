@@ -17,18 +17,10 @@ namespace zldsp::fft::common::math {
 #else
 
     inline double cospi(const double x) {
-        double rem = std::fmod(std::abs(x), 1.0);
-        if (rem == 0.5) {
-            return 0.0;
-        }
         return std::cos(x * std::numbers::pi_v<double>);
     }
 
     inline double sinpi(const double x) {
-        double rem = std::fmod(std::abs(x), 1.0);
-        if (rem == 0.0) {
-            return std::copysign(0.0, x);
-        }
         return std::sin(x * std::numbers::pi_v<double>);
     }
 
