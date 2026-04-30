@@ -5,49 +5,15 @@ import sys
 import platform
 import json
 
-algos = ["naive_stockham_radix2", "naive_cooley_radix2", "naive_stockham_radix4",
-         "stockham_radix2_kernel24", "stockham_radix2_kernel248",
-
-         "simd_stockham_radix2",
-         "simd_stockham_radix2_kernel1",
-         "simd_stockham_radix2_kernel2",
-         "simd_stockham_radix2_kernel24",
-         "simd_stockham_radix2_kernel248",
-         "simd_stockham_radix4",
-         "simd_stockham_radix4_soa",
-         "simd_stockham_radix8",
-         "simd_stockham_radix4_opt1",
-         "simd_stockham_radix4_soa_kernel4",
-         "simd_stockham_radix4_soa_kernel4_opt1",
-
-         "simd_low_order",
-         "simd_low_order_opt1",
-         "simd_low_order_opt2",
-         "simd_low_order_aosoa1",
-         "simd_low_order_aosoa2",
-         "simd_low_order_aosoa3",
-         "simd_low_order_aosoa4",
-         "simd_low_order_aosoa5",
-         "simd_low_order_aosoa6",
-         "simd_low_order_aosoa7",
-         "simd_low_order_aosoa8",
-         "simd_low_order_aosoa9",
-         "high_order_aosoa1",
-         "high_order_aosoa2",
-         "hybrid_aosoa1",
-         "hybrid_aosoa2",
-         "hybrid_aosoa3",
-         "hybrid_aosoa4",
-         "zldsp",
-
+algos = ["zldsp",
          "fftw3", "fftw3_estimate", "kfr", "vdsp", "vdsp_stride_2", "pffft", "ipp"]
 
 
 def get_algo_list(full=False):
     if not full:
-        return ["kfr", "vdsp", "ipp", "zldsp", "pffft", "simd_low_order_aosoa1", "simd_low_order_aosoa9", "hybrid_aosoa3", "hybrid_aosoa4"]
+        return ["kfr", "vdsp", "ipp", "zldsp", "pffft"]
     else:
-        return ["vdsp", "ipp", "fftw3", "fftw3_estimate", "kfr", "pffft", "simd_low_order_aosoa1", "simd_low_order_aosoa9", "hybrid_aosoa3"]
+        return ["vdsp", "ipp", "fftw3", "fftw3_estimate", "kfr", "pffft"]
 
 def replace_result_keys(results):
     r = {}
@@ -64,28 +30,6 @@ def replace_result_keys(results):
             r["FFTW3"] = value
         elif key == "fftw3_estimate":
             r["FFTW3 estimate"] = value
-        elif key == "simd_low_order_opt1":
-            r["radix-4"] = value
-        elif key == "simd_low_order_opt2":
-            r["radix-8"] = value
-        elif key == "simd_low_order_aosoa1":
-            r["Naive"] = value
-        elif key == "simd_low_order_aosoa2":
-            r["radix-8 AoSoA"] = value
-        elif key == "simd_low_order_aosoa5":
-            r["Mix AoSoA"] = value
-        elif key == "simd_low_order_aosoa7":
-            r["radix-4 AoSoA Shuffle"] = value
-        elif key == "simd_low_order_aosoa8":
-            r["radix-8 AoSoA Shuffle"] = value
-        elif key == "simd_low_order_aosoa9":
-            r["Shuffle"] = value
-        elif key == "hybrid_aosoa1":
-            r["Hybrid AoSoA1"] = value
-        elif key == "hybrid_aosoa2":
-            r["Hybrid AoSoA2"] = value
-        elif key == "hybrid_aosoa3":
-            r["Hybrid"] = value
         else:
             r[key] = value
     return r
