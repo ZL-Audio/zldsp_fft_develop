@@ -1,12 +1,12 @@
-#include <cmath>
-#include <iostream>
-#include <vector>
 #include <array>
-#include <random>
+#include <cmath>
+#include <complex>
+#include <iostream>
 #include <limits>
 #include <new>
+#include <random>
 #include <span>
-#include <complex>
+#include <vector>
 
 #ifdef USE_DOUBLE
 using F = double;
@@ -42,22 +42,8 @@ struct AlignedAllocator {
     bool operator!=(const AlignedAllocator&) const { return false; }
 };
 
-#if defined(ENABLE_PFFFT)
-#include "../pffft_impl/pffft_impl.hpp"
-using FFTClass = zlbenchmark::PffftRFFT<F>;
-#elif defined(ENABLE_KFR)
-#include "../kfr_impl/kfr_impl.hpp"
-using FFTClass = zlbenchmark::KFRRFFT<F>;
-#elif defined(ENABLE_FFTW3)
-#include "../fftw3_impl/fftw3_impl.hpp"
-using FFTClass = zlbenchmark::FFTW3RFFT<F>;
-#elif defined(ENABLE_ZLDSP)
 #include "../zlfft/zldsp_fft_rfft.hpp"
 using FFTClass = zldsp::fft::RFFT<F>;
-#else
-#include "../fftw3_impl/fftw3_impl.hpp"
-using FFTClass = zlbenchmark::FFTW3RFFT<F>;
-#endif
 
 void generate_random_data_f(std::span<F> data) {
     std::mt19937 gen(42);

@@ -10,12 +10,7 @@
 #include <ipps.h>
 
 namespace zlbenchmark {
-    enum class IPPSimdLevel {
-        Auto,
-        SSE42,
-        AVX2,
-        AVX512
-    };
+    enum class IPPSimdLevel { Auto, SSE42, AVX2, AVX512 };
 
     inline std::mutex& get_ipp_mutex() {
         static std::mutex mtx;
@@ -30,13 +25,14 @@ namespace zlbenchmark {
             ippInit();
             ippGetCpuFeatures(&original_features_, nullptr);
 
-            if (target_level == IPPSimdLevel::Auto) return;
+            if (target_level == IPPSimdLevel::Auto)
+                return;
 
             Ipp64u cpuFeatures = original_features_;
 
             if (target_level <= IPPSimdLevel::AVX2) {
-                cpuFeatures &= ~(ippCPUID_AVX512F | ippCPUID_AVX512CD |
-                                 ippCPUID_AVX512VL | ippCPUID_AVX512BW | ippCPUID_AVX512DQ);
+                cpuFeatures &=
+                    ~(ippCPUID_AVX512F | ippCPUID_AVX512CD | ippCPUID_AVX512VL | ippCPUID_AVX512BW | ippCPUID_AVX512DQ);
             }
             if (target_level <= IPPSimdLevel::SSE42) {
                 cpuFeatures &= ~(ippCPUID_AVX | ippCPUID_AVX2);
@@ -67,7 +63,8 @@ namespace zlbenchmark {
         explicit IPPFFT(const int order) : order_(order), n_(1 << order) {
             int specSize = 0, initSize = 0, bufSize = 0;
 
-            IppStatus status = ippsFFTGetSize_C_32fc(order_, IPP_FFT_DIV_INV_BY_N, ippAlgHintNone, &specSize, &initSize, &bufSize);
+            IppStatus status =
+                ippsFFTGetSize_C_32fc(order_, IPP_FFT_NODIV_BY_ANY, ippAlgHintNone, &specSize, &initSize, &bufSize);
             if (status != ippStsNoErr) {
                 throw std::runtime_error("ippsFFTGetSize_C_32fc failed");
             }
@@ -76,15 +73,17 @@ namespace zlbenchmark {
             work_buf_ = bufSize > 0 ? ippsMalloc_8u(bufSize) : nullptr;
             Ipp8u* init_buf = initSize > 0 ? ippsMalloc_8u(initSize) : nullptr;
 
-            status = ippsFFTInit_C_32fc(&spec_, order_, IPP_FFT_DIV_INV_BY_N, ippAlgHintNone, spec_mem_, init_buf);
+            status = ippsFFTInit_C_32fc(&spec_, order_, IPP_FFT_NODIV_BY_ANY, ippAlgHintNone, spec_mem_, init_buf);
 
             if (init_buf) {
                 ippsFree(init_buf);
             }
 
             if (status != ippStsNoErr) {
-                if (spec_mem_) ippsFree(spec_mem_);
-                if (work_buf_) ippsFree(work_buf_);
+                if (spec_mem_)
+                    ippsFree(spec_mem_);
+                if (work_buf_)
+                    ippsFree(work_buf_);
                 throw std::runtime_error("ippsFFTInit_C_32fc failed");
             }
         }
@@ -99,12 +98,8 @@ namespace zlbenchmark {
         }
 
         void forward(C* in_buffer, C* out_buffer) {
-            ippsFFTFwd_CToC_32fc(
-                reinterpret_cast<const Ipp32fc*>(in_buffer),
-                reinterpret_cast<Ipp32fc*>(out_buffer),
-                spec_,
-                work_buf_
-            );
+            ippsFFTFwd_CToC_32fc(reinterpret_cast<const Ipp32fc*>(in_buffer), reinterpret_cast<Ipp32fc*>(out_buffer),
+                                 spec_, work_buf_);
         }
 
     private:
@@ -125,7 +120,8 @@ namespace zlbenchmark {
         explicit IPPFFT(const int order) : order_(order), n_(1 << order) {
             int specSize = 0, initSize = 0, bufSize = 0;
 
-            IppStatus status = ippsFFTGetSize_C_64fc(order_, IPP_FFT_DIV_INV_BY_N, ippAlgHintNone, &specSize, &initSize, &bufSize);
+            IppStatus status =
+                ippsFFTGetSize_C_64fc(order_, IPP_FFT_NODIV_BY_ANY, ippAlgHintNone, &specSize, &initSize, &bufSize);
             if (status != ippStsNoErr) {
                 throw std::runtime_error("ippsFFTGetSize_C_64fc failed");
             }
@@ -134,15 +130,17 @@ namespace zlbenchmark {
             work_buf_ = bufSize > 0 ? ippsMalloc_8u(bufSize) : nullptr;
             Ipp8u* init_buf = initSize > 0 ? ippsMalloc_8u(initSize) : nullptr;
 
-            status = ippsFFTInit_C_64fc(&spec_, order_, IPP_FFT_DIV_INV_BY_N, ippAlgHintNone, spec_mem_, init_buf);
+            status = ippsFFTInit_C_64fc(&spec_, order_, IPP_FFT_NODIV_BY_ANY, ippAlgHintNone, spec_mem_, init_buf);
 
             if (init_buf) {
                 ippsFree(init_buf);
             }
 
             if (status != ippStsNoErr) {
-                if (spec_mem_) ippsFree(spec_mem_);
-                if (work_buf_) ippsFree(work_buf_);
+                if (spec_mem_)
+                    ippsFree(spec_mem_);
+                if (work_buf_)
+                    ippsFree(work_buf_);
                 throw std::runtime_error("ippsFFTInit_C_64fc failed");
             }
         }
@@ -157,12 +155,8 @@ namespace zlbenchmark {
         }
 
         void forward(C* in_buffer, C* out_buffer) {
-            ippsFFTFwd_CToC_64fc(
-                reinterpret_cast<const Ipp64fc*>(in_buffer),
-                reinterpret_cast<Ipp64fc*>(out_buffer),
-                spec_,
-                work_buf_
-            );
+            ippsFFTFwd_CToC_64fc(reinterpret_cast<const Ipp64fc*>(in_buffer), reinterpret_cast<Ipp64fc*>(out_buffer),
+                                 spec_, work_buf_);
         }
 
     private:
@@ -174,4 +168,117 @@ namespace zlbenchmark {
         Ipp8u* spec_mem_{nullptr};
         Ipp8u* work_buf_{nullptr};
     };
-}
+    template <typename F, IPPSimdLevel kSimd = IPPSimdLevel::Auto>
+    class IPPRFFT;
+
+    template <IPPSimdLevel kSimd>
+    class IPPRFFT<float, kSimd> final {
+        using C = std::complex<float>;
+
+    public:
+        explicit IPPRFFT(const int order) : order_(order), n_(1 << order) {
+            int specSize = 0, initSize = 0, bufSize = 0;
+            IppStatus status =
+                ippsFFTGetSize_R_32f(order_, IPP_FFT_NODIV_BY_ANY, ippAlgHintNone, &specSize, &initSize, &bufSize);
+            if (status != ippStsNoErr) {
+                throw std::runtime_error("ippsFFTGetSize_R_32f failed");
+            }
+
+            spec_mem_ = ippsMalloc_8u(specSize);
+            work_buf_ = bufSize > 0 ? ippsMalloc_8u(bufSize) : nullptr;
+            Ipp8u* init_buf = initSize > 0 ? ippsMalloc_8u(initSize) : nullptr;
+
+            status = ippsFFTInit_R_32f(&spec_, order_, IPP_FFT_NODIV_BY_ANY, ippAlgHintNone, spec_mem_, init_buf);
+
+            if (init_buf) {
+                ippsFree(init_buf);
+            }
+
+            if (status != ippStsNoErr) {
+                if (spec_mem_)
+                    ippsFree(spec_mem_);
+                if (work_buf_)
+                    ippsFree(work_buf_);
+                throw std::runtime_error("ippsFFTInit_R_32f failed");
+            }
+        }
+
+        ~IPPRFFT() {
+            if (spec_mem_) {
+                ippsFree(spec_mem_);
+            }
+            if (work_buf_) {
+                ippsFree(work_buf_);
+            }
+        }
+
+        void forward(const float* in_buffer, C* out_buffer) {
+            ippsFFTFwd_RToCCS_32f(in_buffer, reinterpret_cast<float*>(out_buffer), spec_, work_buf_);
+        }
+
+    private:
+        ScopedIPPDispatcher state_guard_{kSimd};
+
+        int order_;
+        int n_;
+        IppsFFTSpec_R_32f* spec_{nullptr};
+        Ipp8u* spec_mem_{nullptr};
+        Ipp8u* work_buf_{nullptr};
+    };
+
+    template <IPPSimdLevel kSimd>
+    class IPPRFFT<double, kSimd> final {
+        using C = std::complex<double>;
+
+    public:
+        explicit IPPRFFT(const int order) : order_(order), n_(1 << order) {
+            int specSize = 0, initSize = 0, bufSize = 0;
+            IppStatus status =
+                ippsFFTGetSize_R_64f(order_, IPP_FFT_NODIV_BY_ANY, ippAlgHintNone, &specSize, &initSize, &bufSize);
+            if (status != ippStsNoErr) {
+                throw std::runtime_error("ippsFFTGetSize_R_64f failed");
+            }
+
+            spec_mem_ = ippsMalloc_8u(specSize);
+            work_buf_ = bufSize > 0 ? ippsMalloc_8u(bufSize) : nullptr;
+            Ipp8u* init_buf = initSize > 0 ? ippsMalloc_8u(initSize) : nullptr;
+
+            status = ippsFFTInit_R_64f(&spec_, order_, IPP_FFT_NODIV_BY_ANY ippAlgHintNone, spec_mem_, init_buf);
+
+            if (init_buf) {
+                ippsFree(init_buf);
+            }
+
+            if (status != ippStsNoErr) {
+                if (spec_mem_)
+                    ippsFree(spec_mem_);
+                if (work_buf_)
+                    ippsFree(work_buf_);
+                throw std::runtime_error("ippsFFTInit_R_64f failed");
+            }
+            temp_res_.resize(n_);
+        }
+
+        ~IPPRFFT() {
+            if (spec_mem_) {
+                ippsFree(spec_mem_);
+            }
+            if (work_buf_) {
+                ippsFree(work_buf_);
+            }
+        }
+
+        void forward(const double* in_buffer, C* out_buffer) {
+            ippsFFTFwd_RToCCS_64f(in_buffer, reinterpret_cast<float*>(out_buffer), spec_, work_buf_);
+        }
+
+    private:
+        ScopedIPPDispatcher state_guard_{kSimd};
+
+        int order_;
+        int n_;
+        IppsFFTSpec_R_64f* spec_{nullptr};
+        Ipp8u* spec_mem_{nullptr};
+        Ipp8u* work_buf_{nullptr};
+    };
+} // namespace zlbenchmark

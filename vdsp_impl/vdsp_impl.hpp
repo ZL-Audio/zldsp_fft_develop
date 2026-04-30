@@ -111,4 +111,78 @@ namespace zlbenchmark {
         std::vector<double> temp_split_imag_;
         DSPDoubleSplitComplex split_complex_;
     };
-}
+    template <typename F>
+    class VDSPRFFT;
+
+    template <>
+    class VDSPRFFT<float> final {
+        using C = std::complex<float>;
+
+    public:
+        explicit VDSPRFFT(const size_t order) :
+            order_(order), n_(1 << order), fft_setup_(vDSP_create_fftsetup(order, FFT_RADIX2)) {
+            if (!fft_setup_) {
+                throw std::runtime_error("vDSP_create_fftsetup failed");
+            }
+            temp_split_real_.resize(n_ / 2);
+            temp_split_imag_.resize(n_ / 2);
+            split_complex_.realp = temp_split_real_.data();
+            split_complex_.imagp = temp_split_imag_.data();
+        }
+
+        ~VDSPRFFT() {
+            if (fft_setup_) {
+                vDSP_destroy_fftsetup(fft_setup_);
+            }
+        }
+
+        void forward(const float* in_buffer, C* out_buffer) {
+            vDSP_ctoz(reinterpret_cast<const DSPComplex*>(in_buffer), 1, &split_complex_, 1, n_ / 2);
+            vDSP_fft_zrip(fft_setup_, &split_complex_, 1, order_, FFT_FORWARD);
+        }
+
+    private:
+        size_t order_;
+        size_t n_;
+        FFTSetup fft_setup_;
+        std::vector<float> temp_split_real_;
+        std::vector<float> temp_split_imag_;
+        DSPSplitComplex split_complex_;
+    };
+
+    template <>
+    class VDSPRFFT<double> final {
+        using C = std::complex<double>;
+
+    public:
+        explicit VDSPRFFT(const size_t order) :
+            order_(order), n_(1 << order), fft_setup_(vDSP_create_fftsetupD(order, FFT_RADIX2)) {
+            if (!fft_setup_) {
+                throw std::runtime_error("vDSP_create_fftsetupD failed");
+            }
+            temp_split_real_.resize(n_ / 2);
+            temp_split_imag_.resize(n_ / 2);
+            split_complex_.realp = temp_split_real_.data();
+            split_complex_.imagp = temp_split_imag_.data();
+        }
+
+        ~VDSPRFFT() {
+            if (fft_setup_) {
+                vDSP_destroy_fftsetupD(fft_setup_);
+            }
+        }
+
+        void forward(const double* in_buffer, C* out_buffer) {
+            vDSP_ctozD(reinterpret_cast<const DSPDoubleComplex*>(in_buffer), 1, &split_complex_, 1, n_ / 2);
+            vDSP_fft_zripD(fft_setup_, &split_complex_, 1, order_, FFT_FORWARD);
+        }
+
+    private:
+        size_t order_;
+        size_t n_;
+        FFTSetupD fft_setup_;
+        std::vector<double> temp_split_real_;
+        std::vector<double> temp_split_imag_;
+        DSPDoubleSplitComplex split_complex_;
+    };
+} // namespace zlbenchmark

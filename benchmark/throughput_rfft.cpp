@@ -48,6 +48,12 @@ using FFTClass = zlbenchmark::PffftRFFT<F>;
 #elif defined(ENABLE_KFR)
 #include "../kfr_impl/kfr_impl.hpp"
 using FFTClass = zlbenchmark::KFRRFFT<F>;
+#elif defined(ENABLE_VDSP)
+#include "../vdsp_impl/vdsp_impl.hpp"
+using FFTClass = zlbenchmark::VDSPRFFT<F>;
+#elif defined(ENABLE_IPP)
+#include "../ipp_impl/ipp_impl.hpp"
+using FFTClass = zlbenchmark::IPPRFFT<F>;
 #elif defined(ENABLE_FFTW3)
 #include "../fftw3_impl/fftw3_impl.hpp"
 using FFTClass = zlbenchmark::FFTW3RFFT<F>;
