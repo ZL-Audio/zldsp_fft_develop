@@ -82,12 +82,12 @@ static void BM_Rfft_Throughput(benchmark::State& state) {
     FFTClass fft(order);
 
     for (int i = 0; i < 3; ++i) {
-        fft.forward(in, out);
+        fft.forward(in.data(), out.data());
     }
     benchmark::ClobberMemory();
 
     for (auto _ : state) {
-        fft.forward(in, out);
+        fft.forward(in.data(), out.data());
         benchmark::DoNotOptimize(out.data()[0]);
         benchmark::DoNotOptimize(out.data());
         benchmark::ClobberMemory();

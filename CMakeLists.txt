@@ -79,7 +79,6 @@ if (STAGE_TIMING_TEST)
     target_link_libraries(zlfft_benchmark PRIVATE benchmark::benchmark)
 endif ()
 
-# Collect all FFT targets
 set(ZLFFT_TARGETS)
 if (TARGET zlfft_benchmark)
     list(APPEND ZLFFT_TARGETS zlfft_benchmark)
@@ -96,7 +95,7 @@ if (PROFILER_TEST)
 endif ()
 
 foreach(_tgt ${ZLFFT_TARGETS})
-    target_include_directories(${_tgt} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/benchmark ${CMAKE_CURRENT_SOURCE_DIR}/source ${CMAKE_CURRENT_SOURCE_DIR}/zlfft_impl)
+    target_include_directories(${_tgt} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/benchmark)
 endforeach()
 
 if (USE_DOUBLE)
@@ -107,39 +106,6 @@ endif ()
 
 # Algorithm selection flags (applied to all targets)
 set(ZLFFT_ALGO_OPTIONS
-    ENABLE_NAIVE_COOLEY_RADIX2
-    ENABLE_STOCKHAM_RADIX2_KERNEL24
-    ENABLE_NAIVE_STOCKHAM_RADIX4
-    ENABLE_STOCKHAM_RADIX2_KERNEL248
-    ENABLE_SIMD_STOCKHAM_RADIX2
-    ENABLE_SIMD_STOCKHAM_RADIX2_KERNEL1
-    ENABLE_SIMD_STOCKHAM_RADIX2_KERNEL2
-    ENABLE_SIMD_STOCKHAM_RADIX2_KERNEL24
-    ENABLE_SIMD_STOCKHAM_RADIX2_KERNEL248
-    ENABLE_SIMD_STOCKHAM_RADIX4
-    ENABLE_SIMD_STOCKHAM_RADIX4_SOA
-    ENABLE_SIMD_STOCKHAM_RADIX8
-    ENABLE_SIMD_STOCKHAM_RADIX4_OPT1
-    ENABLE_SIMD_STOCKHAM_RADIX4_SOA_KERNEL4
-    ENABLE_SIMD_STOCKHAM_RADIX4_SOA_KERNEL4_OPT1
-    ENABLE_SIMD_LOW_ORDER
-    ENABLE_SIMD_LOW_ORDER_OPT1
-    ENABLE_SIMD_LOW_ORDER_OPT2
-    ENABLE_SIMD_LOW_ORDER_AOSOA1
-    ENABLE_SIMD_LOW_ORDER_AOSOA2
-    ENABLE_SIMD_LOW_ORDER_AOSOA3
-    ENABLE_SIMD_LOW_ORDER_AOSOA4
-    ENABLE_SIMD_LOW_ORDER_AOSOA5
-    ENABLE_SIMD_LOW_ORDER_AOSOA6
-    ENABLE_SIMD_LOW_ORDER_AOSOA7
-    ENABLE_SIMD_LOW_ORDER_AOSOA8
-    ENABLE_SIMD_LOW_ORDER_AOSOA9
-    ENABLE_HIGH_ORDER_AOSOA1
-    ENABLE_HIGH_ORDER_AOSOA2
-    ENABLE_HYBRID_AOSOA1
-    ENABLE_HYBRID_AOSOA2
-    ENABLE_HYBRID_AOSOA3
-    ENABLE_HYBRID_AOSOA4
     ENABLE_ZLDSP
 )
 
@@ -351,8 +317,7 @@ endif ()
 if (ACCURACY_MID_TEST AND TARGET zlfft_accuracy_mid)
     target_include_directories(zlfft_accuracy_mid PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/benchmark
-        ${CMAKE_CURRENT_SOURCE_DIR}/source
-        ${CMAKE_CURRENT_SOURCE_DIR}/zlfft_impl)
+        ${CMAKE_CURRENT_SOURCE_DIR}/zlfft)
 
     if (USE_DOUBLE)
         target_compile_definitions(zlfft_accuracy_mid PRIVATE USE_DOUBLE)
@@ -439,8 +404,7 @@ endif ()
 if (ACCURACY_MID_RFFT_TEST AND TARGET zlfft_accuracy_mid_rfft)
     target_include_directories(zlfft_accuracy_mid_rfft PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/benchmark
-        ${CMAKE_CURRENT_SOURCE_DIR}/source
-        ${CMAKE_CURRENT_SOURCE_DIR}/zlfft_impl)
+        ${CMAKE_CURRENT_SOURCE_DIR}/zlfft)
 
     if (USE_DOUBLE)
         target_compile_definitions(zlfft_accuracy_mid_rfft PRIVATE USE_DOUBLE)

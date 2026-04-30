@@ -42,7 +42,7 @@ namespace zldsp::fft {
          * @param in_buffer
          * @param out_buffer
          */
-        void forward(std::span<C> in_buffer, std::span<C> out_buffer) {
+        void forward(C* in_buffer, C* out_buffer) {
             execute<true>(common::make_aos(in_buffer), common::make_aos(out_buffer));
         }
 
@@ -51,7 +51,7 @@ namespace zldsp::fft {
          * @param in_buffer
          * @param out_buffer
          */
-        void backward(std::span<C> in_buffer, std::span<C> out_buffer) {
+        void backward(C* in_buffer, C* out_buffer) {
             execute<false>(common::make_aos(in_buffer), common::make_aos(out_buffer));
         }
 
@@ -60,7 +60,7 @@ namespace zldsp::fft {
          * @param in_buffer
          * @param out_buffer
          */
-        void forward(std::span<C> in_buffer, std::array<std::span<F>, 2> out_buffer) {
+        void forward(C* in_buffer, std::array<F*, 2> out_buffer) {
             execute<true>(common::make_aos(in_buffer), common::make_soa(out_buffer));
         }
 
@@ -69,7 +69,7 @@ namespace zldsp::fft {
          * @param in_buffer
          * @param out_buffer
          */
-        void backward(std::span<C> in_buffer, std::array<std::span<F>, 2> out_buffer) {
+        void backward(C* in_buffer, std::array<F*, 2> out_buffer) {
             execute<false>(common::make_aos(in_buffer), common::make_soa(out_buffer));
         }
 
@@ -78,7 +78,7 @@ namespace zldsp::fft {
          * @param in_buffer
          * @param out_buffer
          */
-        void forward(std::array<std::span<F>, 2> in_buffer, std::span<C> out_buffer) {
+        void forward(std::array<F*, 2> in_buffer, C* out_buffer) {
             execute<true>(common::make_soa(in_buffer), common::make_aos(out_buffer));
         }
 
@@ -87,7 +87,7 @@ namespace zldsp::fft {
          * @param in_buffer
          * @param out_buffer
          */
-        void backward(std::array<std::span<F>, 2> in_buffer, std::span<C> out_buffer) {
+        void backward(std::array<F*, 2> in_buffer, C* out_buffer) {
             execute<false>(common::make_soa(in_buffer), common::make_aos(out_buffer));
         }
 
@@ -96,7 +96,7 @@ namespace zldsp::fft {
          * @param in_buffer
          * @param out_buffer
          */
-        void forward(std::array<std::span<F>, 2> in_buffer, std::array<std::span<F>, 2> out_buffer) {
+        void forward(std::array<F*, 2> in_buffer, std::array<F*, 2> out_buffer) {
             execute<true>(common::make_soa(in_buffer), common::make_soa(out_buffer));
         }
 
@@ -105,7 +105,7 @@ namespace zldsp::fft {
          * @param in_buffer
          * @param out_buffer
          */
-        void backward(std::array<std::span<F>, 2> in_buffer, std::array<std::span<F>, 2> out_buffer) {
+        void backward(std::array<F*, 2> in_buffer, std::array<F*, 2> out_buffer) {
             execute<false>(common::make_soa(in_buffer), common::make_soa(out_buffer));
         }
 

@@ -89,7 +89,7 @@ double calculate_mse_aos(const std::span<C> ref, const std::span<C> test) {
     return mse / static_cast<double>(ref.size());
 }
 
-double calculate_mse_soa(const std::span<C> ref, const std::array<std::span<F>, 2> test) {
+double calculate_mse_soa(const std::span<C> ref, const std::array<F*, 2> test) {
     double mse = 0.0;
     for (size_t i = 0; i < ref.size(); ++i) {
         const auto r_diff = ref[i].real() - test[0][i];
@@ -99,14 +99,14 @@ double calculate_mse_soa(const std::span<C> ref, const std::array<std::span<F>, 
     return mse / static_cast<double>(ref.size());
 }
 
-double calculate_mse_soa_soa(const std::array<std::span<F>, 2> ref, const std::array<std::span<F>, 2> test) {
+double calculate_mse_soa_soa(const std::array<F*, 2> ref, const std::array<F*, 2> test, size_t size) {
     double mse = 0.0;
-    for (size_t i = 0; i < ref[0].size(); ++i) {
+    for (size_t i = 0; i < size; ++i) {
         const auto r_diff = ref[0][i] - test[0][i];
         const auto i_diff = ref[1][i] - test[1][i];
         mse += static_cast<double>(r_diff * r_diff + i_diff * i_diff);
     }
-    return mse / static_cast<double>(ref[0].size());
+    return mse / static_cast<double>(size);
 }
 
 double calculate_mse_real(const std::span<F> ref, const std::span<F> test) {
@@ -133,14 +133,14 @@ int main(const int argc, char** argv) {
     std::vector<C, AlignedAllocator<C>> out_aos(out_size);
     std::vector<F, AlignedAllocator<F>> out_soa_r(out_size);
     std::vector<F, AlignedAllocator<F>> out_soa_i(out_size);
-    std::array<std::span<F>, 2> out_soa = {std::span<F>(out_soa_r), std::span<F>(out_soa_i)};
+    std::array<F*, 2> out_soa = {out_soa_r.data(), out_soa_i.data()};
 
     std::vector<F, AlignedAllocator<F>> in_f_copy = in_f;
-    rfft.forward(in_f_copy, out_aos);
+    rfft.forward(in_f_copy.data(), out_aos.data());
 
 #if defined(ENABLE_ZLDSP)
     in_f_copy = in_f;
-    rfft.forward(in_f_copy, out_soa);
+    rfft.forward(in_f_copy.data(), out_soa);
     double max_mse_forward = calculate_mse_soa(out_aos, out_soa);
 #else
     double max_mse_forward = 0.0;
@@ -155,19 +155,19 @@ int main(const int argc, char** argv) {
         in_soa_r[i] = in_c[i].real();
         in_soa_i[i] = in_c[i].imag();
     }
-    std::array<std::span<F>, 2> in_c_soa = {std::span<F>(in_soa_r), std::span<F>(in_soa_i)};
+    std::array<F*, 2> in_c_soa = {in_soa_r.data(), in_soa_i.data()};
 
     std::vector<F, AlignedAllocator<F>> back_aos(size);
     std::vector<F, AlignedAllocator<F>> back_soa(size);
 
     std::vector<C, AlignedAllocator<C>> in_c_copy = in_c;
-    rfft.backward(in_c_copy, back_aos);
+    rfft.backward(in_c_copy.data(), back_aos.data());
 
 #if defined(ENABLE_ZLDSP)
     std::vector<F, AlignedAllocator<F>> in_soa_r_copy = in_soa_r;
     std::vector<F, AlignedAllocator<F>> in_soa_i_copy = in_soa_i;
-    std::array<std::span<const F>, 2> in_c_soa_copy = {std::span<const F>(in_soa_r_copy), std::span<const F>(in_soa_i_copy)};
-    rfft.backward(in_c_soa_copy, back_soa);
+    std::array<F*, 2> in_c_soa_copy = {in_soa_r_copy.data(), in_soa_i_copy.data()};
+    rfft.backward(in_c_soa_copy, back_soa.data());
     double max_mse_backward = calculate_mse_real(back_aos, back_soa);
 #else
     double max_mse_backward = 0.0;
@@ -175,7 +175,7 @@ int main(const int argc, char** argv) {
 
     std::vector<F, AlignedAllocator<F>> fwd_then_back(size);
     std::vector<C, AlignedAllocator<C>> out_aos_copy = out_aos;
-    rfft.backward(out_aos_copy, fwd_then_back);
+    rfft.backward(out_aos_copy.data(), fwd_then_back.data());
 
     const F n_inv = static_cast<F>(2.0 / static_cast<double>(size));
     std::vector<F, AlignedAllocator<F>> normalized_out(size);

@@ -20,7 +20,6 @@ namespace zlbenchmark {
         explicit PffftFFT(const size_t order) :
             size_(1 << order) {
             setup_ = pffftd_new_setup(static_cast<int>(size_), PFFFT_COMPLEX);
-            assert(setup_ != nullptr);
 
             work_ = static_cast<double*>(pffft_aligned_malloc(size_ * 2 * sizeof(double)));
         }
@@ -32,9 +31,12 @@ namespace zlbenchmark {
                 pffftd_destroy_setup(setup_);
         }
 
-        void forward(std::span<C> in_buffer, std::span<C> out_buffer) {
-            auto* in_ptr = reinterpret_cast<const double*>(in_buffer.data());
-            auto* out_ptr = reinterpret_cast<double*>(out_buffer.data());
+        void forward(const C* in_buffer, C* out_buffer) {
+            if (!setup_) {
+                return;
+            }
+            auto* in_ptr = reinterpret_cast<const double*>(in_buffer);
+            auto* out_ptr = reinterpret_cast<double*>(out_buffer);
 
             pffftd_transform_ordered(setup_, in_ptr, out_ptr, work_, PFFFT_FORWARD);
         }
@@ -53,7 +55,6 @@ namespace zlbenchmark {
         explicit PffftFFT(const size_t order) :
             size_(1 << order) {
             setup_ = pffft_new_setup(static_cast<int>(size_), PFFFT_COMPLEX);
-            assert(setup_ != nullptr);
 
             work_ = static_cast<float*>(pffft_aligned_malloc(size_ * 2 * sizeof(float)));
         }
@@ -65,9 +66,12 @@ namespace zlbenchmark {
                 pffft_destroy_setup(setup_);
         }
 
-        void forward(std::span<C> in_buffer, std::span<C> out_buffer) {
-            auto* in_ptr = reinterpret_cast<const float*>(in_buffer.data());
-            auto* out_ptr = reinterpret_cast<float*>(out_buffer.data());
+        void forward(const C* in_buffer, C* out_buffer) {
+            if (!setup_) {
+                return;
+            }
+            auto* in_ptr = reinterpret_cast<const float*>(in_buffer);
+            auto* out_ptr = reinterpret_cast<float*>(out_buffer);
 
             pffft_transform_ordered(setup_, in_ptr, out_ptr, work_, PFFFT_FORWARD);
         }
@@ -103,14 +107,11 @@ namespace zlbenchmark {
                 pffftd_destroy_setup(setup_);
         }
 
-        void forward(std::span<const double> in_buffer, std::span<C> out_buffer) {
+        void forward(const double* in_buffer, C* out_buffer) {
             if (!setup_) {
-                for (auto& c : out_buffer) c = C(0.0, 0.0);
                 return;
             }
-            auto* in_ptr = reinterpret_cast<const double*>(in_buffer.data());
-
-            pffftd_transform_ordered(setup_, in_ptr, out_real_, work_, PFFFT_FORWARD);
+            pffftd_transform_ordered(setup_, in_buffer, out_real_, work_, PFFFT_FORWARD);
             
 #ifndef THROUGHPUT_RFFT_TEST
             out_buffer[0] = C(out_real_[0], 0.0);
@@ -150,14 +151,12 @@ namespace zlbenchmark {
                 pffft_destroy_setup(setup_);
         }
 
-        void forward(std::span<const float> in_buffer, std::span<C> out_buffer) {
+        void forward(const float* in_buffer, C* out_buffer) {
             if (!setup_) {
-                for (auto& c : out_buffer) c = C(0.0f, 0.0f);
                 return;
             }
-            auto* in_ptr = reinterpret_cast<const float*>(in_buffer.data());
 
-            pffft_transform_ordered(setup_, in_ptr, out_real_, work_, PFFFT_FORWARD);
+            pffft_transform_ordered(setup_, in_buffer, out_real_, work_, PFFFT_FORWARD);
             
 #ifndef THROUGHPUT_RFFT_TEST
             out_buffer[0] = C(out_real_[0], 0.0f);

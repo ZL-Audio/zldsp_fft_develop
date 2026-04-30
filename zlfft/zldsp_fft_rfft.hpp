@@ -39,8 +39,8 @@ namespace zldsp::fft {
          * @param in_buffer
          * @param out_buffer
          */
-        void forward(std::span<F> in_buffer, std::span<C> out_buffer) {
-            execute_forward(in_buffer.data(), common::make_aos(out_buffer));
+        void forward(F* in_buffer, C* out_buffer) {
+            execute_forward(in_buffer, common::make_aos(out_buffer));
         }
 
         /**
@@ -48,8 +48,8 @@ namespace zldsp::fft {
          * @param in_buffer
          * @param out_buffer
          */
-        void forward(std::span<F> in_buffer, std::array<std::span<F>, 2> out_buffer) {
-            execute_forward(in_buffer.data(), common::make_soa(out_buffer));
+        void forward(F* in_buffer, std::array<F*, 2> out_buffer) {
+            execute_forward(in_buffer, common::make_soa(out_buffer));
         }
 
         /**
@@ -57,8 +57,8 @@ namespace zldsp::fft {
          * @param in_buffer
          * @param out_buffer
          */
-        void backward(std::span<C> in_buffer, std::span<F> out_buffer) {
-            execute_backward(common::make_aos(in_buffer), out_buffer.data());
+        void backward(C* in_buffer, F* out_buffer) {
+            execute_backward(common::make_aos(in_buffer), out_buffer);
         }
 
         /**
@@ -66,8 +66,8 @@ namespace zldsp::fft {
          * @param in_buffer
          * @param out_buffer
          */
-        void backward(std::array<std::span<F>, 2> in_buffer, std::span<F> out_buffer) {
-            execute_backward(common::make_soa(in_buffer), out_buffer.data());
+        void backward(std::array<F*, 2> in_buffer, F* out_buffer) {
+            execute_backward(common::make_soa(in_buffer), out_buffer);
         }
 
     private:
@@ -108,7 +108,7 @@ namespace zldsp::fft {
             const size_t cfft_size = 1 << cfft_order_;
             const size_t stride = common::get_stride<F>(cfft_size);
 
-            F* cfft_in = workspace_.get() + 2 * stride;
+            F* cfft_in = workspace_.get();
             const auto temp_soa = common::make_soa<F>({cfft_in, cfft_in + stride});
 
             common::execute_rfft_backward_pre(cfft_order_, rfft_twiddles_.get(),

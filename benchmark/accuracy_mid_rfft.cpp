@@ -60,7 +60,7 @@ void generate_random_data(std::span<F> data, std::mt19937& gen) {
 }
 
 void compute_median(const std::array<AlignedCVec, NUM_ALGOS>& results, AlignedCVec& median_out) {
-    const size_t n = median_out.size(); // n/2 + 1
+    const size_t n = median_out.size();
     
     std::array<F, NUM_ALGOS> reals{};
     std::array<F, NUM_ALGOS> imags{};
@@ -73,7 +73,6 @@ void compute_median(const std::array<AlignedCVec, NUM_ALGOS>& results, AlignedCV
         std::sort(reals.begin(), reals.end());
         std::sort(imags.begin(), imags.end());
 
-        // Median of 4 values = average of middle two
         F med_r = (reals[1] + reals[2]) / static_cast<F>(2.0);
         F med_i = (imags[1] + imags[2]) / static_cast<F>(2.0);
         median_out[i] = C(med_r, med_i);
@@ -119,16 +118,16 @@ int main(const int, char** argv) {
         generate_random_data(in, gen);
 
         in_copy = in;
-        kfr_fft.forward(in_copy, out[0]);
+        kfr_fft.forward(in_copy.data(), out[0].data());
 
         in_copy = in;
-        fftw3_fft.forward(in_copy, out[1]);
+        fftw3_fft.forward(in_copy.data(), out[1].data());
 
         in_copy = in;
-        zldsp_fft.forward(in_copy, out[2]);
+        zldsp_fft.forward(in_copy.data(), out[2].data());
 
         in_copy = in;
-        pffft_fft.forward(in_copy, out[3]);
+        pffft_fft.forward(in_copy.data(), out[3].data());
 
         compute_median(out, median_ref);
 

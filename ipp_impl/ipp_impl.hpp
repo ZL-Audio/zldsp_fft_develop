@@ -98,10 +98,10 @@ namespace zlbenchmark {
             }
         }
 
-        void forward(std::span<const C> in_buffer, std::span<C> out_buffer) {
+        void forward(C* in_buffer, C* out_buffer) {
             ippsFFTFwd_CToC_32fc(
-                reinterpret_cast<const Ipp32fc*>(in_buffer.data()),
-                reinterpret_cast<Ipp32fc*>(out_buffer.data()),
+                reinterpret_cast<const Ipp32fc*>(in_buffer),
+                reinterpret_cast<Ipp32fc*>(out_buffer),
                 spec_,
                 work_buf_
             );
@@ -156,10 +156,10 @@ namespace zlbenchmark {
             }
         }
 
-        void forward(std::span<const C> in_buffer, std::span<C> out_buffer) {
+        void forward(C* in_buffer, C* out_buffer) {
             ippsFFTFwd_CToC_64fc(
-                reinterpret_cast<const Ipp64fc*>(in_buffer.data()),
-                reinterpret_cast<Ipp64fc*>(out_buffer.data()),
+                reinterpret_cast<const Ipp64fc*>(in_buffer),
+                reinterpret_cast<Ipp64fc*>(out_buffer),
                 spec_,
                 work_buf_
             );

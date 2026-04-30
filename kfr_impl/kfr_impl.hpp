@@ -15,8 +15,8 @@ namespace zlbenchmark {
             temp_buffer_.resize(fft_plan_.temp_size);
         }
 
-        void forward(std::span<C> in_buffer, std::span<C> out_buffer) {
-            fft_plan_.execute(out_buffer.data(), in_buffer.data(), temp_buffer_.data());
+        void forward(C* in_buffer, C* out_buffer) {
+            fft_plan_.execute(out_buffer, in_buffer, temp_buffer_.data());
         }
 
     private:
@@ -34,8 +34,8 @@ namespace zlbenchmark {
             temp_buffer_.resize(fft_plan_.temp_size);
         }
 
-        void forward(std::span<const F> in_buffer, std::span<C> out_buffer) {
-            fft_plan_.execute(reinterpret_cast<kfr::complex<F>*>(out_buffer.data()), in_buffer.data(), temp_buffer_.data());
+        void forward(const F* in_buffer, C* out_buffer) {
+            fft_plan_.execute(reinterpret_cast<kfr::complex<F>*>(out_buffer), in_buffer, temp_buffer_.data());
         }
 
     private:

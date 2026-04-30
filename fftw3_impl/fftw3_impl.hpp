@@ -28,9 +28,9 @@ namespace zlbenchmark {
 
         ~FFTW3FFT() { fftw_destroy_plan(plan_); }
 
-        void forward(std::span<C> in_buffer, std::span<C> out_buffer) {
-            auto* in_ptr = reinterpret_cast<fftw_complex*>(in_buffer.data());
-            auto* out_ptr = reinterpret_cast<fftw_complex*>(out_buffer.data());
+        void forward(C* in_buffer, C* out_buffer) {
+            auto* in_ptr = reinterpret_cast<fftw_complex*>(in_buffer);
+            auto* out_ptr = reinterpret_cast<fftw_complex*>(out_buffer);
 
             fftw_execute_dft(plan_, in_ptr, out_ptr);
         }
@@ -57,9 +57,9 @@ namespace zlbenchmark {
 
         ~FFTW3FFT() { fftwf_destroy_plan(plan_); }
 
-        void forward(std::span<C> in_buffer, std::span<C> out_buffer) {
-            auto* in_ptr = reinterpret_cast<fftwf_complex*>(in_buffer.data());
-            auto* out_ptr = reinterpret_cast<fftwf_complex*>(out_buffer.data());
+        void forward(C* in_buffer, C* out_buffer) {
+            auto* in_ptr = reinterpret_cast<fftwf_complex*>(in_buffer);
+            auto* out_ptr = reinterpret_cast<fftwf_complex*>(out_buffer);
 
             fftwf_execute_dft(plan_, in_ptr, out_ptr);
         }
@@ -89,9 +89,9 @@ namespace zlbenchmark {
 
         ~FFTW3RFFT() { fftw_destroy_plan(plan_); }
 
-        void forward(std::span<const double> in_buffer, std::span<C> out_buffer) {
-            auto* in_ptr = const_cast<double*>(in_buffer.data());
-            auto* out_ptr = reinterpret_cast<fftw_complex*>(out_buffer.data());
+        void forward(const double* in_buffer, C* out_buffer) {
+            auto* in_ptr = const_cast<double*>(in_buffer);
+            auto* out_ptr = reinterpret_cast<fftw_complex*>(out_buffer);
 
             fftw_execute_dft_r2c(plan_, in_ptr, out_ptr);
         }
@@ -118,9 +118,9 @@ namespace zlbenchmark {
 
         ~FFTW3RFFT() { fftwf_destroy_plan(plan_); }
 
-        void forward(std::span<const float> in_buffer, std::span<C> out_buffer) {
-            auto* in_ptr = const_cast<float*>(in_buffer.data());
-            auto* out_ptr = reinterpret_cast<fftwf_complex*>(out_buffer.data());
+        void forward(const float* in_buffer, C* out_buffer) {
+            auto* in_ptr = const_cast<float*>(in_buffer);
+            auto* out_ptr = reinterpret_cast<fftwf_complex*>(out_buffer);
 
             fftwf_execute_dft_r2c(plan_, in_ptr, out_ptr);
         }

@@ -118,16 +118,16 @@ int main(const int, char** argv) {
         generate_random_data(in, gen);
 
         in_copy = in;
-        kfr_fft.forward(in_copy, out[0]);
+        kfr_fft.forward(in_copy.data(), out[0].data());
 
         in_copy = in;
-        fftw3_fft.forward(in_copy, out[1]);
+        fftw3_fft.forward(in_copy.data(), out[1].data());
 
         in_copy = in;
-        zldsp_fft.forward(in_copy, out[2]);
+        zldsp_fft.forward(in_copy.data(), out[2].data());
 
         in_copy = in;
-        pffft_fft.forward(in_copy, out[3]);
+        pffft_fft.forward(in_copy.data(), out[3].data());
 
         compute_median(out, median_ref);
 
