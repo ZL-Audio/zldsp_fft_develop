@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <array>
-#include <bit>
 
 #include "zldsp_fft_common_execute.hpp"
 

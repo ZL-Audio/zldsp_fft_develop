@@ -243,7 +243,7 @@ namespace zlbenchmark {
             work_buf_ = bufSize > 0 ? ippsMalloc_8u(bufSize) : nullptr;
             Ipp8u* init_buf = initSize > 0 ? ippsMalloc_8u(initSize) : nullptr;
 
-            status = ippsFFTInit_R_64f(&spec_, order_, IPP_FFT_NODIV_BY_ANY ippAlgHintNone, spec_mem_, init_buf);
+            status = ippsFFTInit_R_64f(&spec_, order_, IPP_FFT_NODIV_BY_ANY, ippAlgHintNone, spec_mem_, init_buf);
 
             if (init_buf) {
                 ippsFree(init_buf);
@@ -256,7 +256,6 @@ namespace zlbenchmark {
                     ippsFree(work_buf_);
                 throw std::runtime_error("ippsFFTInit_R_64f failed");
             }
-            temp_res_.resize(n_);
         }
 
         ~IPPRFFT() {
