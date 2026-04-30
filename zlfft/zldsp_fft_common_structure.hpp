@@ -1,7 +1,6 @@
 #pragma once
 
 #include <hwy/highway.h>
-#include <span>
 
 namespace zldsp::fft::common {
     namespace hn = hwy::HWY_NAMESPACE;
@@ -96,18 +95,8 @@ namespace zldsp::fft::common {
     }
 
     template <typename F>
-    static common::AoSPtr<F> make_aos(std::span<std::complex<F>> span) {
-        return common::AoSPtr<F>{reinterpret_cast<F*>(span.data())};
-    }
-
-    template <typename F>
     static common::AoSPtr<F> make_aos(std::complex<F>* ptr) {
         return common::AoSPtr<F>{reinterpret_cast<F*>(ptr)};
-    }
-
-    template <typename F>
-    static common::SoAPtr<F> make_soa(std::array<std::span<F>, 2> span) {
-        return common::SoAPtr<F>{span[0].data(), span[1].data()};
     }
 
     template <typename F>

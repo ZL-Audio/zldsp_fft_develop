@@ -1,6 +1,5 @@
 #pragma once
 
-#include <algorithm>
 #include <array>
 
 #include "zldsp_fft_common_execute.hpp"
@@ -32,6 +31,14 @@ namespace zldsp::fft {
                 workspace_ = hwy::AllocateAligned<F>(4 * common::get_stride<F>(cfft_size));
             }
             common::generate_rfft_pre_post_twiddles(cfft_order_, rfft_twiddles_);
+        }
+
+        [[nodiscard]] size_t get_size() const {
+            return rfft_size_;
+        }
+
+        [[nodiscard]] size_t get_order() const {
+            return cfft_order_ + 1;
         }
 
         /**

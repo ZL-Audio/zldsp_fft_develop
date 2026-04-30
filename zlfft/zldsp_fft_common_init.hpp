@@ -2,10 +2,8 @@
 
 #include <hwy/aligned_allocator.h>
 #include <hwy/highway.h>
-#include <algorithm>
 #include <cmath>
 #include <numeric>
-#include <span>
 #include <vector>
 
 #include "zldsp_fft_common_math.hpp"

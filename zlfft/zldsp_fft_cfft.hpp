@@ -1,6 +1,5 @@
 #pragma once
 
-#include <algorithm>
 #include <array>
 
 #include "zldsp_fft_common_execute.hpp"
