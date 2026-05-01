@@ -37,6 +37,44 @@ def run_benchmark_collect(exe_path, n0, n1):
         throughput_list.append(results.get(n, 0.0))
     return throughput_list
 
+def format_aligned_json(results, chunk_size=5):
+    if not results:
+        return "{}"
+
+    max_key_len = max(len(str(k)) for k in results.keys())
+
+    lines = ["{"]
+    items = list(results.items())
+
+    for i, (algo, th_list) in enumerate(items):
+        key_str = f'  "{algo}":'
+        padding_len = max_key_len + 6
+        padded_key = f"{key_str:<{padding_len}}"
+
+        num_strs = [f"{val:>10.4f}" for val in th_list]
+
+        chunks = [num_strs[j:j + chunk_size] for j in range(0, len(num_strs), chunk_size)]
+
+        for j, chunk in enumerate(chunks):
+            chunk_str = ", ".join(chunk)
+            is_last_chunk = (j == len(chunks) - 1)
+
+            if j == 0:
+                prefix = f"{padded_key} ["
+            else:
+                prefix = " " * (padding_len + 2)
+
+            suffix = "]" if is_last_chunk else ","
+            line = f"{prefix}{chunk_str}{suffix}"
+
+            if is_last_chunk and i < len(items) - 1:
+                line += ","
+
+            lines.append(line)
+
+    lines.append("}")
+    return "\n".join(lines)
+
 def main():
     parser = argparse.ArgumentParser(description="Throughput All Benchmark for RFFT")
     parser.add_argument("n0", type=int, help="Start FFT order (size 2^n)")
@@ -65,7 +103,7 @@ def main():
             sys.stderr.write(f"Failed to build/run {algo}: {e}\n")
 
     final_results = replace_result_keys(raw_results)
-    print(json.dumps(final_results, indent=4))
+    print(format_aligned_json(final_results, chunk_size=5))
 
 if __name__ == "__main__":
     main()
