@@ -57,12 +57,12 @@ using FFTClass = zlbenchmark::IPPRFFT<F>;
 #elif defined(ENABLE_FFTW3)
 #include "../fftw3_impl/fftw3_impl.hpp"
 using FFTClass = zlbenchmark::FFTW3RFFT<F>;
+#elif defined(ENABLE_FFTW3_ESTIMATE)
+#include "../fftw3_impl/fftw3_impl.hpp"
+using FFTClass = zlbenchmark::FFTW3RFFT<F, FFTW_ESTIMATE>;
 #elif defined(ENABLE_ZLDSP)
 #include "../zlfft/zldsp_fft_rfft.hpp"
 using FFTClass = zldsp::fft::RFFT<F>;
-#else
-#include "../fftw3_impl/fftw3_impl.hpp"
-using FFTClass = zlbenchmark::FFTW3RFFT<F>;
 #endif
 
 inline void generate_random_data_f(std::span<F> data) {

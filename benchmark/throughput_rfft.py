@@ -40,9 +40,6 @@ def run_benchmark(exe_path, n0, n1, algorithm):
         cpu_time_us = bench["cpu_time"]
         cpu_times.append(cpu_time_us)
 
-        # For RFFT of size 2^n, number of ops is typically 2.5 * 2^n * n (half of CFFT)
-        # But commonly we just use the same formula as CFFT for standard MFLOPS scaling comparison,
-        # or exactly half. Let's use 2.5 * 2^n * n.
         ops = 2.5 * (2 ** n) * n
         throughput = ops / cpu_time_us
         throughputs.append(throughput)
