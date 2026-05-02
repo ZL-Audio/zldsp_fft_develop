@@ -137,8 +137,9 @@ namespace zlbenchmark {
         }
 
         void forward(const float* in_buffer, C* out_buffer) {
-            vDSP_ctoz(reinterpret_cast<const DSPComplex*>(in_buffer), 1, &split_complex_, 1, n_ / 2);
+            vDSP_ctoz(reinterpret_cast<const DSPComplex*>(in_buffer), 2, &split_complex_, 1, n_ / 2);
             vDSP_fft_zrip(fft_setup_, &split_complex_, 1, order_, FFT_FORWARD);
+            vDSP_ztoc(&split_complex_, 1, reinterpret_cast<DSPComplex*>(out_buffer), 2, n_ / 2);
         }
 
     private:
@@ -173,8 +174,9 @@ namespace zlbenchmark {
         }
 
         void forward(const double* in_buffer, C* out_buffer) {
-            vDSP_ctozD(reinterpret_cast<const DSPDoubleComplex*>(in_buffer), 1, &split_complex_, 1, n_ / 2);
+            vDSP_ctozD(reinterpret_cast<const DSPDoubleComplex*>(in_buffer), 2, &split_complex_, 1, n_ / 2);
             vDSP_fft_zripD(fft_setup_, &split_complex_, 1, order_, FFT_FORWARD);
+            vDSP_ztocD(&split_complex_, 1, reinterpret_cast<DSPDoubleComplex*>(out_buffer), 2, n_ / 2);
         }
 
     private:
@@ -185,4 +187,4 @@ namespace zlbenchmark {
         std::vector<double> temp_split_imag_;
         DSPDoubleSplitComplex split_complex_;
     };
-} // namespace zlbenchmark
+}
