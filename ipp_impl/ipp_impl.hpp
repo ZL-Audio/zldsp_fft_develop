@@ -268,7 +268,7 @@ namespace zlbenchmark {
         }
 
         void forward(const double* in_buffer, C* out_buffer) {
-            ippsFFTFwd_RToCCS_64f(in_buffer, reinterpret_cast<float*>(out_buffer), spec_, work_buf_);
+            ippsFFTFwd_RToCCS_64f(in_buffer, reinterpret_cast<double*>(out_buffer), spec_, work_buf_);
         }
 
     private:
@@ -280,4 +280,4 @@ namespace zlbenchmark {
         Ipp8u* spec_mem_{nullptr};
         Ipp8u* work_buf_{nullptr};
     };
-} // namespace zlbenchmark
+}
