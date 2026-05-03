@@ -12,7 +12,7 @@ env:
 
 jobs:
   build_and_test:
-    name: ${{ matrix.name }}
+    name: ${{ matrix.name }} Throughput
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
