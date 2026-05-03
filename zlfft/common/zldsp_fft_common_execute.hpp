@@ -151,8 +151,19 @@ namespace zldsp::fft::common {
         common::radix4_last_pass_fused_aosoa<is_forward>(in_aosoa, out_ptr, cfft_size, width, w_ptr);
     }
 
+    /**
+     * execute CFFT
+     * @tparam is_forward
+     * @tparam F
+     * @tparam InPtr
+     * @tparam OutPtr
+     * @param state
+     * @param in_ptr
+     * @param out_ptr
+     */
     template <bool is_forward, typename F, typename InPtr, typename OutPtr>
     HWY_INLINE void execute_cfft(const CFFTState<F>& state, InPtr in_ptr, OutPtr out_ptr) {
+        // small FFT, dispatch to pure Stockham CFFT
         if (state.num_macro_stages == 0) {
             execute_stockham_cfft<is_forward, F, InPtr, OutPtr>(
                 state.micro_cfft_order,
@@ -167,7 +178,7 @@ namespace zldsp::fft::common {
         static constexpr hn::ScalableTag<F> d;
         static constexpr size_t lanes = hn::Lanes(d);
         static constexpr bool is_soa = std::is_same_v<OutPtr, SoAPtr<F>>;
-
+        // execute macro Cooley-Tukey DIF CFFT
         {
             F* HWY_RESTRICT macro_space = state.workspace.get();
             const F* HWY_RESTRICT w_ptr = state.macro_twiddles.get();
@@ -191,12 +202,13 @@ namespace zldsp::fft::common {
         F* HWY_RESTRICT matrix_i = state.workspace.get() + 2 * state.macro_stride + state.micro_segment_size * micro_fft_size_padded;
         std::complex<F>* aos_matrix = reinterpret_cast<std::complex<F>*>(matrix_r);
 
+        // execute micro Stockham DIT CFFT
         static constexpr size_t MACRO_TILE_C = 64;
         static constexpr size_t MACRO_TILE_K = 64;
-
         for (size_t c_macro = 0; c_macro < state.micro_segment_size; c_macro += MACRO_TILE_C) {
             const size_t c_max = std::min(c_macro + MACRO_TILE_C, state.micro_segment_size);
             const size_t c_chunk_size = c_max - c_macro;
+            // execute micro Stockham DIT CFFT (from the digital reverse block)
             for (size_t c_offset = 0; c_offset < c_chunk_size; ++c_offset) {
                 const size_t reversed_c = c_macro + c_offset;
                 const size_t l_idx = state.digit_rev_4[reversed_c];
@@ -243,7 +255,7 @@ namespace zldsp::fft::common {
                     common::radix4_last_pass_fused_aosoa<true>(current_in, out_aos, micro_fft_size, width, w_ptr);
                 }
             }
-
+            // perform local matrix transpose
             for (size_t k_macro = 0; k_macro < micro_fft_size; k_macro += MACRO_TILE_K) {
                 const size_t k_max = std::min(k_macro + MACRO_TILE_K, micro_fft_size);
                 for (size_t k = k_macro; k < k_max; ++k) {
@@ -252,7 +264,6 @@ namespace zldsp::fft::common {
                         alignas(HWY_ALIGNMENT) F tmp_r[32];
                         alignas(HWY_ALIGNMENT) F tmp_i[32];
                         const size_t vec_len = std::min(lanes, c_chunk_size - c);
-
                         for (size_t i = 0; i < vec_len; ++i) {
                             if constexpr (is_soa) {
                                 tmp_r[i] = matrix_r[(c_macro + c + i) * micro_fft_size_padded + k];

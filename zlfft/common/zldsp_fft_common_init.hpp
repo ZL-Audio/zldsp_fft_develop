@@ -53,6 +53,11 @@ namespace zldsp::fft::common {
         return cfft_size + (64 / sizeof(F)) + 16;
     }
 
+    /**
+     * get padded size of matrix transpose
+     * @tparam F
+     * @return
+     */
     template <typename F>
     inline constexpr size_t get_transpose_padding() {
         return 64 / sizeof(std::complex<F>);
@@ -165,7 +170,7 @@ namespace zldsp::fft::common {
     }
 
     /**
-     * init twiddles and working-space for Stockham DIT CFFT
+     * init twiddles for Stockham DIT CFFT
      * @tparam F
      * @param order
      * @param stages
@@ -210,7 +215,7 @@ namespace zldsp::fft::common {
     }
 
     /**
-     * init twiddles and working-space for macro Cooley-Tukey DIF CFFT
+     * init twiddles for macro Cooley-Tukey DIF CFFT
      * @tparam F
      * @param order
      * @param num_stages
@@ -268,6 +273,12 @@ namespace zldsp::fft::common {
         return get_cfft_stride<F>(static_cast<size_t>(1) << order);
     }
 
+    /**
+     * init bit-reversal table
+     * @param micro_segment_size
+     * @param num_macro_stages
+     * @param digit_rev_4
+     */
     inline void init_bit_reversal_table(const size_t micro_segment_size,
                                         const size_t num_macro_stages,
                                         std::vector<size_t>& digit_rev_4) {
@@ -284,6 +295,12 @@ namespace zldsp::fft::common {
         }
     }
 
+    /**
+     * init twiddles and working-space for CFFT
+     * @tparam F
+     * @param cfft_order
+     * @param state
+     */
     template <typename F>
     inline void init_cfft_state(const size_t cfft_order, CFFTState<F>& state) {
         auto [max_l1_order, switch_order] = common::get_switch_order<F>();

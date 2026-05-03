@@ -120,6 +120,11 @@ namespace zldsp::fft::common {
         return l3_size;
     }
 
+    /**
+     * get switching order at runtime
+     * @tparam F
+     * @return {maximum order that can stay in L1 data cache, heuristic switching order for hybrid algorithm}
+     */
     template <typename F>
     std::pair<size_t, size_t> get_switch_order() {
         const size_t l1d = get_l1d_cache_size();
