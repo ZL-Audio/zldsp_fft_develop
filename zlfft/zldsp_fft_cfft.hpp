@@ -2,8 +2,8 @@
 
 #include <array>
 
-#include "zldsp_fft_common_init.hpp"
-#include "zldsp_fft_common_execute.hpp"
+#include "common/zldsp_fft_common_init.hpp"
+#include "common/zldsp_fft_common_execute.hpp"
 
 namespace zldsp::fft {
     namespace hn = hwy::HWY_NAMESPACE;
