@@ -71,7 +71,7 @@ def main():
 
     results = {name: [] for name in ALGO_NAMES}
 
-    print(f"\nRunning accuracy_mid benchmark from order {args.n0} to {args.n1} ({NUM_REPS} reps each)...")
+    print(f"Running accuracy CFFT benchmark from order {args.n0} to {args.n1} ({NUM_REPS} reps each)...")
     print(f"{'Order':<10} " + " ".join(f"{name:<18}" for name in ALGO_NAMES))
     print("-" * (10 + 19 * len(ALGO_NAMES)))
 

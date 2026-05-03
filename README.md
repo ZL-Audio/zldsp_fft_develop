@@ -13,17 +13,15 @@ You may need to edit the building commands in `benchmark/build_config.py`.
 #### CFFT Accuracy Benchmark
 
 ```console
-python3 benchmark/accuracy_mid.py <n0> <n1> <--avx2> <--double>
+python3 benchmark/accuracy_mid_cfft.py <n0> <n1> <--avx2> <--double>
 ```
 
-Run the `fftw3`, `kfr`, `zldsp`, `pffft` from order `n0` to `n1`.
+Run `fftw3`, `kfr`, `zldsp`, `pffft` CFFT from order `n0` to `n1`.
 
 Example
-
 ```console
-python3 benchmark/accuracy_mid.py 5 10
-
-Running accuracy_mid benchmark from order 5 to 10 (10 reps each)...
+python3 benchmark/accuracy_mid_cfft.py 5 10
+Running accuracy CFFT benchmark from order 5 to 10 (10 reps each)...
 Order      kfr                fftw3              zldsp              pffft             
 --------------------------------------------------------------------------------------
 5          2.39176700e-14     1.17213200e-13     3.95274100e-14     1.63440100e-13     
@@ -31,37 +29,82 @@ Order      kfr                fftw3              zldsp              pffft
 7          5.78072000e-13     5.63297200e-13     4.81077900e-13     8.61865300e-13     
 8          1.05322900e-12     1.27926900e-12     8.51770200e-13     2.17439600e-12     
 9          3.05149800e-12     2.91082200e-12     2.65517300e-12     5.28153300e-12     
-10         6.62576900e-12     6.73661400e-12     6.31371100e-12     1.16500700e-11 
+10         6.62576900e-12     6.73661400e-12     6.31371100e-12     1.16500700e-11
 ```
 
-#### CFFT Accuracy Benchmark
+#### CFFT Consistent Benchmark
 
 ```console
-python3 benchmark/accuracy_cfft.py <n0> <n1> zldsp <--avx2> <--double>
+python3 benchmark/accuracy_cfft.py <n0> <n1> <--avx2> <--double>
 ```
 
+Run `zldsp` different CFFT forward/backward APIs from order `n0` to `n1`.
+
+Example
+```console
+python3 benchmark/accuracy_cfft.py 5 10
+Running accuracy CFFT benchmark for zldsp from order 5 to 10...
+Order      Fwd Max MSE        Bwd Max MSE        Id Max MSE        
+------------------------------------------------------------------
+5          0.00000000e+00     0.00000000e+00     4.70630500e-15    
+6          0.00000000e+00     0.00000000e+00     7.68742700e-15    
+7          0.00000000e+00     0.00000000e+00     1.11504800e-14    
+8          0.00000000e+00     0.00000000e+00     1.19794100e-14    
+9          0.00000000e+00     0.00000000e+00     1.32861400e-14    
+10         0.00000000e+00     0.00000000e+00     1.51891300e-14
+```
+
+#### RFFT Accuracy Benchmark
+
+```console
+python3 benchmark/accuracy_mid_rfft.py <n0> <n1> <--avx2> <--double>
+```
+
+Run `fftw3`, `kfr`, `zldsp`, `pffft` RFFT from order `n0` to `n1`.
+
+Example
+
+```console
+python3 benchmark/accuracy_mid_rfft.py 5 10
+Running accuracy RFFT benchmark from order 5 to 10 (10 reps each)...
+Order      kfr                fftw3              zldsp              pffft             
+--------------------------------------------------------------------------------------
+5          7.26960800e-14     3.77433200e-14     3.38191300e-14     3.27714500e-14     
+6          1.63731400e-13     1.01401400e-13     9.75312900e-14     1.05184300e-13     
+7          3.56730700e-13     2.27370500e-13     2.42351800e-13     2.67729800e-13     
+8          1.07237800e-12     5.58322300e-13     8.09634900e-13     5.90561800e-13     
+9          1.91429100e-12     1.27614100e-12     1.43604000e-12     1.51917200e-12     
+10         5.22122600e-12     2.91316900e-12     3.52626300e-12     3.38997800e-12
+```
+
+#### RFFT Consistent Benchmark
+
+```console
+python3 benchmark/accuracy_rfft.py <n0> <n1> <--avx2> <--double>
+```
+
+Run `zldsp` different RFFT forward/backward APIs from order `n0` to `n1`.
+
+Example
+```console
+python3 benchmark/accuracy_rfft.py 5 10
+Running accuracy RFFT benchmark for zldsp from order 5 to 10...
+Order      Fwd Max MSE        Bwd Max MSE        Id Max MSE        
+------------------------------------------------------------------
+5          0.00000000e+00     0.00000000e+00     5.30825400e-15    
+6          0.00000000e+00     0.00000000e+00     7.23466400e-15    
+7          0.00000000e+00     0.00000000e+00     5.84959600e-15    
+8          0.00000000e+00     0.00000000e+00     8.47672600e-15    
+9          0.00000000e+00     0.00000000e+00     8.37233100e-15    
+10         0.00000000e+00     0.00000000e+00     9.01347400e-15
+```
 
 ### Throughput Benchmark
 
-```console
-python3 benchmark/throughput.py <n0> <n1> <algorithm> <--avx2> <--double>
-```
-
-Run the `algorithm` forward method and calculates the throughput, from order `n0` to `n1`.
-
-Example:
+#### CFFT Throughput Benchmark
 
 ```console
-python3 benchmark/throughput.py 16 20 naive_cooley_radix2
-...
-Running throughput benchmark for naive_cooley_radix2 from order 16 to 20...
-Order      Time (us)       Throughput (MFLOPS) 
----------------------------------------------
-16         1550.5708       3381.2580           
-17         3222.9900       3456.7653           
-18         7010.0217       3365.6044           
-19         13948.0256      3570.9255           
-20         25840.5833      4057.8651    
+python3 benchmark/accuracy_rfft.py <n0> <n1> <--avx2> <--double>
 ```
 
 ### Algorithms

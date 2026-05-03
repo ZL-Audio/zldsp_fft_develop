@@ -59,7 +59,6 @@ def main():
     parser = argparse.ArgumentParser(description="Accuracy RFFT Benchmark")
     parser.add_argument("n0", type=int, help="Start FFT order (size 2^n)")
     parser.add_argument("n1", type=int, help="End FFT order (size 2^n)")
-    parser.add_argument("algorithm", type=str, help="Algorithm to test (e.g., zldsp)")
     parser.add_argument("--avx2", action="store_true", help="Enable AVX2 architecture")
     parser.add_argument("--double", action="store_true", help="Enable Double")
     parser.add_argument("--threshold", type=float, default=1e-5, help="Failure threshold for MSE")
@@ -67,9 +66,9 @@ def main():
     args = parser.parse_args()
 
     try:
-        exe_path = build_benchmark(args.algorithm, "accuracy_rfft",
+        exe_path = build_benchmark("zldsp", "accuracy_rfft",
                                    use_avx2=args.avx2, use_double=args.double, to_print=False)
-        run_benchmark(exe_path, args.n0, args.n1, args.algorithm, args.threshold)
+        run_benchmark(exe_path, args.n0, args.n1, "zldsp", args.threshold)
     except subprocess.CalledProcessError as e:
         print(f"Error executing benchmark: {e}")
         print(f"Stdout:\n{e.stdout}")
