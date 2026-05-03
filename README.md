@@ -1,6 +1,8 @@
-# zldsp_fft
+# zldsp::fft(develop)
 
-zldsp_fft aims at FFT implementation and analysis.
+zldsp::fft(develop) aims at FFT implementation and analysis.
+
+If you want to use zldsp::fft, please refer to [zldsp_fft](https://github.com/ZL-Audio/zldsp_fft).
 
 ## Usage
 
