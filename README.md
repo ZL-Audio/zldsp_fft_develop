@@ -103,7 +103,47 @@ Order      Fwd Max MSE        Bwd Max MSE        Id Max MSE
 
 #### CFFT Throughput Benchmark
 
+```console
+python3 benchmark/throughput_cfft.py <n0> <n1> <algorithm> <--avx2> <--double>
+```
+
+Run `<algorithm>` CFFT throughput benchmark from order `n0` to `n1`.
+
+Example
+```console
+python3 benchmark/throughput_cfft.py 5 10 zldsp
+Running throughput benchmark for zldsp from order 5 to 10...
+Order      Time (us)       Throughput (MFLOPS) 
+---------------------------------------------
+5          0.0189          42283.9468          
+6          0.0281          68408.6276          
+7          0.0635          70521.8659          
+8          0.1303          78574.4614          
+9          0.2998          76850.4027          
+10         0.6359          80514.4208
+```
+
 #### RFFT Throughput Benchmark
+
+```console
+python3 benchmark/throughput_rfft.py <n0> <n1> <algorithm> <--avx2> <--double>
+```
+
+Run `<algorithm>` RFFT throughput benchmark from order `n0` to `n1`.
+
+Example
+```console
+python3 benchmark/throughput_rfft.py 5 10 zldsp
+Running RFFT throughput benchmark for zldsp from order 5 to 10...
+Order      Time (us)       Throughput (MFLOPS) 
+---------------------------------------------
+5          0.0111          36143.1067          
+6          0.0221          43344.2067          
+7          0.0406          55150.3424          
+8          0.0840          60944.2159          
+9          0.1705          67558.5149          
+10         0.3770          67910.7675
+```
 
 ### Algorithms
 
