@@ -16,9 +16,9 @@ def build_accuracy_mid(use_avx2=False, use_double=False):
     os.makedirs(build_dir, exist_ok=True)
 
     cmake_cmd = ["cmake", "..", "-DCMAKE_BUILD_TYPE=Release", "-G", "Ninja",
-                  "-DACCURACY_TEST=OFF", "-DTHROUGHPUT_TEST=OFF",
-                  "-DSTAGE_TIMING_TEST=OFF", "-DPROFILER_TEST=OFF",
-                  "-DACCURACY_MID_RFFT_TEST=ON"]
+                 "-DACCURACY_TEST=OFF", "-DTHROUGHPUT_TEST=OFF",
+                 "-DSTAGE_TIMING_TEST=OFF", "-DPROFILER_TEST=OFF",
+                 "-DACCURACY_MID_RFFT_TEST=ON"]
 
     if use_avx2:
         cmake_cmd += ["-DUSE_AVX2=ON"]
@@ -57,6 +57,7 @@ def main():
     parser.add_argument("n1", type=int, help="End FFT order (size 2^n)")
     parser.add_argument("--avx2", action="store_true", help="Enable AVX2 architecture")
     parser.add_argument("--double", action="store_true", help="Enable Double")
+    parser.add_argument("--threshold", type=float, default=1e-5, help="Failure threshold for MSE")
 
     args = parser.parse_args()
 
@@ -98,6 +99,15 @@ def main():
     r = replace_result_keys(results)
     print(str(r).replace("],", "],\n"))
     shutil.rmtree("build_fft")
+
+    threshold = args.threshold
+    for mse in results["zldsp"]:
+        if mse is None or mse > threshold:
+            print(f"\nERROR: One or more MSE values exceeded the threshold of {threshold}")
+            sys.exit(1)
+
+    print("Test Pass!")
+
 
 if __name__ == "__main__":
     main()
