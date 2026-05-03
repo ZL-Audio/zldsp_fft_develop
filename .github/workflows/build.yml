@@ -24,6 +24,7 @@ jobs:
             os: macos-latest
           - name: Windows
             os: windows-latest
+            vcvars64_path: '"C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"'
 
     steps:
       - name: Checkout code
@@ -77,5 +78,37 @@ jobs:
       - name: Build NEON (macOS)
         if: runner.os == 'macOS'
         run: |
+          cmake -B build -DBUILD_TEST=ON -DENABLE_ZLDSP=ON -DUSE_AVX2=OFF -DUSE_DOUBLE=OFF
+          cmake --build build --config Release --target zlfft_build_test
+
+      - name: Build AVX2 Double (Windows)
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: |
+          call ${{ matrix.vcvars64_path }}
+          cmake -B build -DBUILD_TEST=ON -DENABLE_ZLDSP=ON -DUSE_AVX2=ON -DUSE_DOUBLE=ON
+          cmake --build build --config Release --target zlfft_build_test
+
+      - name: Build AVX2 (Windows)
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: |
+          call ${{ matrix.vcvars64_path }}
+          cmake -B build -DBUILD_TEST=ON -DENABLE_ZLDSP=ON -DUSE_AVX2=ON -DUSE_DOUBLE=OFF
+          cmake --build build --config Release --target zlfft_build_test
+
+      - name: Build SSE4 Double (Windows)
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: |
+          call ${{ matrix.vcvars64_path }}
+          cmake -B build -DBUILD_TEST=ON -DENABLE_ZLDSP=ON -DUSE_AVX2=OFF -DUSE_DOUBLE=ON
+          cmake --build build --config Release --target zlfft_build_test
+
+      - name: Build SSE4 (Windows)
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: |
+          call ${{ matrix.vcvars64_path }}
           cmake -B build -DBUILD_TEST=ON -DENABLE_ZLDSP=ON -DUSE_AVX2=OFF -DUSE_DOUBLE=OFF
           cmake --build build --config Release --target zlfft_build_test
