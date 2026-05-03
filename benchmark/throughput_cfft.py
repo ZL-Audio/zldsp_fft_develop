@@ -10,7 +10,7 @@ from build_config import build_benchmark
 
 
 def run_benchmark(exe_path, n0, n1, algorithm):
-    print(f"Running throughput benchmark for {algorithm} from order {n0} to {n1}...")
+    print(f"Running CFFT throughput benchmark for {algorithm} from order {n0} to {n1}...")
     cmd = [exe_path, str(n0), str(n1), "--benchmark_format=json"]
 
     try:

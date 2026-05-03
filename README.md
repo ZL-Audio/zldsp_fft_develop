@@ -6,17 +6,23 @@ zldsp_fft aims at FFT implementation and analysis.
 
 Please make sure `Clang` (`AppleClang 16+` or `LLVM/Clang 17+`), `cmake` (minimum 3.20) are installed and configured on your OS.
 
+```console
+git clone https://github.com/ZL-Audio/zldsp_fft_develop
+cd zldsp_fft_develop
+git submodule update --init
+```
+
 You may need to edit the building commands in `benchmark/build_config.py`.
 
 ### Accuracy Benchmark
 
 #### CFFT Accuracy Benchmark
 
+Run `fftw3`, `kfr`, `zldsp`, `pffft` CFFT from order `n0` to `n1`.
+
 ```console
 python3 benchmark/accuracy_mid_cfft.py <n0> <n1> <--avx2> <--double>
 ```
-
-Run `fftw3`, `kfr`, `zldsp`, `pffft` CFFT from order `n0` to `n1`.
 
 Example
 ```console
@@ -34,11 +40,11 @@ Order      kfr                fftw3              zldsp              pffft
 
 #### CFFT Consistent Benchmark
 
+Run `zldsp` different CFFT forward/backward APIs from order `n0` to `n1`.
+
 ```console
 python3 benchmark/accuracy_cfft.py <n0> <n1> <--avx2> <--double>
 ```
-
-Run `zldsp` different CFFT forward/backward APIs from order `n0` to `n1`.
 
 Example
 ```console
@@ -56,11 +62,11 @@ Order      Fwd Max MSE        Bwd Max MSE        Id Max MSE
 
 #### RFFT Accuracy Benchmark
 
+Run `fftw3`, `kfr`, `zldsp`, `pffft` RFFT from order `n0` to `n1`.
+
 ```console
 python3 benchmark/accuracy_mid_rfft.py <n0> <n1> <--avx2> <--double>
 ```
-
-Run `fftw3`, `kfr`, `zldsp`, `pffft` RFFT from order `n0` to `n1`.
 
 Example
 
@@ -79,11 +85,11 @@ Order      kfr                fftw3              zldsp              pffft
 
 #### RFFT Consistent Benchmark
 
+Run `zldsp` different RFFT forward/backward APIs from order `n0` to `n1`.
+
 ```console
 python3 benchmark/accuracy_rfft.py <n0> <n1> <--avx2> <--double>
 ```
-
-Run `zldsp` different RFFT forward/backward APIs from order `n0` to `n1`.
 
 Example
 ```console
@@ -103,16 +109,16 @@ Order      Fwd Max MSE        Bwd Max MSE        Id Max MSE
 
 #### CFFT Throughput Benchmark
 
+Run `<algorithm>` CFFT throughput benchmark from order `n0` to `n1`.
+
 ```console
 python3 benchmark/throughput_cfft.py <n0> <n1> <algorithm> <--avx2> <--double>
 ```
 
-Run `<algorithm>` CFFT throughput benchmark from order `n0` to `n1`.
-
 Example
 ```console
 python3 benchmark/throughput_cfft.py 5 10 zldsp
-Running throughput benchmark for zldsp from order 5 to 10...
+Running CFFT throughput benchmark for zldsp from order 5 to 10...
 Order      Time (us)       Throughput (MFLOPS) 
 ---------------------------------------------
 5          0.0189          42283.9468          
@@ -125,11 +131,11 @@ Order      Time (us)       Throughput (MFLOPS)
 
 #### RFFT Throughput Benchmark
 
+Run `<algorithm>` RFFT throughput benchmark from order `n0` to `n1`.
+
 ```console
 python3 benchmark/throughput_rfft.py <n0> <n1> <algorithm> <--avx2> <--double>
 ```
-
-Run `<algorithm>` RFFT throughput benchmark from order `n0` to `n1`.
 
 Example
 ```console
