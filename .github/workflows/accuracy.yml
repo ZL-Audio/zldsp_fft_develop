@@ -42,19 +42,6 @@ jobs:
         shell: pwsh
         run: Get-CimInstance -ClassName Win32_Processor | Select-Object Name, NumberOfCores, NumberOfLogicalProcessors
 
-      - name: Install IPP (Linux)
-        if: runner.os == 'Linux'
-        run: |
-          curl -L -o intelipp.zip "https://www.nuget.org/api/v2/package/intelipp.static.linux-x64/2021.2.0.233"
-          mkdir -p ~/.nuget/packages/intelipp.static.linux-x64/2021.2.0.233
-          unzip intelipp.zip -d ~/.nuget/packages/intelipp.static.linux-x64/2021.2.0.233
-          rm intelipp.zip
-
-      - name: Install IPP (Windows)
-        if: runner.os == 'Windows'
-        shell: cmd
-        run: nuget install intelipp.static.win-x64 -Version 2022.3.0.387
-
       - name: CFFT Accuracy Mid Test AVX2 Double (Linux)
         if: runner.os == 'Linux'
         shell: bash
