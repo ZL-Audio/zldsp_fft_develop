@@ -176,7 +176,7 @@ namespace zldsp::fft::common {
             return;
         }
         static constexpr hn::ScalableTag<F> d;
-        static constexpr size_t lanes = hn::Lanes(d);
+        static constexpr size_t lanes = hn::MaxLanes(d);
         static constexpr bool is_soa = std::is_same_v<OutPtr, SoAPtr<F>>;
         // execute macro Cooley-Tukey DIF CFFT
         {
@@ -329,7 +329,7 @@ namespace zldsp::fft::common {
     HWY_INLINE void execute_rfft_forward_post_internal(D d, const size_t cfft_order, const F* HWY_RESTRICT twiddles,
                                                        SoAPtr<F> in_soa, OutPtr out_ptr) {
         const size_t cfft_size = 1 << cfft_order;
-        static constexpr size_t lanes = hn::Lanes(d);
+        static constexpr size_t lanes = hn::MaxLanes(d);
 
         F r0 = in_soa.real[0];
         F i0 = in_soa.imag[0];
@@ -413,7 +413,7 @@ namespace zldsp::fft::common {
         const F* HWY_RESTRICT twiddles,
         InPtr in_ptr, SoAPtr<F> out_soa) {
         const size_t cfft_size = 1 << cfft_order;
-        static constexpr size_t lanes = hn::Lanes(d);
+        static constexpr size_t lanes = hn::MaxLanes(d);
 
         F r0, i0, rM, iM;
         common::load_scalar<true>(in_ptr, r0, i0);
@@ -497,7 +497,7 @@ namespace zldsp::fft::common {
                                                                F* HWY_RESTRICT out_ptr) {
 
         const size_t cfft_size = 1 << cfft_order;
-        static constexpr size_t lanes = hn::Lanes(d);
+        static constexpr size_t lanes = hn::MaxLanes(d);
 
         F r0 = in_soa.real[0];
         F i0 = in_soa.imag[0];
