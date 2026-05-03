@@ -18,6 +18,7 @@ using C = std::complex<F>;
 template <typename T, std::size_t Align = 64>
 struct AlignedAllocator {
     using value_type = T;
+
     template <class U>
     struct rebind {
         using other = AlignedAllocator<U, Align>;
@@ -26,7 +27,8 @@ struct AlignedAllocator {
     AlignedAllocator() = default;
 
     template <class U>
-    constexpr AlignedAllocator(const AlignedAllocator<U, Align>&) noexcept {}
+    constexpr AlignedAllocator(const AlignedAllocator<U, Align>&) noexcept {
+    }
 
     T* allocate(std::size_t n) {
         if (n > std::numeric_limits<std::size_t>::max() / sizeof(T))
@@ -128,6 +130,15 @@ int main(const int argc, char** argv) {
     in_f_copy = in_f;
     rfft.forward(in_f_copy.data(), out_soa);
     double max_mse_forward = calculate_mse_soa(out_aos, out_soa);
+
+    std::vector<F, AlignedAllocator<F>> out_mag_sqr(out_size);
+    std::vector<F, AlignedAllocator<F>> out_mag_sqr_ref(out_size);
+    in_f_copy = in_f;
+    rfft.forward_sqr_mag(in_f_copy.data(), out_mag_sqr.data());
+    for (size_t i = 0; i < out_size; ++i) {
+        out_mag_sqr_ref[i] = out_aos[i].real() * out_aos[i].real() + out_aos[i].imag() * out_aos[i].imag();
+    }
+    max_mse_forward = std::max(max_mse_forward, calculate_mse_real(out_mag_sqr_ref, out_mag_sqr));
 #else
     double max_mse_forward = 0.0;
 #endif
