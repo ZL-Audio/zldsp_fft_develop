@@ -53,7 +53,11 @@ using FFTClass = zlbenchmark::KFRRFFT<F>;
 using FFTClass = zlbenchmark::VDSPRFFT<F>;
 #elif defined(ENABLE_IPP)
 #include "../ipp_impl/ipp_impl.hpp"
-using FFTClass = zlbenchmark::IPPRFFT<F>;
+#if defined(IPP_USE_AVX2)
+using FFTClass = zlbenchmark::IPPRFFT<F, zlbenchmark::IPPSimdLevel::AVX2>;
+#else
+using FFTClass = zlbenchmark::IPPRFFT<F, zlbenchmark::IPPSimdLevel::SSE42>;
+#endif
 #elif defined(ENABLE_FFTW3)
 #include "../fftw3_impl/fftw3_impl.hpp"
 using FFTClass = zlbenchmark::FFTW3RFFT<F>;
