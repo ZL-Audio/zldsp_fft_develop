@@ -206,7 +206,7 @@ namespace zldsp::fft::common {
         static constexpr size_t MACRO_TILE_C = 64;
         static constexpr size_t MACRO_TILE_K = 64;
         for (size_t c_macro = 0; c_macro < state.micro_segment_size; c_macro += MACRO_TILE_C) {
-            const size_t c_max = std::min(c_macro + MACRO_TILE_C, state.micro_segment_size);
+            const size_t c_max = std::min<size_t>(c_macro + MACRO_TILE_C, state.micro_segment_size);
             const size_t c_chunk_size = c_max - c_macro;
             // execute micro Stockham DIT CFFT (from the digital reverse block)
             for (size_t c_offset = 0; c_offset < c_chunk_size; ++c_offset) {
@@ -257,13 +257,13 @@ namespace zldsp::fft::common {
             }
             // perform local matrix transpose
             for (size_t k_macro = 0; k_macro < micro_fft_size; k_macro += MACRO_TILE_K) {
-                const size_t k_max = std::min(k_macro + MACRO_TILE_K, micro_fft_size);
+                const size_t k_max = std::min<size_t>(k_macro + MACRO_TILE_K, micro_fft_size);
                 for (size_t k = k_macro; k < k_max; ++k) {
                     const size_t out_shift = k * state.micro_segment_size + c_macro;
                     for (size_t c = 0; c < c_chunk_size; c += lanes) {
                         alignas(HWY_ALIGNMENT) F tmp_r[32];
                         alignas(HWY_ALIGNMENT) F tmp_i[32];
-                        const size_t vec_len = std::min(lanes, c_chunk_size - c);
+                        const size_t vec_len = std::min<size_t>(lanes, c_chunk_size - c);
                         for (size_t i = 0; i < vec_len; ++i) {
                             if constexpr (is_soa) {
                                 tmp_r[i] = matrix_r[(c_macro + c + i) * micro_fft_size_padded + k];
