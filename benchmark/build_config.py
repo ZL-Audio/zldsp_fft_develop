@@ -44,7 +44,7 @@ def build_benchmark(algorithm, benchmark_type, use_avx2=False, use_double=False,
         "accuracy_rfft": "-DACCURACY_RFFT_TEST=ON",
         "accuracy_mid_cfft": "-DACCURACY_MID_CFFT_TEST=ON",
         "accuracy_mid_rfft": "-DACCURACY_MID_RFFT_TEST=ON",
-        "throughput": "-DTHROUGHPUT_TEST=ON",
+        "throughput_cfft": "-DTHROUGHPUT_CFFT_TEST=ON",
         "throughput_rfft": "-DTHROUGHPUT_RFFT_TEST=ON"
     }
 
@@ -83,6 +83,10 @@ def build_benchmark(algorithm, benchmark_type, use_avx2=False, use_double=False,
         target_name = "zlfft_accuracy_mid_cfft"
     elif benchmark_type == "accuracy_mid_rfft":
         target_name = "zlfft_accuracy_mid_rfft"
+    elif benchmark_type == "throughput_cfft":
+        target_name = "zlfft_throughput_cfft"
+    elif benchmark_type == "throughput_rfft":
+        target_name = "zlfft_throughput_rfft"
     else:
         target_name = "zlfft_benchmark"
     build_cmd = ["cmake", "--build", ".", "--target", target_name, "--config", "Release", "-j"]

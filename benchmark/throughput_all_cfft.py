@@ -91,7 +91,7 @@ def main():
     for algo in algo_list:
         sys.stderr.write(f"Benchmarking {algo}...\n")
         try:
-            exe_path = build_benchmark(algo, "throughput",
+            exe_path = build_benchmark(algo, "throughput_cfft",
                                        use_avx2=args.avx2, use_double=args.double, to_print=False)
             time.sleep(5)
             th_list = run_benchmark_collect(exe_path, args.n0, args.n1)

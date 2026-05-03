@@ -103,9 +103,7 @@ Order      Fwd Max MSE        Bwd Max MSE        Id Max MSE
 
 #### CFFT Throughput Benchmark
 
-```console
-python3 benchmark/accuracy_rfft.py <n0> <n1> <--avx2> <--double>
-```
+#### RFFT Throughput Benchmark
 
 ### Algorithms
 

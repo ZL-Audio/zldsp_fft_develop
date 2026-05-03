@@ -62,7 +62,7 @@ def main():
     args = parser.parse_args()
 
     try:
-        exe_path = build_benchmark(args.algorithm, "throughput",
+        exe_path = build_benchmark(args.algorithm, "throughput_cfft",
                                    use_avx2=args.avx2, use_double=args.double, to_print=False)
         time.sleep(10)
         run_benchmark(exe_path, args.n0, args.n1, args.algorithm)
