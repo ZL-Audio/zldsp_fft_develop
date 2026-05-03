@@ -59,50 +59,50 @@ jobs:
         if: runner.os == 'Linux'
         shell: bash
         run: |
-          python -u benchmark/accuracy_mid.py 2 20 --avx2 --double
-          python -u benchmark/accuracy_cfft.py 2 20 zldsp --avx2 --double
+          python -u benchmark/accuracy_mid_cfft.py 2 20 --avx2 --double
+          python -u benchmark/accuracy_cfft.py 2 20 --avx2 --double
 
       - name: CFFT Accuracy Mid Test AVX2 (Linux)
         if: runner.os == 'Linux'
         shell: bash
         run: |
-          python -u benchmark/accuracy_mid.py 2 20 --avx2
-          python -u benchmark/accuracy_cfft.py 2 20 zldsp --avx2
+          python -u benchmark/accuracy_mid_cfft.py 2 20 --avx2
+          python -u benchmark/accuracy_cfft.py 2 20 --avx2
           
       - name: CFFT Accuracy Mid Test Double
         shell: bash
         run: |
-          python -u benchmark/accuracy_mid.py 2 20 --double
-          python -u benchmark/accuracy_cfft.py 2 20 zldsp --double
+          python -u benchmark/accuracy_mid_cfft.py 2 20 --double
+          python -u benchmark/accuracy_cfft.py 2 20 --double
 
       - name: CFFT Accuracy Mid Test
         shell: bash
         run: |
-          python -u benchmark/accuracy_mid.py 2 20
-          python -u benchmark/accuracy_cfft.py 2 20 zldsp
+          python -u benchmark/accuracy_mid_cfft.py 2 20
+          python -u benchmark/accuracy_cfft.py 2 20
 
       - name: RFFT Accuracy Mid Test AVX2 Double (Linux)
         if: runner.os == 'Linux'
         shell: bash
         run: |
           python -u benchmark/accuracy_mid_rfft.py 2 20 --avx2 --double
-          python -u benchmark/accuracy_rfft.py 2 20 zldsp --avx2 --double
+          python -u benchmark/accuracy_rfft.py 2 20 --avx2 --double
 
       - name: RFFT Accuracy Mid Test AVX2 (Linux)
         if: runner.os == 'Linux'
         shell: bash
         run: |
           python -u benchmark/accuracy_mid_rfft.py 2 20 --avx2
-          python -u benchmark/accuracy_rfft.py 2 20 zldsp --avx2
+          python -u benchmark/accuracy_rfft.py 2 20 --avx2
 
       - name: RFFT Accuracy Mid Test Double
         shell: bash
         run: |
           python -u benchmark/accuracy_mid_rfft.py 2 20 --double
-          python -u benchmark/accuracy_rfft.py 2 20 zldsp --double
+          python -u benchmark/accuracy_rfft.py 2 20 --double
 
       - name: RFFT Accuracy Mid Test
         shell: bash
         run: |
           python -u benchmark/accuracy_mid_rfft.py 2 20
-          python -u benchmark/accuracy_rfft.py 2 20 zldsp
+          python -u benchmark/accuracy_rfft.py 2 20
