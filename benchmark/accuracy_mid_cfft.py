@@ -18,7 +18,7 @@ def build_accuracy_mid(use_avx2=False, use_double=False):
     cmake_cmd = ["cmake", "..", "-DCMAKE_BUILD_TYPE=Release", "-G", "Ninja",
                  "-DACCURACY_TEST=OFF", "-DTHROUGHPUT_TEST=OFF",
                  "-DSTAGE_TIMING_TEST=OFF", "-DPROFILER_TEST=OFF",
-                 "-DACCURACY_MID_TEST=ON"]
+                 "-DACCURACY_MID_CFFT_TEST=ON"]
 
     if use_avx2:
         cmake_cmd += ["-DUSE_AVX2=ON"]
@@ -39,7 +39,7 @@ def build_accuracy_mid(use_avx2=False, use_double=False):
     for algo in algos:
         cmake_cmd.append(f"-DENABLE_{algo.upper()}=OFF")
 
-    target_name = "zlfft_accuracy_mid"
+    target_name = "zlfft_accuracy_mid_cfft"
     build_cmd = ["cmake", "--build", ".", "--target", target_name, "--config", "Release", "-j"]
 
     subprocess.run(cmake_cmd, capture_output=True, cwd=build_dir, check=True)

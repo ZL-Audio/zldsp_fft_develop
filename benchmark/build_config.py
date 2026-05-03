@@ -39,20 +39,20 @@ def build_benchmark(algorithm, benchmark_type, use_avx2=False, use_double=False,
     os.makedirs(build_dir, exist_ok=True)
 
     cmake_cmd = ["cmake", "..", "-DCMAKE_BUILD_TYPE=Release", "-G", "Ninja"]
-    if benchmark_type == "accuracy":
-        cmake_cmd += ["-DACCURACY_TEST=ON", "-DTHROUGHPUT_TEST=OFF", "-DSTAGE_TIMING_TEST=OFF", "-DPROFILER_TEST=OFF", "-DACCURACY_CFFT_TEST=OFF"]
-    elif benchmark_type == "accuracy_cfft":
-        cmake_cmd += ["-DACCURACY_TEST=OFF", "-DTHROUGHPUT_TEST=OFF", "-DSTAGE_TIMING_TEST=OFF", "-DPROFILER_TEST=OFF", "-DACCURACY_CFFT_TEST=ON", "-DACCURACY_RFFT_TEST=OFF"]
-    elif benchmark_type == "accuracy_rfft":
-        cmake_cmd += ["-DACCURACY_TEST=OFF", "-DTHROUGHPUT_TEST=OFF", "-DSTAGE_TIMING_TEST=OFF", "-DPROFILER_TEST=OFF", "-DACCURACY_CFFT_TEST=OFF", "-DACCURACY_RFFT_TEST=ON"]
-    elif benchmark_type == "throughput":
-        cmake_cmd += ["-DACCURACY_TEST=OFF", "-DTHROUGHPUT_TEST=ON", "-DTHROUGHPUT_RFFT_TEST=OFF", "-DSTAGE_TIMING_TEST=OFF", "-DPROFILER_TEST=OFF", "-DACCURACY_CFFT_TEST=OFF"]
-    elif benchmark_type == "throughput_rfft":
-        cmake_cmd += ["-DACCURACY_TEST=OFF", "-DTHROUGHPUT_TEST=OFF", "-DTHROUGHPUT_RFFT_TEST=ON", "-DSTAGE_TIMING_TEST=OFF", "-DPROFILER_TEST=OFF", "-DACCURACY_CFFT_TEST=OFF"]
-    elif benchmark_type == "stage_timing":
-        cmake_cmd += ["-DACCURACY_TEST=OFF", "-DTHROUGHPUT_TEST=OFF", "-DSTAGE_TIMING_TEST=ON", "-DPROFILER_TEST=OFF", "-DACCURACY_CFFT_TEST=OFF"]
-    elif benchmark_type == "profiler":
-        cmake_cmd += ["-DACCURACY_TEST=OFF", "-DTHROUGHPUT_TEST=OFF", "-DSTAGE_TIMING_TEST=OFF", "-DPROFILER_TEST=ON", "-DACCURACY_CFFT_TEST=OFF"]
+    active_targets = {
+        "accuracy_cfft": "-DACCURACY_CFFT_TEST=ON",
+        "accuracy_rfft": "-DACCURACY_RFFT_TEST=ON",
+        "accuracy_mid_cfft": "-DACCURACY_MID_CFFT_TEST=ON",
+        "accuracy_mid_rfft": "-DACCURACY_MID_RFFT_TEST=ON",
+        "throughput": "-DTHROUGHPUT_TEST=ON",
+        "throughput_rfft": "-DTHROUGHPUT_RFFT_TEST=ON"
+    }
+
+    for t, flag in active_targets.items():
+        if benchmark_type == t:
+            cmake_cmd.append(flag)
+        else:
+            cmake_cmd.append(flag.replace("=ON", "=OFF"))
 
     if use_avx2:
         cmake_cmd += ["-DUSE_AVX2=ON"]
@@ -75,12 +75,14 @@ def build_benchmark(algorithm, benchmark_type, use_avx2=False, use_double=False,
         else:
             cmake_cmd.append(f"-DENABLE_{algo.upper()}=OFF")
 
-    if benchmark_type == "profiler":
-        target_name = "zlfft_profiler"
-    elif benchmark_type == "accuracy_cfft":
+    if benchmark_type == "accuracy_cfft":
         target_name = "zlfft_accuracy_cfft"
     elif benchmark_type == "accuracy_rfft":
         target_name = "zlfft_accuracy_rfft"
+    elif benchmark_type == "accuracy_mid_cfft":
+        target_name = "zlfft_accuracy_mid_cfft"
+    elif benchmark_type == "accuracy_mid_rfft":
+        target_name = "zlfft_accuracy_mid_rfft"
     else:
         target_name = "zlfft_benchmark"
     build_cmd = ["cmake", "--build", ".", "--target", target_name, "--config", "Release", "-j"]
