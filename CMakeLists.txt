@@ -12,6 +12,7 @@ option(ACCURACY_CFFT_TEST "Accuracy CFFT Test" OFF)
 option(ACCURACY_RFFT_TEST "Accuracy RFFT Test" OFF)
 option(THROUGHPUT_CFFT_TEST "Throughput CFFT Test" OFF)
 option(THROUGHPUT_RFFT_TEST "Throughput RFFT Test" OFF)
+option(BUILD_TEST "Build Test" OFF)
 option(USE_AVX2 "Use AVX2 for benchmarking" OFF)
 
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64" OR CMAKE_SYSTEM_PROCESSOR MATCHES "arm64")
@@ -68,6 +69,10 @@ if (THROUGHPUT_RFFT_TEST)
     target_link_libraries(zlfft_throughput_rfft PRIVATE benchmark::benchmark)
 endif ()
 
+if (BUILD_TEST)
+    add_executable(zlfft_build_test benchmark/build_test.cpp)
+endif ()
+
 
 
 set(ZLFFT_TARGETS)
@@ -82,6 +87,9 @@ if (TARGET zlfft_accuracy_cfft)
 endif ()
 if (TARGET zlfft_accuracy_rfft)
     list(APPEND ZLFFT_TARGETS zlfft_accuracy_rfft)
+endif ()
+if (TARGET zlfft_build_test)
+    list(APPEND ZLFFT_TARGETS zlfft_build_test)
 endif ()
 
 
@@ -304,6 +312,9 @@ if (ipo_supported)
     endif()
     if (TARGET zlfft_throughput_rfft)
         set_target_properties(zlfft_throughput_rfft PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
+    endif()
+    if (TARGET zlfft_build_test)
+        set_target_properties(zlfft_build_test PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
     endif()
     message(STATUS "LTO/IPO is supported and enabled.")
 else ()

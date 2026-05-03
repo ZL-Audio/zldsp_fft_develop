@@ -47,11 +47,35 @@ jobs:
       - name: Build AVX2 Double (Linux)
         if: runner.os == 'Linux'
         run: |
-          cmake -B build -DTHROUGHPUT_CFFT_TEST=ON -DTHROUGHPUT_RFFT_TEST=ON -DENABLE_ZLDSP=ON -DUSE_AVX2=ON -DUSE_DOUBLE=ON
-          cmake --build build --config Release --target zlfft_throughput_cfft zlfft_throughput_rfft
+          cmake -B build -DBUILD_TEST=ON -DENABLE_ZLDSP=ON -DUSE_AVX2=ON -DUSE_DOUBLE=ON
+          cmake --build build --config Release --target zlfft_build_test
 
       - name: Build AVX2 (Linux)
         if: runner.os == 'Linux'
         run: |
-          cmake -B build -DTHROUGHPUT_CFFT_TEST=ON -DTHROUGHPUT_RFFT_TEST=ON -DENABLE_ZLDSP=ON -DUSE_AVX2=ON -DUSE_DOUBLE=OFF
-          cmake --build build --config Release --target zlfft_throughput_cfft zlfft_throughput_rfft
+          cmake -B build -DBUILD_TEST=ON -DENABLE_ZLDSP=ON -DUSE_AVX2=ON -DUSE_DOUBLE=OFF
+          cmake --build build --config Release --target zlfft_build_test
+
+      - name: Build SSE4 Double (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          cmake -B build -DBUILD_TEST=ON -DENABLE_ZLDSP=ON -DUSE_AVX2=OFF -DUSE_DOUBLE=ON
+          cmake --build build --config Release --target zlfft_build_test
+
+      - name: Build SSE4 (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          cmake -B build -DBUILD_TEST=ON -DENABLE_ZLDSP=ON -DUSE_AVX2=OFF -DUSE_DOUBLE=OFF
+          cmake --build build --config Release --target zlfft_build_test
+
+      - name: Build NEON Double (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          cmake -B build -DBUILD_TEST=ON -DENABLE_ZLDSP=ON -DUSE_AVX2=OFF -DUSE_DOUBLE=ON
+          cmake --build build --config Release --target zlfft_build_test
+
+      - name: Build NEON (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          cmake -B build -DBUILD_TEST=ON -DENABLE_ZLDSP=ON -DUSE_AVX2=OFF -DUSE_DOUBLE=OFF
+          cmake --build build --config Release --target zlfft_build_test
