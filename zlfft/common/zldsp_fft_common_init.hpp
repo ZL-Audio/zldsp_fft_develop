@@ -47,6 +47,17 @@ namespace zldsp::fft::common {
     inline constexpr size_t HYBRID_TRANSPOSE_TILE_SIZE = 64;
 
     /**
+     * Add one cache-line colour while retaining Highway alignment.
+     */
+    template <typename F>
+    inline size_t get_cache_color_padding() {
+        const size_t line_size = std::max<size_t>(get_cache_line_size(), HWY_ALIGNMENT);
+        const size_t aligned_size =
+            ((line_size + HWY_ALIGNMENT - 1) / HWY_ALIGNMENT) * HWY_ALIGNMENT;
+        return aligned_size / sizeof(F);
+    }
+
+    /**
      * get padded size of a given CFFT size
      * @tparam F
      * @param cfft_size
@@ -338,7 +349,8 @@ namespace zldsp::fft::common {
             const size_t matrix_tile_rows =
                 std::min<size_t>(HYBRID_TRANSPOSE_TILE_SIZE, state.micro_segment_size);
             state.transpose_tile_stride = matrix_tile_rows *
-                (micro_fft_size + get_transpose_padding<F>());
+                (micro_fft_size + get_transpose_padding<F>()) +
+                get_cache_color_padding<F>();
 
             const size_t workspace_size =
                 2 * state.macro_stride +

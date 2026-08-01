@@ -17,6 +17,39 @@
 
 namespace zldsp::fft::common {
     /**
+     * @return data-cache line size in bytes
+     */
+    inline size_t get_cache_line_size() {
+        size_t line_size = 64;
+#if defined(__APPLE__)
+        size_t size = sizeof(line_size);
+        sysctlbyname("hw.cachelinesize", &line_size, &size, nullptr, 0);
+#elif defined(__linux__) && defined(_SC_LEVEL1_DCACHE_LINESIZE)
+        const long size = sysconf(_SC_LEVEL1_DCACHE_LINESIZE);
+        if (size > 0) {
+            line_size = static_cast<size_t>(size);
+        }
+#elif defined(_WIN32)
+        DWORD buffer_size = 0;
+        GetLogicalProcessorInformation(nullptr, &buffer_size);
+        if (GetLastError() == ERROR_INSUFFICIENT_BUFFER) {
+            std::vector<SYSTEM_LOGICAL_PROCESSOR_INFORMATION> buffer(
+                buffer_size / sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION));
+            if (GetLogicalProcessorInformation(buffer.data(), &buffer_size)) {
+                for (const auto& info : buffer) {
+                    if (info.Relationship == RelationCache && info.Cache.Level == 1 &&
+                        (info.Cache.Type == CacheData || info.Cache.Type == CacheUnified)) {
+                        line_size = info.Cache.LineSize;
+                        break;
+                    }
+                }
+            }
+        }
+#endif
+        return line_size;
+    }
+
+    /**
      *
      * @return L1 data cache size
      */
