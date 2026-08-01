@@ -300,10 +300,13 @@ namespace zldsp::fft::common {
             common::radix4_first_pass_dif_fused_aosoa<is_forward>(in_ptr, macro_space, state.cfft_size, w_ptr);
             w_ptr += state.macro_twiddles_shift[0];
 
-            for (size_t i = 1; i < state.num_macro_stages; ++i) {
-                size_t width = state.cfft_size >> (2 * i + 2);
-                common::radix4_dif_aosoa_inplace(macro_space, state.cfft_size, width, w_ptr);
-                w_ptr += state.macro_twiddles_shift[i];
+            const size_t remaining_stages = state.num_macro_stages - 1;
+            if (remaining_stages != 0) {
+                const size_t width = state.cfft_size >> 4;
+                common::radix4_dif_aosoa_depth_first(
+                    macro_space, state.cfft_size, width, w_ptr,
+                    state.macro_twiddles_shift.data() + 1,
+                    remaining_stages);
             }
         }
 
