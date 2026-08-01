@@ -313,16 +313,12 @@ namespace zldsp::fft::common {
         const size_t micro_fft_size = static_cast<size_t>(1) << state.micro_cfft_order;
         const size_t micro_fft_size_padded = micro_fft_size + get_transpose_padding<F>();
 
-        F* HWY_RESTRICT micro_space0 = state.workspace.get() + 4 * state.macro_stride;
-        F* HWY_RESTRICT micro_space1 = micro_space0 + 2 * state.micro_stride;
-
-        static constexpr size_t MACRO_TILE_C = 64;
+        static constexpr size_t MACRO_TILE_C = HYBRID_TRANSPOSE_TILE_SIZE;
         static constexpr size_t MACRO_TILE_K = 64;
-        // Only the current c chunk is live: transpose it out, then reuse these rows.
-        const size_t matrix_tile_rows =
-            std::min<size_t>(MACRO_TILE_C, state.micro_segment_size);
         F* HWY_RESTRICT matrix_r = state.workspace.get() + 2 * state.macro_stride;
-        F* HWY_RESTRICT matrix_i = matrix_r + matrix_tile_rows * micro_fft_size_padded;
+        F* HWY_RESTRICT matrix_i = matrix_r + state.transpose_tile_stride;
+        F* HWY_RESTRICT micro_space0 = matrix_i + state.transpose_tile_stride;
+        F* HWY_RESTRICT micro_space1 = micro_space0 + 2 * state.micro_stride;
 
         // execute micro Stockham DIT CFFT
         for (size_t c_macro = 0; c_macro < state.micro_segment_size; c_macro += MACRO_TILE_C) {

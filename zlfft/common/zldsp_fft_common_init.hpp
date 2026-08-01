@@ -2,6 +2,7 @@
 
 #include <hwy/aligned_allocator.h>
 #include <hwy/highway.h>
+#include <algorithm>
 #include <cmath>
 #include <numeric>
 #include <vector>
@@ -39,8 +40,11 @@ namespace zldsp::fft::common {
         size_t macro_stride = 0;
 
         size_t micro_segment_size = 0;
+        size_t transpose_tile_stride = 0;
         std::vector<size_t> digit_rev_4;
     };
+
+    inline constexpr size_t HYBRID_TRANSPOSE_TILE_SIZE = 64;
 
     /**
      * get padded size of a given CFFT size
@@ -330,9 +334,17 @@ namespace zldsp::fft::common {
                 state.macro_twiddles_shift, state.macro_twiddles);
 
             state.micro_segment_size = static_cast<size_t>(1) << (state.cfft_order - state.micro_cfft_order);
-            state.macro_stride += get_transpose_padding<F>() * state.micro_segment_size;
+            const size_t micro_fft_size = static_cast<size_t>(1) << state.micro_cfft_order;
+            const size_t matrix_tile_rows =
+                std::min<size_t>(HYBRID_TRANSPOSE_TILE_SIZE, state.micro_segment_size);
+            state.transpose_tile_stride = matrix_tile_rows *
+                (micro_fft_size + get_transpose_padding<F>());
 
-            state.workspace = hwy::AllocateAligned<F>(4 * (state.macro_stride + state.micro_stride));
+            const size_t workspace_size =
+                2 * state.macro_stride +
+                2 * state.transpose_tile_stride +
+                4 * state.micro_stride;
+            state.workspace = hwy::AllocateAligned<F>(workspace_size);
 
             common::init_bit_reversal_table(state.micro_segment_size, state.num_macro_stages, state.digit_rev_4);
         }
