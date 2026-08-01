@@ -316,12 +316,15 @@ namespace zldsp::fft::common {
         F* HWY_RESTRICT micro_space0 = state.workspace.get() + 4 * state.macro_stride;
         F* HWY_RESTRICT micro_space1 = micro_space0 + 2 * state.micro_stride;
 
-        F* HWY_RESTRICT matrix_r = state.workspace.get() + 2 * state.macro_stride;
-        F* HWY_RESTRICT matrix_i = matrix_r + state.micro_segment_size * micro_fft_size_padded;
-
-        // execute micro Stockham DIT CFFT
         static constexpr size_t MACRO_TILE_C = 64;
         static constexpr size_t MACRO_TILE_K = 64;
+        // Only the current c chunk is live: transpose it out, then reuse these rows.
+        const size_t matrix_tile_rows =
+            std::min<size_t>(MACRO_TILE_C, state.micro_segment_size);
+        F* HWY_RESTRICT matrix_r = state.workspace.get() + 2 * state.macro_stride;
+        F* HWY_RESTRICT matrix_i = matrix_r + matrix_tile_rows * micro_fft_size_padded;
+
+        // execute micro Stockham DIT CFFT
         for (size_t c_macro = 0; c_macro < state.micro_segment_size; c_macro += MACRO_TILE_C) {
             const size_t c_max = std::min<size_t>(c_macro + MACRO_TILE_C, state.micro_segment_size);
             const size_t c_chunk_size = c_max - c_macro;
@@ -359,8 +362,8 @@ namespace zldsp::fft::common {
                     std::swap(current_in, current_out);
                 }
                 SoAPtr<F> out_soa_ptr = make_soa<F>({
-                    matrix_r + (c_macro + c_offset) * micro_fft_size_padded,
-                    matrix_i + (c_macro + c_offset) * micro_fft_size_padded
+                    matrix_r + c_offset * micro_fft_size_padded,
+                    matrix_i + c_offset * micro_fft_size_padded
                 });
                 common::radix4_last_pass_fused_aosoa<true>(
                     current_in, out_soa_ptr, micro_fft_size, width, w_ptr);
@@ -374,7 +377,7 @@ namespace zldsp::fft::common {
                 HWY_ASSUME(((k_max - k_macro) % lanes) == 0);
                 for (size_t k = k_macro; k < k_max; k += lanes) {
                     for (size_t c = 0; c < c_chunk_size; c += lanes) {
-                        const size_t matrix_shift = (c_macro + c) * micro_fft_size_padded + k;
+                        const size_t matrix_shift = c * micro_fft_size_padded + k;
                         const size_t out_shift = k * state.micro_segment_size + c_macro + c;
 
                         if constexpr (is_soa && (lanes == 2 || lanes == 4 || lanes == 8)) {
@@ -442,9 +445,9 @@ namespace zldsp::fft::common {
                             for (size_t kk = 0; kk < lanes; ++kk) {
                                 for (size_t i = 0; i < lanes; ++i) {
                                     tmp_r[i] = matrix_r[
-                                        (c_macro + c + i) * micro_fft_size_padded + k + kk];
+                                        (c + i) * micro_fft_size_padded + k + kk];
                                     tmp_i[i] = matrix_i[
-                                        (c_macro + c + i) * micro_fft_size_padded + k + kk];
+                                        (c + i) * micro_fft_size_padded + k + kk];
                                 }
                                 const auto vr = hn::Load(d, tmp_r);
                                 const auto vi = hn::Load(d, tmp_i);
