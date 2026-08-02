@@ -748,7 +748,13 @@ namespace zldsp::fft::common {
         }
     }
 
-    /** Perform one Cooley-Tukey DIF radix-4 block when width >= 8. */
+    /**
+     * perform one Cooley-Tukey DIF radix-4 block when width >= 8
+     * @tparam F
+     * @param workspace
+     * @param width
+     * @param w_ptr
+     */
     template <typename F>
     HWY_INLINE void radix4_dif_aosoa_block(
         F* HWY_RESTRICT workspace, const size_t width,
@@ -829,7 +835,14 @@ namespace zldsp::fft::common {
         }
     }
 
-    /** Perform a complete Cooley-Tukey DIF radix-4 stage. */
+    /**
+     * perform a complete Cooley-Tukey DIF radix-4 stage
+     * @tparam F
+     * @param workspace
+     * @param n
+     * @param width
+     * @param w_ptr
+     */
     template <typename F>
     inline void radix4_dif_aosoa_inplace(
         F* HWY_RESTRICT workspace, const size_t n, const size_t width,
@@ -842,9 +855,15 @@ namespace zldsp::fft::common {
     }
 
     /**
-     * Execute independent macro DIF blocks depth-first. Descendant blocks are
-     * consumed before their parent's cache lines are displaced by sibling
-     * blocks from the same stage.
+     * execute independent macro DIF blocks depth-first, consuming descendants
+     * before sibling blocks displace their parent's cache lines
+     * @tparam F
+     * @param workspace
+     * @param n
+     * @param width
+     * @param w_ptr
+     * @param twiddles_shift
+     * @param num_stages
      */
     template <typename F>
     inline void radix4_dif_aosoa_depth_first(

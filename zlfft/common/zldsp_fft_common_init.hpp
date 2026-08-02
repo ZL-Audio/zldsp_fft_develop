@@ -47,7 +47,9 @@ namespace zldsp::fft::common {
     inline constexpr size_t HYBRID_TRANSPOSE_TILE_SIZE = 64;
 
     /**
-     * Add one cache-line colour while retaining Highway alignment.
+     * get cache-line colour padding while retaining Highway alignment
+     * @tparam F
+     * @return
      */
     template <typename F>
     inline size_t get_cache_color_padding() {

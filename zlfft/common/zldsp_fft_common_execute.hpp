@@ -145,6 +145,13 @@ namespace zldsp::fft::common {
 
     /**
      * transpose one SIMD-lane-square tile and store it in column-major order
+     * @tparam D
+     * @tparam F
+     * @param d
+     * @param in
+     * @param in_stride
+     * @param out
+     * @param out_stride
      */
     template <class D, typename F>
     HWY_INLINE void transpose_square_component_to_soa(
@@ -215,7 +222,17 @@ namespace zldsp::fft::common {
     }
 
     /**
-     * Transpose a 4x4 real/imaginary tile and immediately write AoS columns
+     * transpose a 4x4 real/imaginary tile and immediately write AoS columns
+     * @tparam is_forward
+     * @tparam D
+     * @tparam F
+     * @tparam OutPtr
+     * @param d
+     * @param in_r
+     * @param in_i
+     * @param in_stride
+     * @param out
+     * @param out_stride
      */
     template <bool is_forward, class D, typename F, typename OutPtr>
     HWY_INLINE void transpose_store_4x4_aos(
@@ -245,7 +262,17 @@ namespace zldsp::fft::common {
     }
 
     /**
-     * Transpose a 2x2 real/imaginary tile and immediately write AoS columns
+     * transpose a 2x2 real/imaginary tile and immediately write AoS columns
+     * @tparam is_forward
+     * @tparam D
+     * @tparam F
+     * @tparam OutPtr
+     * @param d
+     * @param in_r
+     * @param in_i
+     * @param in_stride
+     * @param out
+     * @param out_stride
      */
     template <bool is_forward, class D, typename F, typename OutPtr>
     HWY_INLINE void transpose_store_2x2_aos(
@@ -364,7 +391,7 @@ namespace zldsp::fft::common {
                 common::radix4_last_pass_fused_aosoa<true>(
                     current_in, out_soa_ptr, micro_fft_size, width, w_ptr);
             }
-            // SIMD-tiled local matrix transpose
+            // execute SIMD-tiled local matrix transpose
             HWY_ASSUME(c_chunk_size >= lanes);
             HWY_ASSUME((c_chunk_size % lanes) == 0);
             for (size_t k_macro = 0; k_macro < micro_fft_size; k_macro += MACRO_TILE_K) {
