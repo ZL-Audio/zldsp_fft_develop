@@ -122,41 +122,6 @@ namespace zldsp::fft::common {
     }
 
     /**
-     *
-     * @return L3 cache size
-     */
-    inline size_t get_l3_cache_size() {
-        size_t l3_size = 0;
-#if defined(__APPLE__)
-        l3_size = 0;
-#elif defined(__linux__)
-        long size = sysconf(_SC_LEVEL3_CACHE_SIZE);
-        if (size > 0) {
-            l3_size = static_cast<size_t>(size);
-        }
-#elif defined(_WIN32)
-        DWORD buffer_size = 0;
-        GetLogicalProcessorInformation(nullptr, &buffer_size);
-        if (GetLastError() == ERROR_INSUFFICIENT_BUFFER) {
-            std::vector<SYSTEM_LOGICAL_PROCESSOR_INFORMATION> buffer(
-                buffer_size / sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION));
-            if (GetLogicalProcessorInformation(buffer.data(), &buffer_size)) {
-                for (const auto& info : buffer) {
-                    if (info.Relationship == RelationCache) {
-                        if (info.Cache.Level == 3 &&
-                            (info.Cache.Type == CacheData || info.Cache.Type == CacheUnified)) {
-                            l3_size = info.Cache.Size;
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-#endif
-        return l3_size;
-    }
-
-    /**
      * get switching order at runtime
      * @tparam F
      * @return {maximum order that can stay in L1 data cache, heuristic switching order for hybrid algorithm}
@@ -175,16 +140,7 @@ namespace zldsp::fft::common {
             ? static_cast<size_t>(0)
             : static_cast<size_t>(std::bit_width(max_l2_elements) - 1);
 
-        const size_t l3d = get_l3_cache_size();
-        const bool is_safe_l3 = (l3d > (64ULL * 1024 * 1024));
-        size_t switch_order = std::max<size_t>(max_l1_order + 4, max_l2_order);
-        if (is_safe_l3 && l3d > 0) {
-            const size_t max_l3_elements = l3d / (12 * sizeof(F));
-            const size_t max_l3_order = (max_l3_elements == 0)
-                ? static_cast<size_t>(0)
-                : static_cast<size_t>(std::bit_width(max_l3_elements) - 1);
-            switch_order = std::max<size_t>(switch_order, max_l3_order);
-        }
+        const size_t switch_order = std::max<size_t>(max_l1_order + 4, max_l2_order);
 
         return {max_l1_order, switch_order};
     }
