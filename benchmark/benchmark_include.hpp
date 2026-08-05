@@ -36,6 +36,12 @@ using FFTClass = zlbenchmark::IPPFFT<F, zlbenchmark::IPPSimdLevel::AVX2>;
 #else
 using FFTClass = zlbenchmark::IPPFFT<F, zlbenchmark::IPPSimdLevel::SSE42>;
 #endif
+#elif defined(ENABLE_ARMPL)
+#include "../armpl_impl/armpl_impl.hpp"
+using FFTClass = zlbenchmark::ArmPLFFT<F>;
+#elif defined(ENABLE_ARMPL_ESTIMATE)
+#include "../armpl_impl/armpl_impl.hpp"
+using FFTClass = zlbenchmark::ArmPLFFT<F, FFTW_ESTIMATE>;
 #elif defined(ENABLE_KFR)
 #include "../kfr_impl/kfr_impl.hpp"
 using FFTClass = zlbenchmark::KFRFFT<F>;

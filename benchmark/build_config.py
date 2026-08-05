@@ -6,14 +6,14 @@ import platform
 import json
 
 algos = ["zldsp",
-         "fftw3", "fftw3_estimate", "kfr", "vdsp", "vdsp_stride_2", "pffft", "ipp"]
+         "fftw3", "fftw3_estimate", "kfr", "vdsp", "vdsp_stride_2", "pffft", "ipp", "armpl", "armpl_estimate"]
 
 
 def get_algo_list(full=False):
     if not full:
-        return ["vdsp", "ipp", "kfr", "pffft", "zldsp"]
+        return ["vdsp", "ipp", "armpl", "armpl_estimate", "kfr", "pffft", "zldsp"]
     else:
-        return ["vdsp", "ipp", "fftw3", "fftw3_estimate", "kfr", "pffft", "zldsp"]
+        return ["vdsp", "ipp", "armpl", "armpl_estimate", "fftw3", "fftw3_estimate", "kfr", "pffft", "zldsp"]
 
 def replace_result_keys(results):
     r = {}
@@ -22,6 +22,10 @@ def replace_result_keys(results):
             r["vDSP"] = value
         elif key == "ipp":
             r["IPP"] = value
+        elif key == "armpl":
+            r["ArmPL"] = value
+        elif key == "armpl_estimate":
+            r["ArmPL estimate"] = value
         elif key == "pffft":
             r["PFFFT"] = value
         elif key == "kfr":
@@ -74,6 +78,9 @@ def build_benchmark(algorithm, benchmark_type, use_avx2=False, use_double=False,
             cmake_cmd.append(f"-DENABLE_{algo.upper()}=ON")
         else:
             cmake_cmd.append(f"-DENABLE_{algo.upper()}=OFF")
+
+    if algorithm in ("armpl", "armpl_estimate") and os.environ.get("ARMPL_DIR"):
+        cmake_cmd.append(f"-DARMPL_DIR={os.environ['ARMPL_DIR']}")
 
     if benchmark_type == "accuracy_cfft":
         target_name = "zlfft_accuracy_cfft"

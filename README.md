@@ -160,12 +160,15 @@ Order      Time (us)       Throughput (MFLOPS)
 
 External libraries:
 
-- `fftw3`
-- `fftw3_estimate`
+- `fftw3` / `fftw3_estimate`
 - `kfr`
 - `pffft`
 - `ipp`
 - `vdsp`
+- `armpl` / `armpl_estimate`
+
+ArmPL benchmarks require an Arm Performance Libraries installation. Set `ARMPL_DIR` to its installation directory before running the benchmark scripts.
+`armpl` uses `FFTW_MEASURE`; `armpl_estimate` uses `FFTW_ESTIMATE`.
 
 ## License
 

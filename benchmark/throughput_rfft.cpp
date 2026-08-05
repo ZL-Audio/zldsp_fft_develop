@@ -58,6 +58,12 @@ using FFTClass = zlbenchmark::IPPRFFT<F, zlbenchmark::IPPSimdLevel::AVX2>;
 #else
 using FFTClass = zlbenchmark::IPPRFFT<F, zlbenchmark::IPPSimdLevel::SSE42>;
 #endif
+#elif defined(ENABLE_ARMPL)
+#include "../armpl_impl/armpl_impl.hpp"
+using FFTClass = zlbenchmark::ArmPLRFFT<F>;
+#elif defined(ENABLE_ARMPL_ESTIMATE)
+#include "../armpl_impl/armpl_impl.hpp"
+using FFTClass = zlbenchmark::ArmPLRFFT<F, FFTW_ESTIMATE>;
 #elif defined(ENABLE_FFTW3)
 #include "../fftw3_impl/fftw3_impl.hpp"
 using FFTClass = zlbenchmark::FFTW3RFFT<F>;

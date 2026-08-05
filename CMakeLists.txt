@@ -211,6 +211,57 @@ if (ENABLE_IPP)
     endif ()
 endif ()
 
+option(ENABLE_ARMPL "Enable Arm Performance Libraries" OFF)
+option(ENABLE_ARMPL_ESTIMATE "Enable Arm Performance Libraries with FFTW_ESTIMATE" OFF)
+if (ENABLE_ARMPL OR ENABLE_ARMPL_ESTIMATE)
+    set(ARMPL_DIR "$ENV{ARMPL_DIR}" CACHE PATH "Arm Performance Libraries installation directory")
+
+    find_path(ARMPL_INCLUDE_DIR
+        NAMES armpl.h
+        HINTS "${ARMPL_DIR}"
+        PATH_SUFFIXES include)
+    find_path(ARMPL_FFTW_INCLUDE_DIR
+        NAMES fftw3.h
+        HINTS "${ARMPL_DIR}"
+        PATH_SUFFIXES include)
+    find_library(ARMPL_LIBRARY
+        NAMES armpl_lp64 armpl
+        HINTS "${ARMPL_DIR}"
+        PATH_SUFFIXES lib)
+
+    if (NOT ARMPL_INCLUDE_DIR OR NOT ARMPL_FFTW_INCLUDE_DIR OR NOT ARMPL_LIBRARY)
+        message(FATAL_ERROR "Arm Performance Libraries headers or library NOT FOUND. Set ARMPL_DIR to the installation directory.")
+    endif ()
+
+    set(ARMPL_RUNTIME_LIBRARIES)
+    if (APPLE)
+        find_library(ARMPL_FORTRAN_RUNTIME NAMES FortranRuntime HINTS "${ARMPL_DIR}" PATH_SUFFIXES lib)
+        find_library(ARMPL_FORTRAN_DECIMAL NAMES FortranDecimal HINTS "${ARMPL_DIR}" PATH_SUFFIXES lib)
+        if (ARMPL_FORTRAN_RUNTIME)
+            list(APPEND ARMPL_RUNTIME_LIBRARIES ${ARMPL_FORTRAN_RUNTIME})
+        endif ()
+        if (ARMPL_FORTRAN_DECIMAL)
+            list(APPEND ARMPL_RUNTIME_LIBRARIES ${ARMPL_FORTRAN_DECIMAL})
+        endif ()
+    elseif (UNIX)
+        find_library(ARMPL_FORTRAN_RUNTIME NAMES gfortran HINTS "${ARMPL_DIR}" PATH_SUFFIXES lib)
+        if (ARMPL_FORTRAN_RUNTIME)
+            list(APPEND ARMPL_RUNTIME_LIBRARIES ${ARMPL_FORTRAN_RUNTIME})
+        endif ()
+    endif ()
+
+    message(STATUS "Arm Performance Libraries found at ${ARMPL_DIR}")
+    foreach(_tgt ${ZLFFT_TARGETS})
+        target_include_directories(${_tgt} PRIVATE "${ARMPL_INCLUDE_DIR}" "${ARMPL_FFTW_INCLUDE_DIR}")
+        target_link_libraries(${_tgt} PRIVATE ${ARMPL_LIBRARY} ${ARMPL_RUNTIME_LIBRARIES})
+        if (ENABLE_ARMPL)
+            target_compile_definitions(${_tgt} PRIVATE ENABLE_ARMPL)
+        else ()
+            target_compile_definitions(${_tgt} PRIVATE ENABLE_ARMPL_ESTIMATE)
+        endif ()
+    endforeach()
+endif ()
+
 option(ENABLE_KFR "Enable kfr" OFF)
 if (ENABLE_KFR)
     set(KFR_USE_BOOST_MATH OFF CACHE BOOL "Disable Boost Math usage in kfr" FORCE)
