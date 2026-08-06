@@ -59,8 +59,20 @@ jobs:
         run: |
           python -u benchmark/throughput_all_rfft.py 5 25 --avx2 --double --full
 
+      - name: RFFT AoS/SoA Throughput Test AVX2 (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          python -u benchmark/throughput_zldsp_rfft.py 5 25 --avx2 --double
+
       - name: RFFT Throughput Test AVX2 (Linux)
         if: runner.os == 'Linux'
         shell: bash
         run: |
           python -u benchmark/throughput_all_rfft.py 5 25 --avx2 --full
+
+      - name: RFFT AoS/SoA Throughput Test AVX2 (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          python -u benchmark/throughput_zldsp_rfft.py 5 25 --avx2
