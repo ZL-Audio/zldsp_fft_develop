@@ -71,7 +71,7 @@ using FFTClass = zlbenchmark::FFTW3RFFT<F>;
 #include "../fftw3_impl/fftw3_impl.hpp"
 using FFTClass = zlbenchmark::FFTW3RFFT<F, FFTW_ESTIMATE>;
 #elif defined(ENABLE_ZLDSP)
-#include "../zlfft/zldsp_fft_rfft.hpp"
+#include "../zldsp_fft/zldsp_fft_rfft.hpp"
 using FFTClass = zldsp::fft::RFFT<F>;
 #endif
 

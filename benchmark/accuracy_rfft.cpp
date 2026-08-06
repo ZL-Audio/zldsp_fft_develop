@@ -44,7 +44,7 @@ struct AlignedAllocator {
     bool operator!=(const AlignedAllocator&) const { return false; }
 };
 
-#include "../zlfft/zldsp_fft_rfft.hpp"
+#include "../zldsp_fft/zldsp_fft_rfft.hpp"
 using FFTClass = zldsp::fft::RFFT<F>;
 
 void generate_random_data_f(std::span<F> data) {

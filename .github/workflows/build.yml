@@ -49,37 +49,37 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           cmake -B build -DBUILD_TEST=ON -DENABLE_ZLDSP=ON -DUSE_AVX2=ON -DUSE_DOUBLE=ON
-          cmake --build build --config Release --target zlfft_build_test
+          cmake --build build --config Release --target zldsp_fft_build_test
 
       - name: Build AVX2 (Linux)
         if: runner.os == 'Linux'
         run: |
           cmake -B build -DBUILD_TEST=ON -DENABLE_ZLDSP=ON -DUSE_AVX2=ON -DUSE_DOUBLE=OFF
-          cmake --build build --config Release --target zlfft_build_test
+          cmake --build build --config Release --target zldsp_fft_build_test
 
       - name: Build SSE4 Double (Linux)
         if: runner.os == 'Linux'
         run: |
           cmake -B build -DBUILD_TEST=ON -DENABLE_ZLDSP=ON -DUSE_AVX2=OFF -DUSE_DOUBLE=ON
-          cmake --build build --config Release --target zlfft_build_test
+          cmake --build build --config Release --target zldsp_fft_build_test
 
       - name: Build SSE4 (Linux)
         if: runner.os == 'Linux'
         run: |
           cmake -B build -DBUILD_TEST=ON -DENABLE_ZLDSP=ON -DUSE_AVX2=OFF -DUSE_DOUBLE=OFF
-          cmake --build build --config Release --target zlfft_build_test
+          cmake --build build --config Release --target zldsp_fft_build_test
 
       - name: Build NEON Double (macOS)
         if: runner.os == 'macOS'
         run: |
           cmake -B build -DBUILD_TEST=ON -DENABLE_ZLDSP=ON -DUSE_AVX2=OFF -DUSE_DOUBLE=ON
-          cmake --build build --config Release --target zlfft_build_test
+          cmake --build build --config Release --target zldsp_fft_build_test
 
       - name: Build NEON (macOS)
         if: runner.os == 'macOS'
         run: |
           cmake -B build -DBUILD_TEST=ON -DENABLE_ZLDSP=ON -DUSE_AVX2=OFF -DUSE_DOUBLE=OFF
-          cmake --build build --config Release --target zlfft_build_test
+          cmake --build build --config Release --target zldsp_fft_build_test
 
       - name: Build AVX2 Double (Windows)
         if: runner.os == 'Windows'
@@ -87,7 +87,7 @@ jobs:
         run: |
           call ${{ matrix.vcvars64_path }}
           cmake -B build -DBUILD_TEST=ON -DENABLE_ZLDSP=ON -DUSE_AVX2=ON -DUSE_DOUBLE=ON
-          cmake --build build --config Release --target zlfft_build_test
+          cmake --build build --config Release --target zldsp_fft_build_test
 
       - name: Build AVX2 (Windows)
         if: runner.os == 'Windows'
@@ -95,7 +95,7 @@ jobs:
         run: |
           call ${{ matrix.vcvars64_path }}
           cmake -B build -DBUILD_TEST=ON -DENABLE_ZLDSP=ON -DUSE_AVX2=ON -DUSE_DOUBLE=OFF
-          cmake --build build --config Release --target zlfft_build_test
+          cmake --build build --config Release --target zldsp_fft_build_test
 
       - name: Build SSE4 Double (Windows)
         if: runner.os == 'Windows'
@@ -103,7 +103,7 @@ jobs:
         run: |
           call ${{ matrix.vcvars64_path }}
           cmake -B build -DBUILD_TEST=ON -DENABLE_ZLDSP=ON -DUSE_AVX2=OFF -DUSE_DOUBLE=ON
-          cmake --build build --config Release --target zlfft_build_test
+          cmake --build build --config Release --target zldsp_fft_build_test
 
       - name: Build SSE4 (Windows)
         if: runner.os == 'Windows'
@@ -111,4 +111,4 @@ jobs:
         run: |
           call ${{ matrix.vcvars64_path }}
           cmake -B build -DBUILD_TEST=ON -DENABLE_ZLDSP=ON -DUSE_AVX2=OFF -DUSE_DOUBLE=OFF
-          cmake --build build --config Release --target zlfft_build_test
+          cmake --build build --config Release --target zldsp_fft_build_test

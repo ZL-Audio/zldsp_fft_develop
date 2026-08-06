@@ -39,7 +39,7 @@ def build_accuracy_mid(use_avx2=False, use_double=False):
     for algo in algos:
         cmake_cmd.append(f"-DENABLE_{algo.upper()}=OFF")
 
-    target_name = "zlfft_accuracy_mid_cfft"
+    target_name = "zldsp_fft_accuracy_mid_cfft"
     build_cmd = ["cmake", "--build", ".", "--target", target_name, "--config", "Release", "-j"]
 
     subprocess.run(cmake_cmd, capture_output=True, cwd=build_dir, check=True)

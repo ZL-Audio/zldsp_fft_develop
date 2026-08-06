@@ -11,7 +11,7 @@
 #include <string>
 #include <vector>
 
-#include "../zlfft/zldsp_fft_cfft.hpp"
+#include "../zldsp_fft/zldsp_fft_cfft.hpp"
 
 #ifdef USE_DOUBLE
 using F = double;
@@ -52,7 +52,7 @@ using FFTClass = zlbenchmark::FFTW3FFT<F>;
 #include "../fftw3_impl/fftw3_impl.hpp"
 using FFTClass = zlbenchmark::FFTW3FFT<F, FFTW_ESTIMATE>;
 #elif defined(ENABLE_ZLDSP)
-#include "../zlfft/zldsp_fft_cfft.hpp"
+#include "../zldsp_fft/zldsp_fft_cfft.hpp"
 using FFTClass = zldsp::fft::CFFT<F>;
 #endif
 

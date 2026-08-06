@@ -5,8 +5,8 @@
 #include <string>
 #include <vector>
 
-#include "../zlfft/zldsp_fft_cfft.hpp"
-#include "../zlfft/zldsp_fft_rfft.hpp"
+#include "../zldsp_fft/zldsp_fft_cfft.hpp"
+#include "../zldsp_fft/zldsp_fft_rfft.hpp"
 
 #ifdef USE_DOUBLE
 using F = double;

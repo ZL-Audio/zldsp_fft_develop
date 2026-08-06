@@ -46,7 +46,7 @@ using AlignedVec = std::vector<C, AlignedAllocator<C>>;
 #include "../fftw3_impl/fftw3_impl.hpp"
 #include "../kfr_impl/kfr_impl.hpp"
 #include "../pffft_impl/pffft_impl.hpp"
-#include "../zlfft/zldsp_fft_cfft.hpp"
+#include "../zldsp_fft/zldsp_fft_cfft.hpp"
 
 static constexpr size_t NUM_ALGOS = 4;
 static const char* ALGO_NAMES[NUM_ALGOS] = {"kfr", "fftw3", "zldsp", "pffft"};
