@@ -464,6 +464,18 @@ namespace zldsp::fft::common {
 
     /**
      * finish one of the streamed AVX2 radix-8 transposes
+     * @tparam D
+     * @tparam F
+     * @param d
+     * @param out_shift
+     * @param t0
+     * @param t1
+     * @param t2
+     * @param t3
+     * @param out_offset0
+     * @param out_offset1
+     * @param out_offset2
+     * @param out_offset3
      */
     template <class D, typename F>
     HWY_INLINE void store_radix8_transpose(
@@ -501,6 +513,19 @@ namespace zldsp::fft::common {
 
     /**
      * combine one radix-8 component and transpose it a frequency pair at a time
+     * @tparam D
+     * @tparam F
+     * @param d
+     * @param out_shift
+     * @param y00
+     * @param y01
+     * @param y02
+     * @param y03
+     * @param y10
+     * @param y11
+     * @param y12
+     * @param y13
+     * @param component_offset
      */
     template <class D, typename F>
     HWY_INLINE void store_radix8_first_pass_component(
@@ -557,13 +582,20 @@ namespace zldsp::fft::common {
     }
 
     /**
-     * AVX2 radix-8 schedule with a bounded four-vector spill set
-     *
-     * The generic schedule keeps sixteen butterfly results live while it
-     * transposes the real component, which exceeds AVX2's register budget once
-     * transpose temporaries are included. Stage the four even imaginary values
-     * explicitly, then stream each component through the transpose in frequency
-     * pairs. This leaves the input load and butterfly counts unchanged.
+     * perform an AVX2 radix-8 first pass using bounded scratch and streamed transposes
+     * @tparam D
+     * @tparam Load
+     * @tparam F
+     * @param d
+     * @param load
+     * @param out_shift
+     * @param in_offset1
+     * @param in_offset2
+     * @param in_offset3
+     * @param in_offset4
+     * @param in_offset5
+     * @param in_offset6
+     * @param in_offset7
      */
     template <class D, class Load, typename F>
     HWY_INLINE void radix8_first_pass_low_live(
@@ -603,8 +635,6 @@ namespace zldsp::fft::common {
             hn::Store(hn::Sub(t0_i, t2_i), d, even_imag + 2 * lanes);
             hn::Store(hn::Add(t1_i, t3_r), d, even_imag + 3 * lanes);
         }
-        // Keep the optimizer from expanding this bounded scratch set back into
-        // the larger set of incidental spills produced by register allocation.
         HWY_FENCE;
 
         hn::Vec<D> y10_r, y10_i, y11_r, y11_i, y12_r, y12_i, y13_r, y13_i;
