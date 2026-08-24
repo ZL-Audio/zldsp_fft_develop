@@ -345,10 +345,8 @@ namespace zldsp::fft::common {
             state.workspace.get() + 2 * state.macro_stride;
         F* HWY_RESTRICT transpose_tile_i =
             transpose_tile_r + state.transpose_tile_stride;
-        F* HWY_RESTRICT micro_workspace0 =
+        F* HWY_RESTRICT micro_workspace =
             transpose_tile_i + state.transpose_tile_stride;
-        F* HWY_RESTRICT micro_workspace1 =
-            micro_workspace0 + 2 * state.micro_stride;
 
         // process micro CFFTs one reusable transpose tile at a time
         for (size_t tile_row_begin = 0; tile_row_begin < state.num_micro_ffts;
@@ -362,17 +360,19 @@ namespace zldsp::fft::common {
                 const size_t macro_leaf_index =
                     state.radix4_digit_reversal[output_row];
 
-                F* HWY_RESTRICT current_in =
+                F* HWY_RESTRICT macro_leaf =
                     state.workspace.get() + 2 * macro_leaf_index * micro_fft_size;
-                F* HWY_RESTRICT current_out = micro_workspace0;
+                F* HWY_RESTRICT current_in = macro_leaf;
+                F* HWY_RESTRICT current_out = micro_workspace;
 
                 if (state.micro_stages[0] == StageType::kRadix4FirstPass) {
                     common::radix4_first_pass_aosoa(current_in, current_out, micro_fft_size);
                 } else {
                     common::radix8_first_pass_aosoa(current_in, current_out, micro_fft_size);
                 }
-                current_in = micro_workspace0;
-                current_out = micro_workspace1;
+
+                current_in = micro_workspace;
+                current_out = macro_leaf;
                 const F* HWY_RESTRICT w_ptr = state.micro_twiddles.get();
                 size_t width = (state.micro_stages[0] == StageType::kRadix4FirstPass) ? 4 : 8;
                 {
@@ -440,9 +440,9 @@ namespace zldsp::fft::common {
                                 state.num_micro_ffts);
                             common::transpose_store_4x4_aos<is_forward>(
                                 dh, transpose_tile_r + tile_offset + subcolumn +
-                                    4 * micro_fft_size_padded,
+                                4 * micro_fft_size_padded,
                                 transpose_tile_i + tile_offset + subcolumn +
-                                    4 * micro_fft_size_padded,
+                                4 * micro_fft_size_padded,
                                 micro_fft_size_padded,
                                 out_ptr.shift(OutPtr::get_complex_offset(
                                     column_output_offset + 4)),
@@ -471,9 +471,9 @@ namespace zldsp::fft::common {
                                 state.num_micro_ffts);
                             common::transpose_store_2x2_aos<is_forward>(
                                 dh, transpose_tile_r + tile_offset + subcolumn +
-                                    2 * micro_fft_size_padded,
+                                2 * micro_fft_size_padded,
                                 transpose_tile_i + tile_offset + subcolumn +
-                                    2 * micro_fft_size_padded,
+                                2 * micro_fft_size_padded,
                                 micro_fft_size_padded,
                                 out_ptr.shift(OutPtr::get_complex_offset(
                                     column_output_offset + 2)),
@@ -502,7 +502,7 @@ namespace zldsp::fft::common {
                             const auto vi = hn::Load(d, tmp_i);
                             common::store_complex<is_forward>(
                                 d, out_ptr.shift(OutPtr::get_complex_offset(
-                                       output_offset + kk * state.num_micro_ffts)), vr, vi);
+                                    output_offset + kk * state.num_micro_ffts)), vr, vi);
                         }
                     }
                 }
