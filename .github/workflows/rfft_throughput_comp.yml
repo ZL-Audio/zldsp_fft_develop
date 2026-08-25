@@ -1,0 +1,75 @@
+name: RFFT Commit Comparison
+
+on:
+  workflow_dispatch:
+    inputs:
+      n0:
+        description: First RFFT order
+        required: true
+        default: "5"
+        type: string
+      n1:
+        description: Last RFFT order
+        required: true
+        default: "25"
+        type: string
+      repeats:
+        description: Number of comparison repetitions
+        required: true
+        default: "6"
+        type: string
+
+concurrency:
+  group: ${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+jobs:
+  build_and_test:
+    name: ${{ matrix.name }} Comparison
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux x64
+            os: ubuntu-latest
+            arch: x64
+          - name: Linux ARM64
+            os: ubuntu-26.04-arm
+            arch: arm64
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
+          submodules: recursive
+
+      - name: Show CPU Info (Linux)
+        if: runner.os == 'Linux'
+        run: lscpu
+
+      - name: RFFT Comparison AVX2 Double (Linux)
+        if: matrix.arch == 'x64'
+        shell: bash
+        run: |
+          python -u benchmark/throughput_rfft_comp.py "${{ inputs.n0 }}" "${{ inputs.n1 }}" --repeats "${{ inputs.repeats }}" --avx2 --double
+
+      - name: RFFT Comparison AVX2 (Linux)
+        if: matrix.arch == 'x64'
+        shell: bash
+        run: |
+          python -u benchmark/throughput_rfft_comp.py "${{ inputs.n0 }}" "${{ inputs.n1 }}" --repeats "${{ inputs.repeats }}" --avx2
+
+      - name: RFFT Comparison Double
+        shell: bash
+        run: |
+          python -u benchmark/throughput_rfft_comp.py "${{ inputs.n0 }}" "${{ inputs.n1 }}" --repeats "${{ inputs.repeats }}" --double
+
+      - name: RFFT Comparison
+        shell: bash
+        run: |
+          python -u benchmark/throughput_rfft_comp.py "${{ inputs.n0 }}" "${{ inputs.n1 }}" --repeats "${{ inputs.repeats }}"
