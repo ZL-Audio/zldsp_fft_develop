@@ -164,7 +164,7 @@ namespace zldsp::fft::common {
             const auto v1 = hn::Load(d, in + in_stride);
             hn::StoreU(hn::InterleaveLower(d, v0, v1), d, out);
             hn::StoreU(hn::InterleaveUpper(d, v0, v1), d, out + out_stride);
-        } else if constexpr (lanes == 4 && sizeof(F) == 4) {
+        } else if constexpr (lanes == 4) {
             const auto v0 = hn::Load(d, in);
             const auto v1 = hn::Load(d, in + in_stride);
             const auto v2 = hn::Load(d, in + 2 * in_stride);
@@ -176,24 +176,6 @@ namespace zldsp::fft::common {
             hn::StoreU(o1, d, out + out_stride);
             hn::StoreU(o2, d, out + 2 * out_stride);
             hn::StoreU(o3, d, out + 3 * out_stride);
-        } else if constexpr (lanes == 4) {
-            using DH = hn::Half<D>;
-            const DH dh;
-            HWY_UNROLL(1)
-            for (size_t col = 0; col < 4; col += 2) {
-                const auto v0 = hn::Load(dh, in + col);
-                const auto v1 = hn::Load(dh, in + in_stride + col);
-                const auto lo0 = hn::InterleaveLower(dh, v0, v1);
-                const auto lo1 = hn::InterleaveUpper(dh, v0, v1);
-
-                const auto v2 = hn::Load(dh, in + 2 * in_stride + col);
-                const auto v3 = hn::Load(dh, in + 3 * in_stride + col);
-                const auto hi0 = hn::InterleaveLower(dh, v2, v3);
-                const auto hi1 = hn::InterleaveUpper(dh, v2, v3);
-
-                hn::StoreU(hn::Combine(d, hi0, lo0), d, out + col * out_stride);
-                hn::StoreU(hn::Combine(d, hi1, lo1), d, out + (col + 1) * out_stride);
-            }
         } else if constexpr (lanes == 8) {
             using DH = hn::Half<D>;
             const DH dh;
@@ -448,37 +430,13 @@ namespace zldsp::fft::common {
                                     column_output_offset + 4)),
                                 state.num_micro_ffts);
                         }
-                    } else if constexpr (!is_soa && lanes == 4 && sizeof(F) == 4) {
+                    } else if constexpr (!is_soa && lanes == 4) {
                         common::transpose_store_4x4_aos<is_forward>(
                             d, transpose_tile_r + tile_offset,
                             transpose_tile_i + tile_offset,
                             micro_fft_size_padded,
                             out_ptr.shift(OutPtr::get_complex_offset(output_offset)),
                             state.num_micro_ffts);
-                    } else if constexpr (!is_soa && lanes == 4) {
-                        using DH = hn::Half<decltype(d)>;
-                        const DH dh;
-                        HWY_UNROLL(1)
-                        for (size_t subcolumn = 0; subcolumn < 4; subcolumn += 2) {
-                            const size_t column_output_offset =
-                                output_offset + subcolumn * state.num_micro_ffts;
-                            common::transpose_store_2x2_aos<is_forward>(
-                                dh, transpose_tile_r + tile_offset + subcolumn,
-                                transpose_tile_i + tile_offset + subcolumn,
-                                micro_fft_size_padded,
-                                out_ptr.shift(OutPtr::get_complex_offset(
-                                    column_output_offset)),
-                                state.num_micro_ffts);
-                            common::transpose_store_2x2_aos<is_forward>(
-                                dh, transpose_tile_r + tile_offset + subcolumn +
-                                2 * micro_fft_size_padded,
-                                transpose_tile_i + tile_offset + subcolumn +
-                                2 * micro_fft_size_padded,
-                                micro_fft_size_padded,
-                                out_ptr.shift(OutPtr::get_complex_offset(
-                                    column_output_offset + 2)),
-                                state.num_micro_ffts);
-                        }
                     } else if constexpr (!is_soa && lanes == 2) {
                         common::transpose_store_2x2_aos<is_forward>(
                             d, transpose_tile_r + tile_offset,
