@@ -190,9 +190,13 @@ See [`static_dispatch_caller`](examples/static_dispatch_caller.cpp) for CFFT and
 
 ### Caller-owned Dynamic Dispatch
 
+For example, an x86 application can enable only SSE2 and AVX2:
+
 ```cmake
-target_compile_definitions(my_dynamic_target PRIVATE "HWY_DISABLED_TARGETS=~(HWY_SSE2|HWY_SSSE3|HWY_SSE4|HWY_AVX2|HWY_ALL_NEON)")
+target_compile_definitions(my_dynamic_target PRIVATE "HWY_DISABLED_TARGETS=~(HWY_SSE2|HWY_AVX2)")
 ```
+
+Compile this target for the oldest supported baseline (for example, `-march=x86-64` for SSE2).
 
 See [`wrapper`](examples/dynamic_dispatch_wrapper.cpp), its [`interface`](examples/dynamic_dispatch_wrapper.hpp), and [`dynamic_dispatch_caller`](examples/dynamic_dispatch_caller.cpp) for CFFT and RFFT dynamic dispatch examples with AoS and SoA layouts.
 
