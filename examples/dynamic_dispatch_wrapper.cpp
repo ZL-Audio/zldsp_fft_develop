@@ -22,6 +22,18 @@ namespace zldsp_fft_example::HWY_NAMESPACE {
             cfft_.forward(input, output);
         }
 
+        void forward(Complex<F>* input, SoA<F> output) noexcept override {
+            cfft_.forward(input, output);
+        }
+
+        void forward(SoA<F> input, Complex<F>* output) noexcept override {
+            cfft_.forward(input, output);
+        }
+
+        void forward(SoA<F> input, SoA<F> output) noexcept override {
+            cfft_.forward(input, output);
+        }
+
     private:
         zldsp::fft::HWY_NAMESPACE::CFFT<F> cfft_;
     };
@@ -34,6 +46,10 @@ namespace zldsp_fft_example::HWY_NAMESPACE {
         }
 
         void forward(F* input, Complex<F>* output) noexcept override {
+            rfft_.forward(input, output);
+        }
+
+        void forward(F* input, SoA<F> output) noexcept override {
             rfft_.forward(input, output);
         }
 

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <complex>
 #include <cstddef>
 #include <memory>
@@ -10,11 +11,17 @@ namespace zldsp_fft_example {
     using Complex = std::complex<F>;
 
     template <typename F>
+    using SoA = std::array<F*, 2>;
+
+    template <typename F>
     class CFFT {
     public:
         virtual ~CFFT() = default;
 
         virtual void forward(Complex<F>* input, Complex<F>* output) noexcept = 0;
+        virtual void forward(Complex<F>* input, SoA<F> output) noexcept = 0;
+        virtual void forward(SoA<F> input, Complex<F>* output) noexcept = 0;
+        virtual void forward(SoA<F> input, SoA<F> output) noexcept = 0;
     };
 
     template <typename F>
@@ -23,6 +30,7 @@ namespace zldsp_fft_example {
         virtual ~RFFT() = default;
 
         virtual void forward(F* input, Complex<F>* output) noexcept = 0;
+        virtual void forward(F* input, SoA<F> output) noexcept = 0;
     };
 
     namespace detail {

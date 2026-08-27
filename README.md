@@ -186,7 +186,7 @@ Use the compiler's architecture option to select an SSE, AVX2, or NEON static ta
 | AVX2        | `-march=x86-64-v3 -maes -mpclmul` | `/arch:AVX2`     |
 | NEON        | `-march=armv8-a+simd`             | `/arch:armv8.0`  |
 
-See [`static_dispatch.cpp`](examples/static_dispatch.cpp) for CFFT and RFFT static dispatch example.
+See [`static_dispatch_caller`](examples/static_dispatch_caller.cpp) for CFFT and RFFT static dispatch examples with AoS and SoA layouts.
 
 ### Caller-owned Dynamic Dispatch
 
@@ -194,7 +194,7 @@ See [`static_dispatch.cpp`](examples/static_dispatch.cpp) for CFFT and RFFT stat
 target_compile_definitions(my_dynamic_target PRIVATE "HWY_DISABLED_TARGETS=~(HWY_SSE2|HWY_SSSE3|HWY_SSE4|HWY_AVX2|HWY_ALL_NEON)")
 ```
 
-See the dynamic dispatch [`wrapper`](examples/dynamic_dispatch_wrapper.cpp), its [`interface`](examples/dynamic_dispatch_wrapper.hpp), and the ordinary [`caller`](examples/dynamic_dispatch_caller.cpp) for CFFT and RFFT dynamic dispatch example.
+See [`wrapper`](examples/dynamic_dispatch_wrapper.cpp), its [`interface`](examples/dynamic_dispatch_wrapper.hpp), and [`dynamic_dispatch_caller`](examples/dynamic_dispatch_caller.cpp) for CFFT and RFFT dynamic dispatch examples with AoS and SoA layouts.
 
 ## License
 

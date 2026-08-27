@@ -101,7 +101,7 @@ if (BUILD_TEST)
     add_executable(zldsp_fft_build_test benchmark/build_test.cpp)
 endif ()
 if (STATIC_DISPATCH_EXAMPLE)
-    add_executable(zldsp_fft_static_dispatch_example examples/static_dispatch.cpp)
+    add_executable(zldsp_fft_static_dispatch_example examples/static_dispatch_caller.cpp)
     target_include_directories(zldsp_fft_static_dispatch_example PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/zldsp_fft)
 endif ()
