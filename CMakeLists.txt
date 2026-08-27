@@ -15,6 +15,8 @@ option(THROUGHPUT_RFFT_TEST "Throughput RFFT Test" OFF)
 option(THROUGHPUT_ZLDSP_CFFT_TEST "Throughput ZLDSP CFFT Test" OFF)
 option(THROUGHPUT_ZLDSP_RFFT_TEST "Throughput ZLDSP RFFT Test" OFF)
 option(BUILD_TEST "Build Test" OFF)
+option(STATIC_DISPATCH_EXAMPLE "Build the static dispatch example" OFF)
+option(DYNAMIC_DISPATCH_EXAMPLE "Build the caller-owned dispatch example" OFF)
 option(USE_AVX2 "Use AVX2 for benchmarking" OFF)
 
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64" OR CMAKE_SYSTEM_PROCESSOR MATCHES "arm64")
@@ -98,6 +100,16 @@ endif ()
 if (BUILD_TEST)
     add_executable(zldsp_fft_build_test benchmark/build_test.cpp)
 endif ()
+if (STATIC_DISPATCH_EXAMPLE)
+    add_executable(zldsp_fft_static_dispatch_example examples/static_dispatch.cpp)
+    target_include_directories(zldsp_fft_static_dispatch_example PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/zldsp_fft)
+endif ()
+if (DYNAMIC_DISPATCH_EXAMPLE)
+    add_executable(zldsp_fft_dynamic_dispatch_example
+        examples/dynamic_dispatch_wrapper.cpp
+        examples/dynamic_dispatch_caller.cpp)
+endif ()
 
 
 
@@ -122,6 +134,9 @@ if (TARGET zldsp_fft_accuracy_rfft)
 endif ()
 if (TARGET zldsp_fft_build_test)
     list(APPEND ZLDSP_FFT_TARGETS zldsp_fft_build_test)
+endif ()
+if (TARGET zldsp_fft_static_dispatch_example)
+    list(APPEND ZLDSP_FFT_TARGETS zldsp_fft_static_dispatch_example)
 endif ()
 
 
@@ -373,6 +388,25 @@ set(BUILD_SHARED_LIBS OFF CACHE BOOL "Force static libraries" FORCE)
 set(HWY_ENABLE_SHARED OFF CACHE BOOL "Disable Highway shared library" FORCE)
 
 add_subdirectory(google/highway)
+
+if (TARGET zldsp_fft_dynamic_dispatch_example)
+    target_include_directories(zldsp_fft_dynamic_dispatch_example PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/examples
+        ${CMAKE_CURRENT_SOURCE_DIR}/zldsp_fft)
+    target_link_libraries(zldsp_fft_dynamic_dispatch_example PRIVATE hwy)
+    target_compile_definitions(zldsp_fft_dynamic_dispatch_example PRIVATE
+        "HWY_DISABLED_TARGETS=~(HWY_SSE2|HWY_SSSE3|HWY_SSE4|HWY_AVX2|HWY_ALL_NEON)")
+
+    if (MSVC)
+        target_compile_options(zldsp_fft_dynamic_dispatch_example PRIVATE
+            $<$<CONFIG:RELEASE>:/fp:precise>)
+    else ()
+        target_compile_options(zldsp_fft_dynamic_dispatch_example PRIVATE
+            $<$<CONFIG:RELEASE>:-O3 -ffp-contract=fast -fno-signed-zeros -freciprocal-math>)
+        target_compile_options(zldsp_fft_dynamic_dispatch_example PRIVATE
+            $<$<CONFIG:RelWithDebInfo>:-O3 -ffp-contract=fast -fno-signed-zeros -freciprocal-math>)
+    endif ()
+endif ()
 
 foreach(_tgt ${ZLDSP_FFT_TARGETS})
     target_link_libraries(${_tgt} PRIVATE hwy)

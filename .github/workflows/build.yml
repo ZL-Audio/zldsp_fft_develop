@@ -69,6 +69,14 @@ jobs:
           cmake -B build -DBUILD_TEST=ON -DENABLE_ZLDSP=ON -DUSE_AVX2=OFF -DUSE_DOUBLE=OFF
           cmake --build build --config Release --target zldsp_fft_build_test
 
+      - name: Build and run dispatch examples (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          cmake -B build-dispatch -DSTATIC_DISPATCH_EXAMPLE=ON -DDYNAMIC_DISPATCH_EXAMPLE=ON -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-dispatch --config Release --target zldsp_fft_static_dispatch_example zldsp_fft_dynamic_dispatch_example
+          ./build-dispatch/zldsp_fft_static_dispatch_example
+          ./build-dispatch/zldsp_fft_dynamic_dispatch_example
+
       - name: Build NEON Double (macOS)
         if: runner.os == 'macOS'
         run: |
@@ -80,6 +88,14 @@ jobs:
         run: |
           cmake -B build -DBUILD_TEST=ON -DENABLE_ZLDSP=ON -DUSE_AVX2=OFF -DUSE_DOUBLE=OFF
           cmake --build build --config Release --target zldsp_fft_build_test
+
+      - name: Build and run dispatch examples (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          cmake -B build-dispatch -DSTATIC_DISPATCH_EXAMPLE=ON -DDYNAMIC_DISPATCH_EXAMPLE=ON -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-dispatch --config Release --target zldsp_fft_static_dispatch_example zldsp_fft_dynamic_dispatch_example
+          ./build-dispatch/zldsp_fft_static_dispatch_example
+          ./build-dispatch/zldsp_fft_dynamic_dispatch_example
 
       - name: Build AVX2 Double (Windows)
         if: runner.os == 'Windows'
@@ -112,3 +128,13 @@ jobs:
           call ${{ matrix.vcvars64_path }}
           cmake -B build -DBUILD_TEST=ON -DENABLE_ZLDSP=ON -DUSE_AVX2=OFF -DUSE_DOUBLE=OFF
           cmake --build build --config Release --target zldsp_fft_build_test
+
+      - name: Build and run dispatch examples (Windows)
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: |
+          call ${{ matrix.vcvars64_path }}
+          cmake -B build-dispatch -DSTATIC_DISPATCH_EXAMPLE=ON -DDYNAMIC_DISPATCH_EXAMPLE=ON
+          cmake --build build-dispatch --config Release --target zldsp_fft_static_dispatch_example zldsp_fft_dynamic_dispatch_example
+          build-dispatch\Release\zldsp_fft_static_dispatch_example.exe
+          build-dispatch\Release\zldsp_fft_dynamic_dispatch_example.exe
