@@ -77,6 +77,10 @@ namespace zldsp_fft_example::HWY_NAMESPACE {
             rfft_.backward(input, output);
         }
 
+        void forward_sqr_mag(F* input, F* output) noexcept override {
+            rfft_.forward_sqr_mag(input, output);
+        }
+
     private:
         zldsp::fft::HWY_NAMESPACE::RFFT<F> rfft_;
     };

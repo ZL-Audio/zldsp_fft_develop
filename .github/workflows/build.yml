@@ -44,106 +44,70 @@ jobs:
         shell: pwsh
         run: Get-CimInstance -ClassName Win32_Processor | Select-Object Name, NumberOfCores, NumberOfLogicalProcessors
 
-      - name: Build AVX2 Double (Linux)
+      - name: Build and run SSE2 static dispatch (Linux)
         if: runner.os == 'Linux'
         run: |
-          cmake -B build -DBUILD_TEST=ON -DENABLE_ZLDSP=ON -DUSE_AVX2=ON -DUSE_DOUBLE=ON
-          cmake --build build --config Release --target zldsp_fft_build_test
+          cmake -S . -B build-static-sse2 -DSTATIC_DISPATCH_EXAMPLE=ON -DUSE_SSE2=ON -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-static-sse2 --target zldsp_fft_static_dispatch_example --parallel
+          ./build-static-sse2/zldsp_fft_static_dispatch_example 5 20
 
-      - name: Build AVX2 (Linux)
+      - name: Build and run AVX2 static dispatch (Linux)
         if: runner.os == 'Linux'
         run: |
-          cmake -B build -DBUILD_TEST=ON -DENABLE_ZLDSP=ON -DUSE_AVX2=ON -DUSE_DOUBLE=OFF
-          cmake --build build --config Release --target zldsp_fft_build_test
+          cmake -S . -B build-static-avx2 -DSTATIC_DISPATCH_EXAMPLE=ON -DUSE_AVX2=ON -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-static-avx2 --target zldsp_fft_static_dispatch_example --parallel
+          ./build-static-avx2/zldsp_fft_static_dispatch_example 5 20
 
-      - name: Build SSE4 Double (Linux)
+      - name: Build and run dynamic dispatch (Linux)
         if: runner.os == 'Linux'
         run: |
-          cmake -B build -DBUILD_TEST=ON -DENABLE_ZLDSP=ON -DUSE_AVX2=OFF -DUSE_DOUBLE=ON
-          cmake --build build --config Release --target zldsp_fft_build_test
+          cmake -S . -B build-dynamic -DDYNAMIC_DISPATCH_EXAMPLE=ON -DUSE_SSE2=ON -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-dynamic --target zldsp_fft_dynamic_dispatch_example --parallel
+          ./build-dynamic/zldsp_fft_dynamic_dispatch_example 5 20
 
-      - name: Build SSE4 (Linux)
-        if: runner.os == 'Linux'
-        run: |
-          cmake -B build -DBUILD_TEST=ON -DENABLE_ZLDSP=ON -DUSE_AVX2=OFF -DUSE_DOUBLE=OFF
-          cmake --build build --config Release --target zldsp_fft_build_test
-
-      - name: Build and run dispatch examples (Linux)
-        if: runner.os == 'Linux'
-        run: |
-          cmake -B build-dispatch -DSTATIC_DISPATCH_EXAMPLE=ON -DDYNAMIC_DISPATCH_EXAMPLE=ON -DCMAKE_BUILD_TYPE=Release
-          cmake --build build-dispatch --config Release --target zldsp_fft_static_dispatch_example zldsp_fft_dynamic_dispatch_example
-          ./build-dispatch/zldsp_fft_static_dispatch_example 5 20
-          ./build-dispatch/zldsp_fft_dynamic_dispatch_example 5 20
-
-      - name: Build NEON Double (macOS)
+      - name: Build and run NEON static dispatch (macOS)
         if: runner.os == 'macOS'
         run: |
-          cmake -B build -DBUILD_TEST=ON -DENABLE_ZLDSP=ON -DUSE_AVX2=OFF -DUSE_DOUBLE=ON
-          cmake --build build --config Release --target zldsp_fft_build_test
+          cmake -S . -B build-static-neon -DSTATIC_DISPATCH_EXAMPLE=ON -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-static-neon --target zldsp_fft_static_dispatch_example --parallel
+          ./build-static-neon/zldsp_fft_static_dispatch_example 5 20
 
-      - name: Build NEON (macOS)
+      - name: Build and run dynamic dispatch (macOS)
         if: runner.os == 'macOS'
         run: |
-          cmake -B build -DBUILD_TEST=ON -DENABLE_ZLDSP=ON -DUSE_AVX2=OFF -DUSE_DOUBLE=OFF
-          cmake --build build --config Release --target zldsp_fft_build_test
+          cmake -S . -B build-dynamic -DDYNAMIC_DISPATCH_EXAMPLE=ON -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-dynamic --target zldsp_fft_dynamic_dispatch_example --parallel
+          ./build-dynamic/zldsp_fft_dynamic_dispatch_example 5 20
 
-      - name: Build and run dispatch examples (macOS)
-        if: runner.os == 'macOS'
-        run: |
-          cmake -B build-dispatch -DSTATIC_DISPATCH_EXAMPLE=ON -DDYNAMIC_DISPATCH_EXAMPLE=ON -DCMAKE_BUILD_TYPE=Release
-          cmake --build build-dispatch --config Release --target zldsp_fft_static_dispatch_example zldsp_fft_dynamic_dispatch_example
-          ./build-dispatch/zldsp_fft_static_dispatch_example 5 20
-          ./build-dispatch/zldsp_fft_dynamic_dispatch_example 5 20
-
-      - name: Build AVX2 Double (Windows)
+      - name: Build and run SSE2 static dispatch (Windows)
         if: runner.os == 'Windows'
         shell: cmd
         run: |
           for /f "usebackq tokens=*" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "VS_PATH=%%i"
           if not defined VS_PATH exit /b 1
           call "%VS_PATH%\VC\Auxiliary\Build\vcvars64.bat"
-          cmake -B build -DBUILD_TEST=ON -DENABLE_ZLDSP=ON -DUSE_AVX2=ON -DUSE_DOUBLE=ON
-          cmake --build build --config Release --target zldsp_fft_build_test
+          cmake -S . -B build-static-sse2 -DSTATIC_DISPATCH_EXAMPLE=ON -DUSE_SSE2=ON
+          cmake --build build-static-sse2 --config Release --target zldsp_fft_static_dispatch_example --parallel
+          build-static-sse2\Release\zldsp_fft_static_dispatch_example.exe 5 20
 
-      - name: Build AVX2 (Windows)
+      - name: Build and run AVX2 static dispatch (Windows)
         if: runner.os == 'Windows'
         shell: cmd
         run: |
           for /f "usebackq tokens=*" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "VS_PATH=%%i"
           if not defined VS_PATH exit /b 1
           call "%VS_PATH%\VC\Auxiliary\Build\vcvars64.bat"
-          cmake -B build -DBUILD_TEST=ON -DENABLE_ZLDSP=ON -DUSE_AVX2=ON -DUSE_DOUBLE=OFF
-          cmake --build build --config Release --target zldsp_fft_build_test
+          cmake -S . -B build-static-avx2 -DSTATIC_DISPATCH_EXAMPLE=ON -DUSE_AVX2=ON
+          cmake --build build-static-avx2 --config Release --target zldsp_fft_static_dispatch_example --parallel
+          build-static-avx2\Release\zldsp_fft_static_dispatch_example.exe 5 20
 
-      - name: Build SSE4 Double (Windows)
+      - name: Build and run dynamic dispatch (Windows)
         if: runner.os == 'Windows'
         shell: cmd
         run: |
           for /f "usebackq tokens=*" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "VS_PATH=%%i"
           if not defined VS_PATH exit /b 1
           call "%VS_PATH%\VC\Auxiliary\Build\vcvars64.bat"
-          cmake -B build -DBUILD_TEST=ON -DENABLE_ZLDSP=ON -DUSE_AVX2=OFF -DUSE_DOUBLE=ON
-          cmake --build build --config Release --target zldsp_fft_build_test
-
-      - name: Build SSE4 (Windows)
-        if: runner.os == 'Windows'
-        shell: cmd
-        run: |
-          for /f "usebackq tokens=*" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "VS_PATH=%%i"
-          if not defined VS_PATH exit /b 1
-          call "%VS_PATH%\VC\Auxiliary\Build\vcvars64.bat"
-          cmake -B build -DBUILD_TEST=ON -DENABLE_ZLDSP=ON -DUSE_AVX2=OFF -DUSE_DOUBLE=OFF
-          cmake --build build --config Release --target zldsp_fft_build_test
-
-      - name: Build and run dispatch examples (Windows)
-        if: runner.os == 'Windows'
-        shell: cmd
-        run: |
-          for /f "usebackq tokens=*" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "VS_PATH=%%i"
-          if not defined VS_PATH exit /b 1
-          call "%VS_PATH%\VC\Auxiliary\Build\vcvars64.bat"
-          cmake -B build-dispatch -DSTATIC_DISPATCH_EXAMPLE=ON -DDYNAMIC_DISPATCH_EXAMPLE=ON
-          cmake --build build-dispatch --config Release --target zldsp_fft_static_dispatch_example zldsp_fft_dynamic_dispatch_example
-          build-dispatch\Release\zldsp_fft_static_dispatch_example.exe 5 20
-          build-dispatch\Release\zldsp_fft_dynamic_dispatch_example.exe 5 20
+          cmake -S . -B build-dynamic -DDYNAMIC_DISPATCH_EXAMPLE=ON -DUSE_SSE2=ON
+          cmake --build build-dynamic --config Release --target zldsp_fft_dynamic_dispatch_example --parallel
+          build-dynamic\Release\zldsp_fft_dynamic_dispatch_example.exe 5 20

@@ -63,6 +63,8 @@ void run(const std::size_t order) {
     rfft.backward(real_output.data(), real_restored.data());
     // RFFT backward SoA
     rfft.backward(real_output_soa, real_restored.data());
+    // RFFT forward squared magnitude
+    rfft.forward_sqr_mag(real_input.data(), real_output_real.data());
 }
 
 int main(const int argc, char** argv) {

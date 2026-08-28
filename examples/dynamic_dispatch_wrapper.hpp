@@ -37,6 +37,7 @@ namespace zldsp_fft_example {
         virtual void forward(F* input, SoA<F> output) noexcept = 0;
         virtual void backward(Complex<F>* input, F* output) noexcept = 0;
         virtual void backward(SoA<F> input, F* output) noexcept = 0;
+        virtual void forward_sqr_mag(F* input, F* output) noexcept = 0;
     };
 
     namespace detail {
