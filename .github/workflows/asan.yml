@@ -1,4 +1,4 @@
-name: AddressSanitizer Test
+name: Address Sanitizer Test
 
 on:
   workflow_dispatch:
