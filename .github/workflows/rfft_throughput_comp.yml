@@ -34,10 +34,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: Linux x64
+          - name: Linux x86-64
             os: ubuntu-latest
-            arch: x64
-          - name: Linux ARM64
+            arch: x86-64
+          - name: Linux arm64
             os: ubuntu-26.04-arm
             arch: arm64
 
@@ -48,18 +48,18 @@ jobs:
           fetch-depth: 2
           submodules: recursive
 
-      - name: Show CPU Info (Linux)
+      - name: Show CPU Info
         if: runner.os == 'Linux'
         run: lscpu
 
-      - name: RFFT Comparison AVX2 Double (Linux)
-        if: matrix.arch == 'x64'
+      - name: RFFT Comparison AVX2 Double
+        if: matrix.arch == 'x86-64'
         shell: bash
         run: |
           python -u benchmark/throughput_rfft_comp.py "${{ inputs.n0 }}" "${{ inputs.n1 }}" --repeats "${{ inputs.repeats }}" --avx2 --double
 
-      - name: RFFT Comparison AVX2 (Linux)
-        if: matrix.arch == 'x64'
+      - name: RFFT Comparison AVX2
+        if: matrix.arch == 'x86-64'
         shell: bash
         run: |
           python -u benchmark/throughput_rfft_comp.py "${{ inputs.n0 }}" "${{ inputs.n1 }}" --repeats "${{ inputs.repeats }}" --avx2

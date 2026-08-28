@@ -1,0 +1,75 @@
+name: AddressSanitizer Test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  asan:
+    name: ${{ matrix.simd }} ASan
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - simd: SSE2
+            os: ubuntu-latest
+            expected_arch: x86_64
+            use_sse2: "ON"
+            use_avx2: "OFF"
+            asan_options: "halt_on_error=1:abort_on_error=1:detect_leaks=1"
+          - simd: AVX2
+            os: ubuntu-latest
+            expected_arch: x86_64
+            use_sse2: "OFF"
+            use_avx2: "ON"
+            asan_options: "halt_on_error=1:abort_on_error=1:detect_leaks=1"
+          - simd: NEON
+            os: macos-latest
+            expected_arch: arm64
+            use_sse2: "OFF"
+            use_avx2: "OFF"
+            asan_options: "halt_on_error=1:abort_on_error=1:detect_leaks=0"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Verify architecture and compiler
+        shell: bash
+        run: |
+          test "$(uname -m)" = "${{ matrix.expected_arch }}"
+          clang++ --version
+          if [[ "${{ matrix.simd }}" == "AVX2" ]]; then
+            grep -qw avx2 /proc/cpuinfo
+          fi
+
+      - name: Configure static dispatch test
+        shell: bash
+        run: |
+          cmake -S . -B build-asan \
+            -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+            -DCMAKE_C_COMPILER=clang \
+            -DCMAKE_CXX_COMPILER=clang++ \
+            -DASAN_TEST=ON \
+            -DENABLE_ZLDSP=ON \
+            -DUSE_SSE2=${{ matrix.use_sse2 }} \
+            -DUSE_AVX2=${{ matrix.use_avx2 }}
+
+      - name: Build static dispatch test
+        run: cmake --build build-asan --target zldsp_fft_asan_test --parallel
+
+      - name: Run float and double tests for orders 5 through 20
+        shell: bash
+        env:
+          ASAN_OPTIONS: ${{ matrix.asan_options }}
+        run: ./build-asan/zldsp_fft_asan_test 5 20

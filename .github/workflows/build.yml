@@ -24,7 +24,6 @@ jobs:
             os: macos-latest
           - name: Windows
             os: windows-latest
-            vcvars64_path: '"C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"'
 
     steps:
       - name: Checkout code
@@ -74,8 +73,8 @@ jobs:
         run: |
           cmake -B build-dispatch -DSTATIC_DISPATCH_EXAMPLE=ON -DDYNAMIC_DISPATCH_EXAMPLE=ON -DCMAKE_BUILD_TYPE=Release
           cmake --build build-dispatch --config Release --target zldsp_fft_static_dispatch_example zldsp_fft_dynamic_dispatch_example
-          ./build-dispatch/zldsp_fft_static_dispatch_example
-          ./build-dispatch/zldsp_fft_dynamic_dispatch_example
+          ./build-dispatch/zldsp_fft_static_dispatch_example 5 20
+          ./build-dispatch/zldsp_fft_dynamic_dispatch_example 5 20
 
       - name: Build NEON Double (macOS)
         if: runner.os == 'macOS'
@@ -94,14 +93,16 @@ jobs:
         run: |
           cmake -B build-dispatch -DSTATIC_DISPATCH_EXAMPLE=ON -DDYNAMIC_DISPATCH_EXAMPLE=ON -DCMAKE_BUILD_TYPE=Release
           cmake --build build-dispatch --config Release --target zldsp_fft_static_dispatch_example zldsp_fft_dynamic_dispatch_example
-          ./build-dispatch/zldsp_fft_static_dispatch_example
-          ./build-dispatch/zldsp_fft_dynamic_dispatch_example
+          ./build-dispatch/zldsp_fft_static_dispatch_example 5 20
+          ./build-dispatch/zldsp_fft_dynamic_dispatch_example 5 20
 
       - name: Build AVX2 Double (Windows)
         if: runner.os == 'Windows'
         shell: cmd
         run: |
-          call ${{ matrix.vcvars64_path }}
+          for /f "usebackq tokens=*" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "VS_PATH=%%i"
+          if not defined VS_PATH exit /b 1
+          call "%VS_PATH%\VC\Auxiliary\Build\vcvars64.bat"
           cmake -B build -DBUILD_TEST=ON -DENABLE_ZLDSP=ON -DUSE_AVX2=ON -DUSE_DOUBLE=ON
           cmake --build build --config Release --target zldsp_fft_build_test
 
@@ -109,7 +110,9 @@ jobs:
         if: runner.os == 'Windows'
         shell: cmd
         run: |
-          call ${{ matrix.vcvars64_path }}
+          for /f "usebackq tokens=*" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "VS_PATH=%%i"
+          if not defined VS_PATH exit /b 1
+          call "%VS_PATH%\VC\Auxiliary\Build\vcvars64.bat"
           cmake -B build -DBUILD_TEST=ON -DENABLE_ZLDSP=ON -DUSE_AVX2=ON -DUSE_DOUBLE=OFF
           cmake --build build --config Release --target zldsp_fft_build_test
 
@@ -117,7 +120,9 @@ jobs:
         if: runner.os == 'Windows'
         shell: cmd
         run: |
-          call ${{ matrix.vcvars64_path }}
+          for /f "usebackq tokens=*" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "VS_PATH=%%i"
+          if not defined VS_PATH exit /b 1
+          call "%VS_PATH%\VC\Auxiliary\Build\vcvars64.bat"
           cmake -B build -DBUILD_TEST=ON -DENABLE_ZLDSP=ON -DUSE_AVX2=OFF -DUSE_DOUBLE=ON
           cmake --build build --config Release --target zldsp_fft_build_test
 
@@ -125,7 +130,9 @@ jobs:
         if: runner.os == 'Windows'
         shell: cmd
         run: |
-          call ${{ matrix.vcvars64_path }}
+          for /f "usebackq tokens=*" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "VS_PATH=%%i"
+          if not defined VS_PATH exit /b 1
+          call "%VS_PATH%\VC\Auxiliary\Build\vcvars64.bat"
           cmake -B build -DBUILD_TEST=ON -DENABLE_ZLDSP=ON -DUSE_AVX2=OFF -DUSE_DOUBLE=OFF
           cmake --build build --config Release --target zldsp_fft_build_test
 
@@ -133,8 +140,10 @@ jobs:
         if: runner.os == 'Windows'
         shell: cmd
         run: |
-          call ${{ matrix.vcvars64_path }}
+          for /f "usebackq tokens=*" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "VS_PATH=%%i"
+          if not defined VS_PATH exit /b 1
+          call "%VS_PATH%\VC\Auxiliary\Build\vcvars64.bat"
           cmake -B build-dispatch -DSTATIC_DISPATCH_EXAMPLE=ON -DDYNAMIC_DISPATCH_EXAMPLE=ON
           cmake --build build-dispatch --config Release --target zldsp_fft_static_dispatch_example zldsp_fft_dynamic_dispatch_example
-          build-dispatch\Release\zldsp_fft_static_dispatch_example.exe
-          build-dispatch\Release\zldsp_fft_dynamic_dispatch_example.exe
+          build-dispatch\Release\zldsp_fft_static_dispatch_example.exe 5 20
+          build-dispatch\Release\zldsp_fft_dynamic_dispatch_example.exe 5 20

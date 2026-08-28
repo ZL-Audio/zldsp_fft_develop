@@ -1,14 +1,15 @@
 #include <array>
 #include <complex>
 #include <cstddef>
+#include <iostream>
+#include <string>
 #include <vector>
 
 #include "dynamic_dispatch_wrapper.hpp"
 
 template <typename F>
-void run() {
-    constexpr std::size_t kOrder = 10;
-    constexpr std::size_t kSize = std::size_t{1} << kOrder;
+void run(const std::size_t order) {
+    const std::size_t kSize = std::size_t{1} << order;
     using Complex = std::complex<F>;
     using SoA = std::array<F*, 2>;
 
@@ -21,7 +22,7 @@ void run() {
     SoA complex_input_soa{complex_input_real.data(), complex_input_imag.data()};
     SoA complex_output_soa{complex_output_real.data(), complex_output_imag.data()};
 
-    auto cfft = zldsp_fft_example::prepare_cfft<F>(kOrder);
+    auto cfft = zldsp_fft_example::prepare_cfft<F>(order);
     // CFFT forward AoS to AoS
     cfft->forward(complex_input.data(), complex_output.data());
     // CFFT forward AoS to SoA
@@ -50,7 +51,7 @@ void run() {
     std::vector<F> real_output_imag(kSize / 2 + 1);
     SoA real_output_soa{real_output_real.data(), real_output_imag.data()};
 
-    auto rfft = zldsp_fft_example::prepare_rfft<F>(kOrder);
+    auto rfft = zldsp_fft_example::prepare_rfft<F>(order);
     // RFFT forward AoS
     rfft->forward(real_input.data(), real_output.data());
     // RFFT forward SoA
@@ -63,8 +64,23 @@ void run() {
     rfft->backward(real_output_soa, real_restored.data());
 }
 
-int main() {
-    run<float>();
-    run<double>();
+int main(const int argc, char** argv) {
+    if (argc != 3) {
+        std::cerr << "Usage: " << argv[0] << " <start-order> <end-order>" << std::endl;
+        return 2;
+    }
+
+    try {
+        const std::size_t start_order = std::stoul(argv[1]);
+        const std::size_t end_order = std::stoul(argv[2]);
+        for (std::size_t order = start_order; order <= end_order; ++order) {
+            run<float>(order);
+            run<double>(order);
+        }
+    }
+    catch (...) {
+        std::cerr << "Invalid order range: " << argv[1] << " " << argv[2] << std::endl;
+        return 2;
+    }
     return 0;
 }
