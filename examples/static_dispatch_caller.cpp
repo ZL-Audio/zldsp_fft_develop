@@ -11,16 +11,16 @@
 
 template <typename F>
 void run_cfft(zldsp::fft::CFFT<F>& cfft, const std::size_t order) {
-    const std::size_t kSize = std::size_t{1} << order;
+    const std::size_t fft_size = std::size_t{1} << order;
     using Complex = std::complex<F>;
     using SoA = std::array<F*, 2>;
 
-    std::vector<Complex> complex_input(kSize, Complex{F{1}, F{0}});
-    std::vector<Complex> complex_output(kSize);
-    std::vector<F> complex_input_real(kSize, F{1});
-    std::vector<F> complex_input_imag(kSize, F{0});
-    std::vector<F> complex_output_real(kSize);
-    std::vector<F> complex_output_imag(kSize);
+    std::vector<Complex> complex_input(fft_size, Complex{F{1}, F{0}});
+    std::vector<Complex> complex_output(fft_size);
+    std::vector<F> complex_input_real(fft_size, F{1});
+    std::vector<F> complex_input_imag(fft_size, F{0});
+    std::vector<F> complex_output_real(fft_size);
+    std::vector<F> complex_output_imag(fft_size);
     SoA complex_input_soa{complex_input_real.data(), complex_input_imag.data()};
     SoA complex_output_soa{complex_output_real.data(), complex_output_imag.data()};
 
@@ -33,30 +33,26 @@ void run_cfft(zldsp::fft::CFFT<F>& cfft, const std::size_t order) {
     // CFFT forward SoA to SoA
     cfft.forward(complex_input_soa, complex_output_soa);
 
-    std::vector<Complex> complex_restored(kSize);
-    std::vector<F> complex_restored_real(kSize);
-    std::vector<F> complex_restored_imag(kSize);
-    SoA complex_restored_soa{complex_restored_real.data(), complex_restored_imag.data()};
     // CFFT backward AoS to AoS
-    cfft.backward(complex_output.data(), complex_restored.data());
+    cfft.backward(complex_output.data(), complex_input.data());
     // CFFT backward AoS to SoA
-    cfft.backward(complex_output.data(), complex_restored_soa);
+    cfft.backward(complex_output.data(), complex_input_soa);
     // CFFT backward SoA to AoS
-    cfft.backward(complex_output_soa, complex_restored.data());
+    cfft.backward(complex_output_soa, complex_input.data());
     // CFFT backward SoA to SoA
-    cfft.backward(complex_output_soa, complex_restored_soa);
+    cfft.backward(complex_output_soa, complex_input_soa);
 }
 
 template <typename F>
 void run_rfft(zldsp::fft::RFFT<F>& rfft, const std::size_t order) {
-    const std::size_t kSize = std::size_t{1} << order;
+    const std::size_t fft_size = std::size_t{1} << order;
     using Complex = std::complex<F>;
     using SoA = std::array<F*, 2>;
 
-    std::vector<F> real_input(kSize, F{1});
-    std::vector<Complex> real_output(kSize / 2 + 1);
-    std::vector<F> real_output_real(kSize / 2 + 1);
-    std::vector<F> real_output_imag(kSize / 2 + 1);
+    std::vector<F> real_input(fft_size, F{1});
+    std::vector<Complex> real_output(fft_size / 2 + 1);
+    std::vector<F> real_output_real(fft_size / 2 + 1);
+    std::vector<F> real_output_imag(fft_size / 2 + 1);
     SoA real_output_soa{real_output_real.data(), real_output_imag.data()};
 
     // RFFT forward AoS
@@ -64,11 +60,10 @@ void run_rfft(zldsp::fft::RFFT<F>& rfft, const std::size_t order) {
     // RFFT forward SoA
     rfft.forward(real_input.data(), real_output_soa);
 
-    std::vector<F> real_restored(kSize);
     // RFFT backward AoS
-    rfft.backward(real_output.data(), real_restored.data());
+    rfft.backward(real_output.data(), real_input.data());
     // RFFT backward SoA
-    rfft.backward(real_output_soa, real_restored.data());
+    rfft.backward(real_output_soa, real_input.data());
     // RFFT forward squared magnitude
     rfft.forward_sqr_mag(real_input.data(), real_output_real.data());
 }
