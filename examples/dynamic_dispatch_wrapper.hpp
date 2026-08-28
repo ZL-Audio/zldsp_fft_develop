@@ -22,6 +22,10 @@ namespace zldsp_fft_example {
         virtual void forward(Complex<F>* input, SoA<F> output) noexcept = 0;
         virtual void forward(SoA<F> input, Complex<F>* output) noexcept = 0;
         virtual void forward(SoA<F> input, SoA<F> output) noexcept = 0;
+        virtual void backward(Complex<F>* input, Complex<F>* output) noexcept = 0;
+        virtual void backward(Complex<F>* input, SoA<F> output) noexcept = 0;
+        virtual void backward(SoA<F> input, Complex<F>* output) noexcept = 0;
+        virtual void backward(SoA<F> input, SoA<F> output) noexcept = 0;
     };
 
     template <typename F>
@@ -31,6 +35,8 @@ namespace zldsp_fft_example {
 
         virtual void forward(F* input, Complex<F>* output) noexcept = 0;
         virtual void forward(F* input, SoA<F> output) noexcept = 0;
+        virtual void backward(Complex<F>* input, F* output) noexcept = 0;
+        virtual void backward(SoA<F> input, F* output) noexcept = 0;
     };
 
     namespace detail {

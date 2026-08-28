@@ -31,6 +31,19 @@ void run() {
     // CFFT forward SoA to SoA
     cfft->forward(complex_input_soa, complex_output_soa);
 
+    std::vector<Complex> complex_restored(kSize);
+    std::vector<F> complex_restored_real(kSize);
+    std::vector<F> complex_restored_imag(kSize);
+    SoA complex_restored_soa{complex_restored_real.data(), complex_restored_imag.data()};
+    // CFFT backward AoS to AoS
+    cfft->backward(complex_output.data(), complex_restored.data());
+    // CFFT backward AoS to SoA
+    cfft->backward(complex_output.data(), complex_restored_soa);
+    // CFFT backward SoA to AoS
+    cfft->backward(complex_output_soa, complex_restored.data());
+    // CFFT backward SoA to SoA
+    cfft->backward(complex_output_soa, complex_restored_soa);
+
     std::vector<F> real_input(kSize, F{1});
     std::vector<Complex> real_output(kSize / 2 + 1);
     std::vector<F> real_output_real(kSize / 2 + 1);
@@ -42,6 +55,12 @@ void run() {
     rfft->forward(real_input.data(), real_output.data());
     // RFFT forward SoA
     rfft->forward(real_input.data(), real_output_soa);
+
+    std::vector<F> real_restored(kSize);
+    // RFFT backward AoS
+    rfft->backward(real_output.data(), real_restored.data());
+    // RFFT backward SoA
+    rfft->backward(real_output_soa, real_restored.data());
 }
 
 int main() {
