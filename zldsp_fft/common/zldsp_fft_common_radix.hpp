@@ -100,66 +100,73 @@ namespace zldsp::fft::HWY_NAMESPACE::common {
         const auto quad_width = width << 2;
         const auto sextuple_width = triple_width << 1;
 
-        const size_t mask = width - 1;
-
         HWY_ASSUME(quarter_n >= lanes);
         HWY_ASSUME((quarter_n % lanes) == 0);
-        for (size_t i = 0; i < quarter_n; i += lanes) {
-            const F* HWY_RESTRICT in_shift = in_aosoa + (i << 1);
-            const size_t k = i & mask;
-            const F* HWY_RESTRICT w_shift = w_ptr + k * 6;
+        HWY_ASSUME(width >= lanes);
+        HWY_ASSUME((width % lanes) == 0);
+        HWY_ASSUME((quarter_n % width) == 0);
+        const F* HWY_RESTRICT in_block = in_aosoa;
+        const F* HWY_RESTRICT in_end = in_aosoa + (quarter_n << 1);
+        F* HWY_RESTRICT out_block = out_aosoa;
+        HWY_UNROLL(1)
+        for (; in_block < in_end;
+             in_block += double_width, out_block += width << 3) {
+            size_t offset = 0;
+            const F* HWY_RESTRICT w_shift = w_ptr;
+            HWY_UNROLL(1)
+            for (; offset < double_width; offset += lanes << 1, w_shift += lanes * 6) {
+                const F* HWY_RESTRICT in_shift = in_block + offset;
 
-            hn::Vec<decltype(d)> s2_r, s2_i, s3_r, s3_i;
-            {
-                const auto w1_r = hn::Load(d, w_shift);
-                const auto w1_i = hn::Load(d, w_shift + lanes);
-                const auto r1 = hn::Load(d, in_shift + half_n);
-                const auto i1 = hn::Load(d, in_shift + half_n + lanes);
-                const auto t1_r = hn::NegMulAdd(i1, w1_i, hn::Mul(r1, w1_r));
-                const auto t1_i = hn::MulAdd(i1, w1_r, hn::Mul(r1, w1_i));
+                hn::Vec<decltype(d)> s2_r, s2_i, s3_r, s3_i;
+                {
+                    const auto w1_r = hn::Load(d, w_shift);
+                    const auto w1_i = hn::Load(d, w_shift + lanes);
+                    const auto r1 = hn::Load(d, in_shift + half_n);
+                    const auto i1 = hn::Load(d, in_shift + half_n + lanes);
+                    const auto t1_r = hn::NegMulAdd(i1, w1_i, hn::Mul(r1, w1_r));
+                    const auto t1_i = hn::MulAdd(i1, w1_r, hn::Mul(r1, w1_i));
 
-                const auto w3_r = hn::Load(d, w_shift + lanes * 4);
-                const auto w3_i = hn::Load(d, w_shift + lanes * 5);
-                const auto r3 = hn::Load(d, in_shift + three_over_two_n);
-                const auto i3 = hn::Load(d, in_shift + three_over_two_n + lanes);
-                const auto t3_r = hn::NegMulAdd(i3, w3_i, hn::Mul(r3, w3_r));
-                const auto t3_i = hn::MulAdd(i3, w3_r, hn::Mul(r3, w3_i));
+                    const auto w3_r = hn::Load(d, w_shift + lanes * 4);
+                    const auto w3_i = hn::Load(d, w_shift + lanes * 5);
+                    const auto r3 = hn::Load(d, in_shift + three_over_two_n);
+                    const auto i3 = hn::Load(d, in_shift + three_over_two_n + lanes);
+                    const auto t3_r = hn::NegMulAdd(i3, w3_i, hn::Mul(r3, w3_r));
+                    const auto t3_i = hn::MulAdd(i3, w3_r, hn::Mul(r3, w3_i));
 
-                s2_r = hn::Add(t1_r, t3_r);
-                s2_i = hn::Add(t1_i, t3_i);
-                s3_r = hn::Sub(t1_r, t3_r);
-                s3_i = hn::Sub(t1_i, t3_i);
+                    s2_r = hn::Add(t1_r, t3_r);
+                    s2_i = hn::Add(t1_i, t3_i);
+                    s3_r = hn::Sub(t1_r, t3_r);
+                    s3_i = hn::Sub(t1_i, t3_i);
+                }
+
+                hn::Vec<decltype(d)> s0_r, s0_i, s1_r, s1_i;
+
+                const auto w2_r = hn::Load(d, w_shift + lanes * 2);
+                const auto w2_i = hn::Load(d, w_shift + lanes * 3);
+                const auto r2 = hn::Load(d, in_shift + n);
+                const auto i2 = hn::Load(d, in_shift + n + lanes);
+                const auto t2_r = hn::NegMulAdd(i2, w2_i, hn::Mul(r2, w2_r));
+                const auto t2_i = hn::MulAdd(i2, w2_r, hn::Mul(r2, w2_i));
+
+                const auto r0 = hn::Load(d, in_shift);
+                const auto i0 = hn::Load(d, in_shift + lanes);
+
+                s0_r = hn::Add(r0, t2_r);
+                s0_i = hn::Add(i0, t2_i);
+                s1_r = hn::Sub(r0, t2_r);
+                s1_i = hn::Sub(i0, t2_i);
+
+                F* HWY_RESTRICT out_shift = out_block + offset;
+
+                hn::Store(hn::Add(s0_r, s2_r), d, out_shift);
+                hn::Store(hn::Add(s0_i, s2_i), d, out_shift + lanes);
+                hn::Store(hn::Add(s1_r, s3_i), d, out_shift + double_width);
+                hn::Store(hn::Sub(s1_i, s3_r), d, out_shift + double_width + lanes);
+                hn::Store(hn::Sub(s0_r, s2_r), d, out_shift + quad_width);
+                hn::Store(hn::Sub(s0_i, s2_i), d, out_shift + quad_width + lanes);
+                hn::Store(hn::Sub(s1_r, s3_i), d, out_shift + sextuple_width);
+                hn::Store(hn::Add(s1_i, s3_r), d, out_shift + sextuple_width + lanes);
             }
-
-            hn::Vec<decltype(d)> s0_r, s0_i, s1_r, s1_i;
-
-            const auto w2_r = hn::Load(d, w_shift + lanes * 2);
-            const auto w2_i = hn::Load(d, w_shift + lanes * 3);
-            const auto r2 = hn::Load(d, in_shift + n);
-            const auto i2 = hn::Load(d, in_shift + n + lanes);
-            const auto t2_r = hn::NegMulAdd(i2, w2_i, hn::Mul(r2, w2_r));
-            const auto t2_i = hn::MulAdd(i2, w2_r, hn::Mul(r2, w2_i));
-
-            const auto r0 = hn::Load(d, in_shift);
-            const auto i0 = hn::Load(d, in_shift + lanes);
-
-            s0_r = hn::Add(r0, t2_r);
-            s0_i = hn::Add(i0, t2_i);
-            s1_r = hn::Sub(r0, t2_r);
-            s1_i = hn::Sub(i0, t2_i);
-
-            const size_t j_times_4 = (i & ~mask) << 2;
-            const size_t out_idx = j_times_4 + k;
-            F* HWY_RESTRICT out_shift = out_aosoa + (out_idx << 1);
-
-            hn::Store(hn::Add(s0_r, s2_r), d, out_shift);
-            hn::Store(hn::Add(s0_i, s2_i), d, out_shift + lanes);
-            hn::Store(hn::Add(s1_r, s3_i), d, out_shift + double_width);
-            hn::Store(hn::Sub(s1_i, s3_r), d, out_shift + double_width + lanes);
-            hn::Store(hn::Sub(s0_r, s2_r), d, out_shift + quad_width);
-            hn::Store(hn::Sub(s0_i, s2_i), d, out_shift + quad_width + lanes);
-            hn::Store(hn::Sub(s1_r, s3_i), d, out_shift + sextuple_width);
-            hn::Store(hn::Add(s1_i, s3_r), d, out_shift + sextuple_width + lanes);
         }
     }
 
@@ -405,24 +412,30 @@ namespace zldsp::fft::HWY_NAMESPACE::common {
         const size_t half_n = n >> 1;
         const size_t three_quarter_n = quarter_n * 3;
 
-        const size_t out_offset1 = Ptr::get_complex_offset(width);
-        const size_t out_offset2 = Ptr::get_complex_offset(width << 1);
+        const size_t in_offset1 = quarter_n << 1;
+        const size_t in_offset2 = half_n << 1;
+        const size_t in_offset3 = three_quarter_n << 1;
+
+        const size_t out_offset1 = Ptr::get_complex_offset(quarter_n);
+        const size_t out_offset2 = Ptr::get_complex_offset(half_n);
         const size_t out_offset3 = out_offset1 + out_offset2;
+        const size_t out_step = Ptr::get_complex_offset(lanes);
 
-        const size_t mask = width - 1;
+        const F* HWY_RESTRICT in_shift = in_aosoa;
+        const F* HWY_RESTRICT const in_end = in_aosoa + in_offset1;
+        const F* HWY_RESTRICT w_shift = w_ptr;
+        Ptr out_shift = out;
 
+        HWY_ASSUME(width == quarter_n);
         HWY_ASSUME(quarter_n >= lanes);
         HWY_ASSUME((quarter_n % lanes) == 0);
-        for (size_t i = 0; i < quarter_n; i += lanes) {
-            const size_t k = i & mask;
-            const F* HWY_RESTRICT w_shift = w_ptr + k * 6;
-
+        for (; in_shift < in_end; in_shift += lanes << 1, w_shift += lanes * 6, out_shift = out_shift.shift(out_step)) {
             hn::Vec<decltype(d)> t1_r, t1_i;
             {
                 const auto w1_r = hn::Load(d, w_shift);
                 const auto w1_i = hn::Load(d, w_shift + lanes);
-                const auto r1 = hn::Load(d, in_aosoa + 2 * (quarter_n + i));
-                const auto i1 = hn::Load(d, in_aosoa + 2 * (quarter_n + i) + lanes);
+                const auto r1 = hn::Load(d, in_shift + in_offset1);
+                const auto i1 = hn::Load(d, in_shift + in_offset1 + lanes);
                 t1_r = hn::NegMulAdd(i1, w1_i, hn::Mul(r1, w1_r));
                 t1_i = hn::MulAdd(i1, w1_r, hn::Mul(r1, w1_i));
             }
@@ -430,8 +443,8 @@ namespace zldsp::fft::HWY_NAMESPACE::common {
             {
                 const auto w3_r = hn::Load(d, w_shift + lanes * 4);
                 const auto w3_i = hn::Load(d, w_shift + lanes * 5);
-                const auto r3 = hn::Load(d, in_aosoa + 2 * (three_quarter_n + i));
-                const auto i3 = hn::Load(d, in_aosoa + 2 * (three_quarter_n + i) + lanes);
+                const auto r3 = hn::Load(d, in_shift + in_offset3);
+                const auto i3 = hn::Load(d, in_shift + in_offset3 + lanes);
                 t3_r = hn::NegMulAdd(i3, w3_i, hn::Mul(r3, w3_r));
                 t3_i = hn::MulAdd(i3, w3_r, hn::Mul(r3, w3_i));
             }
@@ -445,22 +458,18 @@ namespace zldsp::fft::HWY_NAMESPACE::common {
             {
                 const auto w2_r = hn::Load(d, w_shift + lanes * 2);
                 const auto w2_i = hn::Load(d, w_shift + lanes * 3);
-                const auto r2 = hn::Load(d, in_aosoa + 2 * (half_n + i));
-                const auto i2 = hn::Load(d, in_aosoa + 2 * (half_n + i) + lanes);
+                const auto r2 = hn::Load(d, in_shift + in_offset2);
+                const auto i2 = hn::Load(d, in_shift + in_offset2 + lanes);
                 t2_r = hn::NegMulAdd(i2, w2_i, hn::Mul(r2, w2_r));
                 t2_i = hn::MulAdd(i2, w2_r, hn::Mul(r2, w2_i));
             }
 
-            const auto r0 = hn::Load(d, in_aosoa + 2 * i);
-            const auto i0 = hn::Load(d, in_aosoa + 2 * i + lanes);
+            const auto r0 = hn::Load(d, in_shift);
+            const auto i0 = hn::Load(d, in_shift + lanes);
             const auto s0_r = hn::Add(r0, t2_r);
             const auto s0_i = hn::Add(i0, t2_i);
             const auto s1_r = hn::Sub(r0, t2_r);
             const auto s1_i = hn::Sub(i0, t2_i);
-
-            const size_t j_times_4 = (i & ~mask) << 2;
-            const size_t out_idx = j_times_4 + k;
-            Ptr out_shift = out.shift(Ptr::get_complex_offset(out_idx));
 
             store_complex<is_forward>(d, out_shift, hn::Add(s0_r, s2_r), hn::Add(s0_i, s2_i));
             store_complex<is_forward>(d, out_shift.shift(out_offset2), hn::Sub(s0_r, s2_r), hn::Sub(s0_i, s2_i));
@@ -1423,4 +1432,4 @@ namespace zldsp::fft::HWY_NAMESPACE::common {
 
 HWY_AFTER_NAMESPACE();
 
-#endif  // ZLDSP_FFT_COMMON_RADIX_HPP_
+#endif

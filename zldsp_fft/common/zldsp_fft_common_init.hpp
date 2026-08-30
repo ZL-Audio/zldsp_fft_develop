@@ -440,4 +440,4 @@ namespace zldsp::fft::HWY_NAMESPACE::common {
 
 HWY_AFTER_NAMESPACE();
 
-#endif  // ZLDSP_FFT_COMMON_INIT_HPP_
+#endif

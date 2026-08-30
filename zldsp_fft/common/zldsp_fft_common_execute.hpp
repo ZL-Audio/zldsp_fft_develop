@@ -863,4 +863,4 @@ namespace zldsp::fft::HWY_NAMESPACE::common {
 
 HWY_AFTER_NAMESPACE();
 
-#endif  // ZLDSP_FFT_COMMON_EXECUTE_HPP_
+#endif

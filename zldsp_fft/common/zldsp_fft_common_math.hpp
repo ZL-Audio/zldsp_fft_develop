@@ -37,4 +37,4 @@ namespace zldsp::fft::HWY_NAMESPACE::common::math {
 
 HWY_AFTER_NAMESPACE();
 
-#endif  // ZLDSP_FFT_COMMON_MATH_HPP_
+#endif
