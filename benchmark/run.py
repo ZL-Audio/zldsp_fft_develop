@@ -31,7 +31,7 @@ METRICS = {
 }
 DISPLAY_NAMES = {
     "fftw3": "FFTW measure", "fftw3_estimate": "FFTW estimate", "kfr": "KFR",
-    "pffft": "PFFFT", "vdsp": "vDSP", "vdsp_stride_2": "vDSP stride 2", "ipp": "IPP",
+    "pffft": "PFFFT", "vdsp": "vDSP", "ipp": "IPP",
     "armpl": "ArmPL measure", "armpl_estimate": "ArmPL estimate",
     "aos_aos": "AoS->AoS", "aos_soa": "AoS->SoA", "soa_aos": "SoA->AoS", "soa_soa": "SoA->SoA",
     "real_aos": "real->AoS", "real_soa": "real->SoA", "real_power": "real->power",
@@ -267,16 +267,28 @@ def throughput(args):
         print("Builds complete. Use --skip-build with the same library, precision, ISA and artifacts options to measure.")
         return
     rows = []
-    for algorithm, executable in executables.items():
-        print(f"Measuring {kind.upper()} {algorithm}, orders {args.n0}-{args.n1} "
-              f"({args.repeats} repetitions, {timing_description(args)})...", file=sys.stderr, flush=True)
-        results = run_throughput(executable, kind, args.n0, args.n1, all_apis, args.repeats,
-                                 args.min_time0, args.min_time1)
-        for row in results:
-            row["library"] = algorithm
-        rows.extend(results)
+    for order in range(args.n0, args.n1 + 1):
+        min_time = min_time_for_order(order, args.n0, args.n1, args.min_time0, args.min_time1)
+        for algorithm, executable in executables.items():
+            print(f"Measuring {kind.upper()} {algorithm}, order {order} "
+                  f"({args.repeats} repetitions, minimum {min_time:g}s per case/repetition)...",
+                  file=sys.stderr, flush=True)
+            results = run_throughput(executable, kind, order, order, all_apis, args.repeats,
+                                     min_time, min_time)
+            for row in results:
+                row["library"] = algorithm
+            rows.extend(results)
     print_tables(args, rows)
     save_results(args, kind, "throughput", rows)
+
+
+def min_time_for_order(order, n0, n1, min_time0, min_time1):
+    if order == n0 or min_time0 == min_time1:
+        return min_time0
+    if order == n1:
+        return min_time1
+    fraction = (order - n0) / (n1 - n0)
+    return math.exp((1 - fraction) * math.log(min_time0) + fraction * math.log(min_time1))
 
 
 def timing_description(args):
@@ -294,9 +306,8 @@ def parse_accuracy(output, kind, order, all_apis, threshold):
     libraries = {row.get("library") for row in rows}
     if all_apis and libraries != {"zldsp"}:
         raise ValueError("Unexpected library in API accuracy results")
-    if not all_apis and (not {"fftw3_estimate", "kfr", "zldsp"} <= libraries or
-                         not libraries <= {"fftw3_estimate", "kfr", "zldsp", "vdsp", "ipp"}):
-        raise ValueError("Library accuracy must include FFTW estimate, KFR, zldsp and only optional IPP/vDSP")
+    if not all_apis and libraries != {"fftw3_estimate", "kfr", "zldsp"}:
+        raise ValueError("Library accuracy must contain only FFTW estimate, KFR and zldsp")
     for row in rows:
         if row.get("order") != order or row.get("status") not in ("passed", "failed"):
             raise ValueError(f"Invalid accuracy row: {row}")

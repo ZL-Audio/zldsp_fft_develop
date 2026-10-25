@@ -1,6 +1,5 @@
 #pragma once
 
-#include <complex>
 #include <memory>
 
 #include "pffft/include/pffft/pffft.h"
@@ -15,24 +14,44 @@ namespace zlbenchmark {
         template <>
         struct PffftApi<float> {
             using Setup = PFFFT_Setup;
-            static bool valid(int n, pffft_transform_t kind) { return pffft_is_valid_size(n, kind); }
-            static Setup* create(int n, pffft_transform_t kind) { return pffft_new_setup(n, kind); }
-            static void destroy(Setup* p) { pffft_destroy_setup(p); }
+
+            static bool valid(int n, pffft_transform_t kind) {
+                return pffft_is_valid_size(n, kind);
+            }
+
+            static Setup* create(int n, pffft_transform_t kind) {
+                return pffft_new_setup(n, kind);
+            }
+
+            static void destroy(Setup* p) {
+                pffft_destroy_setup(p);
+            }
+
             static void execute(Setup* p, const float* in, float* out, float* work,
                                 pffft_direction_t direction) {
-                pffft_transform_ordered(p, in, out, work, direction);
+                pffft_transform(p, in, out, work, direction);
             }
         };
 
         template <>
         struct PffftApi<double> {
             using Setup = PFFFTD_Setup;
-            static bool valid(int n, pffft_transform_t kind) { return pffftd_is_valid_size(n, kind); }
-            static Setup* create(int n, pffft_transform_t kind) { return pffftd_new_setup(n, kind); }
-            static void destroy(Setup* p) { pffftd_destroy_setup(p); }
+
+            static bool valid(int n, pffft_transform_t kind) {
+                return pffftd_is_valid_size(n, kind);
+            }
+
+            static Setup* create(int n, pffft_transform_t kind) {
+                return pffftd_new_setup(n, kind);
+            }
+
+            static void destroy(Setup* p) {
+                pffftd_destroy_setup(p);
+            }
+
             static void execute(Setup* p, const double* in, double* out, double* work,
                                 pffft_direction_t direction) {
-                pffftd_transform_ordered(p, in, out, work, direction);
+                pffftd_transform(p, in, out, work, direction);
             }
         };
 
@@ -45,11 +64,14 @@ namespace zlbenchmark {
         public:
             explicit PffftPlan(size_t order) {
                 const int n = fft_size(order);
-                if (!API::valid(n, Kind)) throw UnsupportedSize("PFFFT does not support this transform size");
+                if (!API::valid(n, Kind))
+                    throw UnsupportedSize("PFFFT does not support this transform size");
                 setup_.reset(API::create(n, Kind));
-                if (!setup_) throw std::runtime_error("PFFFT setup failed");
+                if (!setup_)
+                    throw std::runtime_error("PFFFT setup failed");
                 work_.resize(Kind == PFFFT_REAL ? n : 2 * size_t(n));
             }
+
             void execute(const F* in, F* out, pffft_direction_t direction) {
                 API::execute(setup_.get(), in, out, work_.data(), direction);
             }
@@ -58,43 +80,39 @@ namespace zlbenchmark {
 
     template <typename F>
     class PffftFFT final {
-        using C = std::complex<F>;
         detail::PffftPlan<F, PFFFT_COMPLEX> plan_;
 
     public:
-        explicit PffftFFT(size_t order) : plan_(order) {}
-        void forward(const C* in, C* out) {
-            plan_.execute(reinterpret_cast<const F*>(in), reinterpret_cast<F*>(out), PFFFT_FORWARD);
+        explicit PffftFFT(size_t order) :
+            plan_(order) {
         }
-        void backward(const C* in, C* out) {
-            plan_.execute(reinterpret_cast<const F*>(in), reinterpret_cast<F*>(out), PFFFT_BACKWARD);
+
+        // 2*N scalars: interleaved time data and PFFFT's native unordered spectrum.
+        void forward(const F* in, F* out) {
+            plan_.execute(in, out, PFFFT_FORWARD);
+        }
+
+        void backward(const F* in, F* out) {
+            plan_.execute(in, out, PFFFT_BACKWARD);
         }
     };
 
     template <typename F>
     class PffftRFFT final {
-        using C = std::complex<F>;
         detail::PffftPlan<F, PFFFT_REAL> plan_;
-        AlignedVector<F> packed_;
 
     public:
-        explicit PffftRFFT(size_t order) : plan_(order), packed_(fft_size(order)) {}
-        void forward(const F* in, C* out) {
-            plan_.execute(in, packed_.data(), PFFFT_FORWARD);
-            const size_t half = packed_.size() / 2;
-            out[0] = C(packed_[0], 0);
-            out[half] = C(packed_[1], 0);
-            for (size_t k = 1; k < half; ++k) out[k] = C(packed_[2 * k], packed_[2 * k + 1]);
+        explicit PffftRFFT(size_t order) :
+            plan_(order) {
         }
-        void backward(const C* in, F* out) {
-            const size_t half = packed_.size() / 2;
-            packed_[0] = in[0].real();
-            packed_[1] = in[half].real();
-            for (size_t k = 1; k < half; ++k) {
-                packed_[2 * k] = in[k].real();
-                packed_[2 * k + 1] = in[k].imag();
-            }
-            plan_.execute(packed_.data(), out, PFFFT_BACKWARD);
+
+        // N scalars in both domains; retain native packing, order and scaling.
+        void forward(const F* in, F* out) {
+            plan_.execute(in, out, PFFFT_FORWARD);
+        }
+
+        void backward(const F* in, F* out) {
+            plan_.execute(in, out, PFFFT_BACKWARD);
         }
     };
 }

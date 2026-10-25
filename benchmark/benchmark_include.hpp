@@ -23,7 +23,7 @@ inline constexpr F rfft_backward_scale = 1;
 #include "../pffft_impl/pffft_impl.hpp"
 using CFFTClass = zlbenchmark::PffftFFT<F>;
 using RFFTClass = zlbenchmark::PffftRFFT<F>;
-#elif defined(ENABLE_VDSP) || defined(ENABLE_VDSP_STRIDE_2)
+#elif defined(ENABLE_VDSP)
 #include "../vdsp_impl/vdsp_impl.hpp"
 using CFFTClass = zlbenchmark::VDSPFFT<F>;
 using RFFTClass = zlbenchmark::VDSPRFFT<F>;

@@ -61,7 +61,8 @@ namespace zlbenchmark {
         using C = std::complex<float>;
 
     public:
-        explicit IPPFFT(const int order) : order_(order), n_(fft_size(order)) {
+        explicit IPPFFT(const int order) :
+            order_(order), n_(fft_size(order)) {
             int specSize = 0, initSize = 0, bufSize = 0;
 
             IppStatus status =
@@ -90,6 +91,7 @@ namespace zlbenchmark {
         }
 
         IPPFFT(const IPPFFT&) = delete;
+
         IPPFFT& operator=(const IPPFFT&) = delete;
 
         ~IPPFFT() {
@@ -108,7 +110,7 @@ namespace zlbenchmark {
 
         void backward(C* in_buffer, C* out_buffer) {
             ippsFFTInv_CToC_32fc(reinterpret_cast<const Ipp32fc*>(in_buffer),
-                                     reinterpret_cast<Ipp32fc*>(out_buffer), spec_, work_buf_);
+                                 reinterpret_cast<Ipp32fc*>(out_buffer), spec_, work_buf_);
         }
 
     private:
@@ -126,7 +128,8 @@ namespace zlbenchmark {
         using C = std::complex<double>;
 
     public:
-        explicit IPPFFT(const int order) : order_(order), n_(fft_size(order)) {
+        explicit IPPFFT(const int order) :
+            order_(order), n_(fft_size(order)) {
             int specSize = 0, initSize = 0, bufSize = 0;
 
             IppStatus status =
@@ -155,6 +158,7 @@ namespace zlbenchmark {
         }
 
         IPPFFT(const IPPFFT&) = delete;
+
         IPPFFT& operator=(const IPPFFT&) = delete;
 
         ~IPPFFT() {
@@ -173,7 +177,7 @@ namespace zlbenchmark {
 
         void backward(C* in_buffer, C* out_buffer) {
             ippsFFTInv_CToC_64fc(reinterpret_cast<const Ipp64fc*>(in_buffer),
-                                     reinterpret_cast<Ipp64fc*>(out_buffer), spec_, work_buf_);
+                                 reinterpret_cast<Ipp64fc*>(out_buffer), spec_, work_buf_);
         }
 
     private:
@@ -185,6 +189,7 @@ namespace zlbenchmark {
         Ipp8u* spec_mem_{nullptr};
         Ipp8u* work_buf_{nullptr};
     };
+
     template <typename F, IPPSimdLevel kSimd = IPPSimdLevel::Auto>
     class IPPRFFT;
 
@@ -193,7 +198,8 @@ namespace zlbenchmark {
         using C = std::complex<float>;
 
     public:
-        explicit IPPRFFT(const int order) : order_(order), n_(fft_size(order)) {
+        explicit IPPRFFT(const int order) :
+            order_(order), n_(fft_size(order)) {
             int specSize = 0, initSize = 0, bufSize = 0;
             IppStatus status =
                 ippsFFTGetSize_R_32f(order_, IPP_FFT_NODIV_BY_ANY, ippAlgHintNone, &specSize, &initSize, &bufSize);
@@ -221,6 +227,7 @@ namespace zlbenchmark {
         }
 
         IPPRFFT(const IPPRFFT&) = delete;
+
         IPPRFFT& operator=(const IPPRFFT&) = delete;
 
         ~IPPRFFT() {
@@ -255,7 +262,8 @@ namespace zlbenchmark {
         using C = std::complex<double>;
 
     public:
-        explicit IPPRFFT(const int order) : order_(order), n_(fft_size(order)) {
+        explicit IPPRFFT(const int order) :
+            order_(order), n_(fft_size(order)) {
             int specSize = 0, initSize = 0, bufSize = 0;
             IppStatus status =
                 ippsFFTGetSize_R_64f(order_, IPP_FFT_NODIV_BY_ANY, ippAlgHintNone, &specSize, &initSize, &bufSize);
@@ -283,6 +291,7 @@ namespace zlbenchmark {
         }
 
         IPPRFFT(const IPPRFFT&) = delete;
+
         IPPRFFT& operator=(const IPPRFFT&) = delete;
 
         ~IPPRFFT() {

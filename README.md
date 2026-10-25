@@ -38,7 +38,7 @@ python3 benchmark/run.py accuracy cfft 2 20 --apis
 python3 benchmark/run.py accuracy rfft 2 20 --apis --double
 ```
 
-- **Library agreement (default)**: Compares `fftw3_estimate`, `kfr`, and `zldsp` (plus `vdsp` on macOS and `ipp` if installed) against their component-wise median, and verifies normalized round trips.
+- **Library agreement (default)**: Compares only `fftw3_estimate`, `kfr`, and `zldsp` against their component-wise median, and verifies normalized round trips.
 - **API consistency (`--apis`)**: Validates all `zldsp` AoS/SoA layouts, `forward_sqr_mag`, and `convolve` overloads against the reference AoS path and direct DFT.
 - **Metrics**: Reports worst relative RMSE and maximum absolute error across deterministic and random test signals. Fails if relative RMSE exceeds `--threshold` (`2e-5` for `float`, `2e-12` for `double`).
 - **Scaling**: `zldsp` backward RFFT yields `(N/2) * input`, so RFFT round trips scale by `2/N` (`1/N` for CFFT).
@@ -59,6 +59,8 @@ python3 benchmark/run.py throughput rfft 5 20 --apis
   - `--all-libraries`: `--standard-libraries` plus `fftw3` and `fftw3_estimate`.
   - `--apis`: Benchmark all `zldsp` AoS/SoA layouts, `forward_sqr_mag`, and fused vs. separate convolution.
 - **Measurement**: Plans and buffers are reused across repetitions, timing only transform execution. Memory is freed between transform sizes to keep peak usage low.
+- **Native formats**: vDSP uses split buffers with its native real-FFT packing and scaling; PFFFT uses unordered transforms with native packed spectra. No wrapper conversion, reordering or normalization is timed.
+- **Run order**: For each FFT order, all selected libraries (or `zldsp` APIs) run before advancing to the next order, keeping comparable measurements close together.
 - **Duration**: By default, measurement time scales exponentially from `--min-time0` (0.5s at `n0`) to `--min-time1` (5s at `n1`) per repetition. Use `--min-time <seconds>` for a fixed duration across all orders.
 - **Builds**: Selected backends are compiled before benchmarking. Use `--build-only` to compile without measuring, or `--skip-build` to benchmark existing binaries.
 - **Metrics**: Reports nominal **MFLOPS** from median single-call times across `--repeats` runs (`5*N*log2(N)` for CFFT, `2.5*N*log2(N)` for RFFT).
@@ -74,7 +76,7 @@ Compares performance between two git revisions (`--current`, default `HEAD`; `--
 
 ### Supported Backends
 
-`zldsp`, `fftw3`, `fftw3_estimate`, `kfr`, `pffft`, `vdsp`, `vdsp_stride_2`, `ipp`, `armpl`, `armpl_estimate`.
+`zldsp`, `fftw3`, `fftw3_estimate`, `kfr`, `pffft`, `vdsp`, `ipp`, `armpl`, `armpl_estimate`.
 
 - `fftw3` and `armpl` use `FFTW_MEASURE`; `*_estimate` variants use `FFTW_ESTIMATE`.
 - Set `ARMPL_DIR` for Arm Performance Libraries, and `IPP_ROOT` for Intel IPP installations outside default paths.

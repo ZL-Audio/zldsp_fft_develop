@@ -6,7 +6,7 @@ import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-ALGOS = ("zldsp", "fftw3", "fftw3_estimate", "kfr", "vdsp", "vdsp_stride_2",
+ALGOS = ("zldsp", "fftw3", "fftw3_estimate", "kfr", "vdsp",
          "pffft", "ipp", "armpl", "armpl_estimate")
 BENCHMARKS = tuple(f"{mode}_{kind}" for mode in
                    ("accuracy", "accuracy_mid", "throughput", "throughput_zldsp")
