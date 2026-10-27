@@ -671,7 +671,7 @@ namespace zldsp::fft::HWY_NAMESPACE::common {
     template <typename F, typename OutPtr>
     HWY_INLINE void execute_rfft_forward_post(SoAPtr<F> in, OutPtr out, const size_t cfft_order,
                                               const F* HWY_RESTRICT w) noexcept {
-        dispatch_rfft_tag<F>(cfft_order, [&](auto d) {
+        dispatch_rfft_tag<F>(cfft_order, [&](auto d) HWY_ATTR {
             execute_rfft_forward_post_internal(d, in, out, cfft_order, w);
         });
     }
@@ -745,7 +745,7 @@ namespace zldsp::fft::HWY_NAMESPACE::common {
     template <typename F, typename Ptr>
     HWY_INLINE void execute_rfft_forward_post_inplace(Ptr buffer, const size_t cfft_order,
                                                      const F* HWY_RESTRICT w) noexcept {
-        dispatch_rfft_tag<F>(cfft_order, [&](auto d) {
+        dispatch_rfft_tag<F>(cfft_order, [&](auto d) HWY_ATTR {
             execute_rfft_forward_post_inplace_internal(d, buffer, cfft_order, w);
         });
     }
@@ -830,7 +830,7 @@ namespace zldsp::fft::HWY_NAMESPACE::common {
     template <typename F, typename InPtr>
     HWY_INLINE void execute_rfft_backward_pre(InPtr in, SoAPtr<F> out, const size_t cfft_order,
                                               const F* HWY_RESTRICT w) noexcept {
-        dispatch_rfft_tag<F>(cfft_order, [&](auto d) {
+        dispatch_rfft_tag<F>(cfft_order, [&](auto d) HWY_ATTR {
             execute_rfft_backward_pre_internal(d, in, out, cfft_order, w);
         });
     }
@@ -933,7 +933,7 @@ namespace zldsp::fft::HWY_NAMESPACE::common {
     HWY_INLINE void execute_rfft_convolve(std::array<const F*, 2> in, SpectrumPtr spectrum,
                                           std::array<F*, 2> out, const size_t cfft_order,
                                           const F* HWY_RESTRICT w) noexcept {
-        dispatch_rfft_tag<F>(cfft_order, [&](auto d) {
+        dispatch_rfft_tag<F>(cfft_order, [&](auto d) HWY_ATTR {
             execute_rfft_convolve_internal(d, in, spectrum, out, cfft_order, w);
         });
     }
@@ -1017,7 +1017,7 @@ namespace zldsp::fft::HWY_NAMESPACE::common {
     HWY_INLINE void execute_rfft_forward_sqr_mag_post(SoAPtr<F> in, F* HWY_RESTRICT out,
                                                       const size_t cfft_order,
                                                       const F* HWY_RESTRICT w) noexcept {
-        dispatch_rfft_tag<F>(cfft_order, [&](auto d) {
+        dispatch_rfft_tag<F>(cfft_order, [&](auto d) HWY_ATTR {
             execute_rfft_forward_sqr_mag_post_internal(d, in, out, cfft_order, w);
         });
     }

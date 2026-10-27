@@ -736,7 +736,7 @@ namespace zldsp::fft::HWY_NAMESPACE::common {
         if constexpr (vector_bytes == 32) {
             for (size_t j = 0; j + lanes <= eighth_n; j += lanes) {
                 const Ptr in_shift = in.shift(Ptr::get_complex_offset(j));
-                auto load = [&](const size_t offset, auto& r, auto& i) {
+                auto load = [&](const size_t offset, auto& r, auto& i) HWY_ATTR {
                     load_complex<is_forward>(d, in_shift.shift(offset), r, i);
                 };
                 F* HWY_RESTRICT out_shift = out_aosoa + (j << 4);
@@ -1376,7 +1376,7 @@ namespace zldsp::fft::HWY_NAMESPACE::common {
         if constexpr (vector_bytes == 32) {
             for (size_t j = 0; j + lanes <= eighth_n; j += lanes) {
                 const F* HWY_RESTRICT in_shift = in_aosoa + (j << 1);
-                auto load = [&](const size_t offset, auto& r, auto& i) {
+                auto load = [&](const size_t offset, auto& r, auto& i) HWY_ATTR {
                     r = hn::Load(d, in_shift + offset);
                     i = hn::Load(d, in_shift + offset + lanes);
                 };

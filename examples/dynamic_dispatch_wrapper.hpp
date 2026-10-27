@@ -3,6 +3,7 @@
 #include <array>
 #include <complex>
 #include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <type_traits>
 
@@ -18,6 +19,8 @@ namespace zldsp_fft_example {
     public:
         virtual ~CFFT() = default;
 
+        virtual int64_t target() const noexcept = 0;
+
         virtual void forward(Complex<F>* input, Complex<F>* output) noexcept = 0;
         virtual void forward(Complex<F>* input, SoA<F> output) noexcept = 0;
         virtual void forward(SoA<F> input, Complex<F>* output) noexcept = 0;
@@ -32,6 +35,8 @@ namespace zldsp_fft_example {
     class RFFT {
     public:
         virtual ~RFFT() = default;
+
+        virtual int64_t target() const noexcept = 0;
 
         virtual void forward(F* input, Complex<F>* output) noexcept = 0;
         virtual void forward(F* input, SoA<F> output) noexcept = 0;

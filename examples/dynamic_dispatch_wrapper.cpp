@@ -8,6 +8,11 @@
 #include "zldsp_fft_cfft-inl.hpp"
 #include "zldsp_fft_rfft-inl.hpp"
 
+#ifdef ZLDSP_FFT_BACKEND_ONLY
+static_assert(HWY_TARGETS == ZLDSP_FFT_BACKEND_ONLY,
+              "Compile this backend with HWY_COMPILE_ONLY_STATIC and matching ISA flags");
+#endif
+
 HWY_BEFORE_NAMESPACE();
 
 namespace zldsp_fft_example::HWY_NAMESPACE {
@@ -16,6 +21,10 @@ namespace zldsp_fft_example::HWY_NAMESPACE {
     public:
         explicit CFFTImpl(const std::size_t order) :
             cfft_(order) {
+        }
+
+        int64_t target() const noexcept override {
+            return HWY_TARGET;
         }
 
         void forward(Complex<F>* input, Complex<F>* output) noexcept override {
@@ -59,6 +68,10 @@ namespace zldsp_fft_example::HWY_NAMESPACE {
     public:
         explicit RFFTImpl(const std::size_t order) :
             rfft_(order) {
+        }
+
+        int64_t target() const noexcept override {
+            return HWY_TARGET;
         }
 
         void forward(F* input, Complex<F>* output) noexcept override {
@@ -116,7 +129,7 @@ namespace zldsp_fft_example::HWY_NAMESPACE {
 
 HWY_AFTER_NAMESPACE();
 
-#if HWY_ONCE
+#if HWY_ONCE && !defined(ZLDSP_FFT_BACKEND_ONLY)
 
 namespace zldsp_fft_example {
     HWY_EXPORT(prepare_cfft_float_impl);
