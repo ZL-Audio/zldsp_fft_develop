@@ -36,7 +36,7 @@ namespace zldsp::fft::HWY_NAMESPACE::common {
      * @param r3
      */
     template <typename D, typename V>
-    inline void ZLDSP_FFT_VECTORCALL transpose_4x4(D d, V v0, V v1, V v2, V v3, V& r0, V& r1, V& r2, V& r3) noexcept {
+    HWY_INLINE void ZLDSP_FFT_VECTORCALL transpose_4x4(D d, V v0, V v1, V v2, V v3, V& r0, V& r1, V& r2, V& r3) noexcept {
         static constexpr size_t lanes = hn::MaxLanes(d);
         static constexpr size_t vector_bytes = D{}.MaxBytes();
 
