@@ -36,7 +36,7 @@ namespace zldsp::fft::HWY_NAMESPACE::common {
      * @param r3
      */
     template <typename D, typename V>
-    inline void transpose_4x4(D d, V v0, V v1, V v2, V v3, V& r0, V& r1, V& r2, V& r3) noexcept {
+    inline void ZLDSP_FFT_VECTORCALL transpose_4x4(D d, V v0, V v1, V v2, V v3, V& r0, V& r1, V& r2, V& r3) noexcept {
         static constexpr size_t lanes = hn::MaxLanes(d);
         static constexpr size_t vector_bytes = D{}.MaxBytes();
 
@@ -500,7 +500,7 @@ namespace zldsp::fft::HWY_NAMESPACE::common {
      * @param out_offset3
      */
     template <typename D, typename F>
-    HWY_INLINE void store_radix8_transpose(D d, F* HWY_RESTRICT out_shift,
+    HWY_INLINE void ZLDSP_FFT_VECTORCALL store_radix8_transpose(D d, F* HWY_RESTRICT out_shift,
                                            hn::Vec<D> t0, hn::Vec<D> t1, hn::Vec<D> t2, hn::Vec<D> t3,
                                            const size_t out_offset0, const size_t out_offset1,
                                            const size_t out_offset2, const size_t out_offset3) noexcept {
@@ -546,7 +546,7 @@ namespace zldsp::fft::HWY_NAMESPACE::common {
      * @param component_offset
      */
     template <typename D, typename F>
-    HWY_INLINE void store_radix8_first_pass_component(D d, F* HWY_RESTRICT out_shift,
+    HWY_INLINE void ZLDSP_FFT_VECTORCALL store_radix8_first_pass_component(D d, F* HWY_RESTRICT out_shift,
                                                        hn::Vec<D> y00, hn::Vec<D> y01,
                                                        hn::Vec<D> y02, hn::Vec<D> y03,
                                                        hn::Vec<D> y10, hn::Vec<D> y11,

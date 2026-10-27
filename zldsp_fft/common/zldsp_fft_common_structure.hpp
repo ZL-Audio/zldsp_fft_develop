@@ -12,6 +12,14 @@
 
 #include <hwy/highway.h>
 
+#ifndef ZLDSP_FFT_VECTORCALL
+#if defined(_MSC_VER) && (defined(_M_IX86) || defined(_M_X64)) && !defined(_M_ARM64EC)
+#define ZLDSP_FFT_VECTORCALL __vectorcall
+#else
+#define ZLDSP_FFT_VECTORCALL
+#endif
+#endif
+
 HWY_BEFORE_NAMESPACE();
 
 namespace zldsp::fft::HWY_NAMESPACE::common {
@@ -87,7 +95,7 @@ namespace zldsp::fft::HWY_NAMESPACE::common {
      * @param i
      */
     template <bool is_forward, typename D, typename Ptr, typename V>
-    HWY_INLINE void store_complex(D d, Ptr ptr, const V r, const V i) noexcept {
+    HWY_INLINE void ZLDSP_FFT_VECTORCALL store_complex(D d, Ptr ptr, const V r, const V i) noexcept {
         using F = hn::TFromD<D>;
         if constexpr (std::is_same_v<Ptr, SoAPtr<F>>) {
             if constexpr (is_forward) {
