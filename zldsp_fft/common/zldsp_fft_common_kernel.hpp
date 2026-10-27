@@ -342,10 +342,10 @@ namespace zldsp::fft::HWY_NAMESPACE::common {
 
             const auto v0_r = y10_r, v0_i = y10_i;
             const auto v1_r = hn::Mul(hn::Add(y11_r, y11_i), inv_sqrt2),
-                       v1_i = hn::Mul(hn::Sub(y11_i, y11_r), inv_sqrt2);
+                v1_i = hn::Mul(hn::Sub(y11_i, y11_r), inv_sqrt2);
             const auto v2_r = y12_i, v2_i = hn::Neg(y12_r);
             const auto v3_r = hn::Mul(hn::Sub(y13_i, y13_r), inv_sqrt2),
-                       v3_i = hn::Mul(hn::Neg(hn::Add(y13_r, y13_i)), inv_sqrt2);
+                v3_i = hn::Mul(hn::Neg(hn::Add(y13_r, y13_i)), inv_sqrt2);
 
             const auto z00_r = hn::Add(y00_r, v0_r), z00_i = hn::Add(y00_i, v0_i);
             const auto z01_r = hn::Add(y01_r, v1_r), z01_i = hn::Add(y01_i, v1_i);

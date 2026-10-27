@@ -501,9 +501,12 @@ namespace zldsp::fft::HWY_NAMESPACE::common {
      */
     template <typename D, typename F>
     HWY_INLINE void ZLDSP_FFT_VECTORCALL store_radix8_transpose(D d, F* HWY_RESTRICT out_shift,
-                                           hn::Vec<D> t0, hn::Vec<D> t1, hn::Vec<D> t2, hn::Vec<D> t3,
-                                           const size_t out_offset0, const size_t out_offset1,
-                                           const size_t out_offset2, const size_t out_offset3) noexcept {
+                                                                hn::Vec<D> t0, hn::Vec<D> t1,
+                                                                hn::Vec<D> t2, hn::Vec<D> t3,
+                                                                const size_t out_offset0,
+                                                                const size_t out_offset1,
+                                                                const size_t out_offset2,
+                                                                const size_t out_offset3) noexcept {
         static constexpr size_t vector_bytes = D{}.MaxBytes();
         static_assert(vector_bytes == 32, "radix-8 streamed transpose requires 256-bit vectors");
         if constexpr (sizeof(F) == 8) {
@@ -547,11 +550,11 @@ namespace zldsp::fft::HWY_NAMESPACE::common {
      */
     template <typename D, typename F>
     HWY_INLINE void ZLDSP_FFT_VECTORCALL store_radix8_first_pass_component(D d, F* HWY_RESTRICT out_shift,
-                                                       hn::Vec<D> y00, hn::Vec<D> y01,
-                                                       hn::Vec<D> y02, hn::Vec<D> y03,
-                                                       hn::Vec<D> y10, hn::Vec<D> y11,
-                                                       hn::Vec<D> y12, hn::Vec<D> y13,
-                                                       const size_t component_offset) noexcept {
+                                                                           hn::Vec<D> y00, hn::Vec<D> y01,
+                                                                           hn::Vec<D> y02, hn::Vec<D> y03,
+                                                                           hn::Vec<D> y10, hn::Vec<D> y11,
+                                                                           hn::Vec<D> y12, hn::Vec<D> y13,
+                                                                           const size_t component_offset) noexcept {
         static constexpr size_t lanes = hn::MaxLanes(d);
 
         hn::Vec<D> lower_t0, lower_t2, upper_t0, upper_t2;
@@ -918,8 +921,8 @@ namespace zldsp::fft::HWY_NAMESPACE::common {
      */
     template <bool is_forward, typename F, typename Ptr>
     inline void radix4_first_pass_dif_fused_aosoa_range(Ptr in, F* HWY_RESTRICT out_aosoa,
-                                                       const size_t n, const size_t count,
-                                                       const F* HWY_RESTRICT w) noexcept {
+                                                        const size_t n, const size_t count,
+                                                        const F* HWY_RESTRICT w) noexcept {
         static constexpr hn::ScalableTag<F> d;
         static constexpr size_t lanes = hn::MaxLanes(d);
 
@@ -1129,14 +1132,16 @@ namespace zldsp::fft::HWY_NAMESPACE::common {
      */
     template <typename F>
     HWY_NOINLINE void reconstruct_macro_twiddle_tile(const F* HWY_RESTRICT w, const size_t tile_width,
-                                                      const size_t tile_index, F* HWY_RESTRICT tile) noexcept {
+                                                     const size_t tile_index, F* HWY_RESTRICT tile) noexcept {
         static constexpr hn::ScalableTag<F> d;
         static constexpr size_t lanes = hn::MaxLanes(d);
         const F* coarse = w + 6 * tile_width + 6 * tile_index;
-        for (size_t m = 0; m < 3; ++m) {
-            const auto cr = hn::Set(d, coarse[2 * m]);
-            const auto ci = hn::Set(d, coarse[2 * m + 1]);
-            for (size_t r = 0; r < tile_width; r += lanes) {
+        HWY_UNROLL(1)
+        for (size_t r = 0; r < tile_width; r += lanes) {
+            HWY_UNROLL(3)
+            for (size_t m = 0; m < 3; ++m) {
+                const auto cr = hn::Set(d, coarse[2 * m]);
+                const auto ci = hn::Set(d, coarse[2 * m + 1]);
                 const size_t offset = 6 * r + 2 * m * lanes;
                 const auto fr = hn::Load(d, w + offset);
                 const auto fi = hn::Load(d, w + offset + lanes);
@@ -1165,8 +1170,9 @@ namespace zldsp::fft::HWY_NAMESPACE::common {
                                                     const size_t n, const F* HWY_RESTRICT w,
                                                     const size_t tile_width, F* HWY_RESTRICT tile) noexcept {
         const size_t width = n >> 2;
-        for (size_t begin = 0; begin < width; begin += tile_width) {
-            reconstruct_macro_twiddle_tile(w, tile_width, begin / tile_width, tile);
+        radix4_first_pass_dif_fused_aosoa_range<is_forward>(in, out_aosoa, n, tile_width, w);
+        for (size_t begin = tile_width, tile_index = 1; begin < width; begin += tile_width, ++tile_index) {
+            reconstruct_macro_twiddle_tile(w, tile_width, tile_index, tile);
             radix4_first_pass_dif_fused_aosoa_range<is_forward>(
                 in.shift(Ptr::get_complex_offset(begin)), out_aosoa + 2 * begin, n, tile_width, tile);
         }
@@ -1250,14 +1256,15 @@ namespace zldsp::fft::HWY_NAMESPACE::common {
         const size_t sub_n = width << 2;
         for (size_t block = 0; block < n; block += sub_n) {
             F* block_workspace = workspace + 2 * block;
-            for (size_t begin = 0; begin < width; begin += tile_width) {
-                reconstruct_macro_twiddle_tile(w, tile_width, begin / tile_width, tile);
+            radix4_dif_aosoa_block_range(block_workspace, width, tile_width, w);
+            for (size_t begin = tile_width, tile_index = 1; begin < width; begin += tile_width, ++tile_index) {
+                reconstruct_macro_twiddle_tile(w, tile_width, tile_index, tile);
                 radix4_dif_aosoa_block_range(block_workspace + 2 * begin, width, tile_width, tile);
             }
             // finish the entire parent before descendants reuse the tile
             if (num_stages > 1) {
                 radix4_dif_compact_aosoa_depth_first(block_workspace, sub_n, width >> 2, num_stages - 1,
-                                                      w + stages[0].w_stride, stages + 1, tile);
+                                                     w + stages[0].w_stride, stages + 1, tile);
             }
         }
     }

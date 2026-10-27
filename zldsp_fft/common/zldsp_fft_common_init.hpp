@@ -303,7 +303,7 @@ namespace zldsp::fft::HWY_NAMESPACE::common {
                         const size_t coarse_scalars = 6 * (width / stage_tile_width);
                         // keep every subsequent stage aligned for SIMD loads
                         const size_t compact_stride = 6 * stage_tile_width +
-                                                      ((coarse_scalars + lanes - 1) / lanes) * lanes;
+                            ((coarse_scalars + lanes - 1) / lanes) * lanes;
                         stage = {compact_stride, stage_tile_width};
                     }
                 }
@@ -329,7 +329,7 @@ namespace zldsp::fft::HWY_NAMESPACE::common {
                 const double phase_step = -2.0 / static_cast<double>(sub_n);
                 for (size_t b = 0; b < num_blocks; ++b) {
                     for (size_t l = 0; l < lanes; ++l) {
-                        const size_t index = (b * lanes + l) % width;
+                        const size_t index = (b * lanes + l) & (width - 1);
                         const auto phase = static_cast<double>(index) * phase_step;
                         static constexpr int kMultipliers[] = {1, 2, 3};
                         for (size_t m = 0; m < 3; ++m) {

@@ -501,7 +501,8 @@ namespace zldsp::fft::HWY_NAMESPACE::common {
             if constexpr (vector_bytes == 32) {
                 common::radix4_dif_compact_aosoa_depth_first(macro_workspace,
                                                              state.cfft_size, width, remaining_stages,
-                                                             w, state.macro_stages.data() + 1, state.macro_w_tile.get());
+                                                             w, state.macro_stages.data() + 1,
+                                                             state.macro_w_tile.get());
             } else {
                 common::radix4_dif_aosoa_depth_first(macro_workspace,
                                                      state.cfft_size, width, remaining_stages,
@@ -688,8 +689,8 @@ namespace zldsp::fft::HWY_NAMESPACE::common {
      */
     template <typename D, typename F, typename Ptr>
     HWY_INLINE void execute_rfft_forward_post_inplace_internal(D d, Ptr buffer,
-                                                              const size_t cfft_order,
-                                                              const F* HWY_RESTRICT w) noexcept {
+                                                               const size_t cfft_order,
+                                                               const F* HWY_RESTRICT w) noexcept {
         const size_t cfft_size = static_cast<size_t>(1) << cfft_order;
         static constexpr size_t lanes = hn::MaxLanes(d);
 
@@ -744,7 +745,7 @@ namespace zldsp::fft::HWY_NAMESPACE::common {
      */
     template <typename F, typename Ptr>
     HWY_INLINE void execute_rfft_forward_post_inplace(Ptr buffer, const size_t cfft_order,
-                                                     const F* HWY_RESTRICT w) noexcept {
+                                                      const F* HWY_RESTRICT w) noexcept {
         dispatch_rfft_tag<F>(cfft_order, [&](auto d) HWY_ATTR {
             execute_rfft_forward_post_inplace_internal(d, buffer, cfft_order, w);
         });
