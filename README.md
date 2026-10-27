@@ -124,7 +124,7 @@ target_link_libraries(my_separate_target PRIVATE zldsp_fft_separate_dispatch)
 
 The list is required. Choose from `SSE2`, `SSE4`, and `AVX2`; `SSE4` requires Clang/clang-cl or GCC. Include `SSE2` for a baseline fallback; plan creation throws if none of the selected backends supports the CPU.
 
-Compile the application and Highway for the SSE2 baseline. Link this target instead of compiling `dynamic_dispatch_wrapper.cpp` directly.
+Choose the application, Highway, and dispatcher baseline in your own build settings. The dispatcher inherits those settings; this helper sets ISA flags only on the selected backends. An `AVX2`-only list can use an AVX2 baseline. Link this target instead of compiling `dynamic_dispatch_wrapper.cpp` directly.
 
 See [`wrapper`](examples/separate_dispatch_wrapper.cpp), [`interface`](examples/dynamic_dispatch_wrapper.hpp), and [`dynamic_dispatch_caller`](examples/dynamic_dispatch_caller.cpp) for complete examples.
 
