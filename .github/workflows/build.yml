@@ -65,6 +65,13 @@ jobs:
           cmake --build build-dynamic --target zldsp_fft_dynamic_dispatch_example --parallel
           ./build-dynamic/zldsp_fft_dynamic_dispatch_example 5 20
 
+      - name: Build and run separate dispatch (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          cmake -S . -B build-separate -DSEPARATE_DISPATCH_EXAMPLE=ON "-DZLDSP_FFT_SEPARATE_TARGETS=SSE2;SSE4;AVX2" -DUSE_SSE2=ON -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-separate --target zldsp_fft_separate_dispatch_example --parallel
+          ./build-separate/zldsp_fft_separate_dispatch_example 5 20
+
       - name: Build and run NEON static dispatch (macOS)
         if: runner.os == 'macOS'
         run: |
@@ -111,3 +118,14 @@ jobs:
           cmake -S . -B build-dynamic -DDYNAMIC_DISPATCH_EXAMPLE=ON -DUSE_SSE2=ON
           cmake --build build-dynamic --config Release --target zldsp_fft_dynamic_dispatch_example --parallel
           build-dynamic\Release\zldsp_fft_dynamic_dispatch_example.exe 5 20
+
+      - name: Build and run separate dispatch (Windows)
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: |
+          for /f "usebackq tokens=*" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "VS_PATH=%%i"
+          if not defined VS_PATH exit /b 1
+          call "%VS_PATH%\VC\Auxiliary\Build\vcvars64.bat" || exit /b 1
+          cmake -S . -B build-separate -A x64 -DSEPARATE_DISPATCH_EXAMPLE=ON "-DZLDSP_FFT_SEPARATE_TARGETS=SSE2;AVX2" -DUSE_SSE2=ON || exit /b 1
+          cmake --build build-separate --config Release --target zldsp_fft_separate_dispatch_example --parallel || exit /b 1
+          build-separate\Release\zldsp_fft_separate_dispatch_example.exe 5 20
