@@ -6,7 +6,7 @@ If you want to use `zldsp::fft` in your project, please refer to [zldsp_fft](htt
 
 ## Usage
 
-Requirements: `Clang` (`AppleClang 16+` or `LLVM/Clang 17+`), `CMake` (`3.20+`), and `Ninja`. On Windows, run from a Visual Studio developer shell.
+Requirements: `Clang` (`AppleClang 16+` or `LLVM/Clang 17+`), `CMake` (`3.25+`), and `Ninja`. On Windows, run from a Visual Studio developer shell.
 
 ```console
 git clone https://github.com/ZL-Audio/zldsp_fft_develop
@@ -125,6 +125,8 @@ target_link_libraries(my_separate_target PRIVATE zldsp_fft_separate_dispatch)
 The list is required. Choose from `SSE2`, `SSE4`, and `AVX2`; `SSE4` requires Clang/clang-cl or GCC. Include `SSE2` for a baseline fallback; plan creation throws if none of the selected backends supports the CPU.
 
 Choose the application, Highway, and dispatcher baseline in your own build settings. The dispatcher inherits those settings; this helper sets ISA flags only on the selected backends. An `AVX2`-only list can use an AVX2 baseline. Link this target instead of compiling `dynamic_dispatch_wrapper.cpp` directly.
+
+IPO and PIC inherit your `CMAKE_INTERPROCEDURAL_OPTIMIZATION` and `CMAKE_POSITION_INDEPENDENT_CODE` settings when the targets are created.
 
 See [`wrapper`](examples/separate_dispatch_wrapper.cpp), [`interface`](examples/dynamic_dispatch_wrapper.hpp), and [`dynamic_dispatch_caller`](examples/dynamic_dispatch_caller.cpp) for complete examples.
 
