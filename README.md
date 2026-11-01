@@ -98,7 +98,7 @@ Use compiler flags to select a static SIMD target:
 | AVX2        | `-march=x86-64-v3 -maes -mpclmul` | `/arch:AVX2`     |
 | NEON        | `-march=armv8-a+simd`             | `/arch:armv8.0`  |
 
-See [`static_dispatch_caller`](examples/static_dispatch_caller.cpp) for CFFT and RFFT examples.
+See [`static_dispatch_caller`](examples/static_dispatch_caller.cpp) for complete examples.
 
 ### Caller-owned Dynamic Dispatch
 
@@ -112,6 +112,9 @@ Compile this target for the oldest supported baseline (e.g. `-march=x86-64` for 
 
 See [`wrapper`](examples/dynamic_dispatch_wrapper.cpp), [`interface`](examples/dynamic_dispatch_wrapper.hpp), and [`dynamic_dispatch_caller`](examples/dynamic_dispatch_caller.cpp) for complete examples.
 
+> [!WARNING]
+> MSVC may cause **severe performance degradation** when the dispatch target is AVX2 and the supported baseline is SSE2. Please use separately compiled dispatch if you need runtime dispatch with MSVC.
+
 ### Separately Compiled Dispatch
 
 An x86-64 application can choose its separately compiled backends, with Highway already available as the `hwy` target:
@@ -122,11 +125,9 @@ include(path/to/zldsp_fft_develop/examples/separate_dispatch.cmake)
 target_link_libraries(my_separate_target PRIVATE zldsp_fft_separate_dispatch)
 ```
 
-The list is required. Choose from `SSE2`, `SSE4`, and `AVX2`; `SSE4` requires Clang/clang-cl or GCC. Include `SSE2` for a baseline fallback; plan creation throws if none of the selected backends supports the CPU.
+Choose the compiled backends from `SSE2`, `SSE4`, and `AVX2`, where `SSE4` is not supported by MSVC.
 
-Choose the application, Highway, and dispatcher baseline in your own build settings. The dispatcher inherits those settings; this helper sets ISA flags only on the selected backends. An `AVX2`-only list can use an AVX2 baseline. Link this target instead of compiling `dynamic_dispatch_wrapper.cpp` directly.
-
-IPO and PIC inherit your `CMAKE_INTERPROCEDURAL_OPTIMIZATION` and `CMAKE_POSITION_INDEPENDENT_CODE` settings when the targets are created.
+Choose the application, Highway, and dispatcher baseline in your own build settings. This helper sets ISA flags only on the selected backends. Link this target instead of compiling `dynamic_dispatch_wrapper.cpp` directly.
 
 See [`wrapper`](examples/separate_dispatch_wrapper.cpp), [`interface`](examples/dynamic_dispatch_wrapper.hpp), and [`dynamic_dispatch_caller`](examples/dynamic_dispatch_caller.cpp) for complete examples.
 
