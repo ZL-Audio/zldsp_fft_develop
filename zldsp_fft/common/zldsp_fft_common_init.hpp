@@ -138,15 +138,29 @@ namespace zldsp::fft::HWY_NAMESPACE::common {
         size_t offset = 0;
         size_t width = (order == 4 ? 4 : 8);
         for (size_t i = 0; i < 2; ++i) {
-            const twiddle::Stage<F> roots(width << 2, 3 * (width - 1));
-            for (int mul = 1; mul < 4; ++mul) {
-                for (size_t k = 0; k < width; ++k, ++offset) {
-                    const auto p = roots.forward(k * static_cast<size_t>(mul));
-                    w_r[offset] = p.c;
-                    w_i[offset] = p.s;
-                }
-            }
+            twiddle::generate_radix4<F>(width << 2, [&](const size_t m, const size_t k, const twiddle::Pair<F> p) {
+                w_r[offset + m * width + k] = p.c;
+                w_i[offset + m * width + k] = p.s;
+            });
+            offset += 3 * width;
             width <<= 2;
+        }
+    }
+
+    // emit directly into SIMD blocks
+    template <typename F, size_t lanes>
+    inline void generate_dense_radix4_w(const size_t width, F* const w) {
+        twiddle::generate_radix4<F>(width << 2, [&](const size_t m, const size_t k, const twiddle::Pair<F> p) {
+            const size_t offset = (k / lanes) * 6 * lanes + 2 * m * lanes + k % lanes;
+            w[offset] = p.c;
+            w[offset + lanes] = p.s;
+        });
+        // repeat small stages to fill SIMD lanes
+        for (size_t k = width; k < lanes; ++k) {
+            for (size_t m = 0; m < 3; ++m) {
+                w[2 * m * lanes + k] = w[2 * m * lanes + (k & (width - 1))];
+                w[(2 * m + 1) * lanes + k] = w[(2 * m + 1) * lanes + (k & (width - 1))];
+            }
         }
     }
 
@@ -189,30 +203,12 @@ namespace zldsp::fft::HWY_NAMESPACE::common {
             for (size_t i = 1; i < stages.size(); ++i) {
                 const auto stage = stages[i];
                 if (stage == StageType::kRadix4Width4) {
-                    const twiddle::Stage<F> roots(width << 2, 3 * (width - 1));
-                    for (size_t l = 0; l < width4_size; ++l) {
-                        for (size_t m = 0; m < 3; ++m) {
-                            const auto p = roots.forward((l % 4) * (m + 1));
-                            w[offset + 2 * m * width4_size + l] = p.c;
-                            w[offset + (2 * m + 1) * width4_size + l] = p.s;
-                        }
-                    }
+                    generate_dense_radix4_w<F, width4_size>(width, w.get() + offset);
                     offset += w_strides[i];
                     width <<= 2;
                 } else if (stage == StageType::kRadix4 || stage == StageType::kRadix4LastPass) {
-                    const size_t num_blocks = std::max<size_t>(1, width / lanes);
-                    const twiddle::Stage<F> roots(width << 2, 3 * (width - 1));
-                    for (size_t b = 0; b < num_blocks; ++b) {
-                        for (size_t l = 0; l < lanes; ++l) {
-                            const size_t index = (b * lanes + l) % width;
-                            for (size_t m = 0; m < 3; ++m) {
-                                const auto p = roots.forward(index * (m + 1));
-                                w[offset + 2 * m * lanes + l] = p.c;
-                                w[offset + (2 * m + 1) * lanes + l] = p.s;
-                            }
-                        }
-                        offset += 6 * lanes;
-                    }
+                    generate_dense_radix4_w<F, lanes>(width, w.get() + offset);
+                    offset += w_strides[i];
                     width <<= 2;
                 }
             }
@@ -320,29 +316,23 @@ namespace zldsp::fft::HWY_NAMESPACE::common {
                 const size_t sub_n = n >> (2 * i);
                 const size_t width = sub_n >> 2;
                 const auto& stage = stages[i];
-                const size_t fine_width = stage.tile_width != 0 ? stage.tile_width : width;
-                const size_t num_blocks = std::max<size_t>(1, fine_width / lanes);
-                const twiddle::Stage<F> roots(sub_n, 3 * (fine_width - 1));
-                for (size_t b = 0; b < num_blocks; ++b) {
-                    for (size_t l = 0; l < lanes; ++l) {
-                        const size_t index = (b * lanes + l) & (width - 1);
-                        for (size_t m = 0; m < 3; ++m) {
-                            const auto p = roots.forward(index * (m + 1));
-                            w[offset + b * 6 * lanes + 2 * m * lanes + l] = p.c;
-                            w[offset + b * 6 * lanes + (2 * m + 1) * lanes + l] = p.s;
+                if (stage.tile_width == 0) {
+                    generate_dense_radix4_w<F, lanes>(width, w.get() + offset);
+                } else {
+                    const size_t num_blocks = std::max<size_t>(1, stage.tile_width / lanes);
+                    const twiddle::Stage<F> roots(sub_n, 3 * (stage.tile_width - 1));
+                    for (size_t b = 0; b < num_blocks; ++b) {
+                        for (size_t l = 0; l < lanes; ++l) {
+                            const size_t index = (b * lanes + l) & (width - 1);
+                            for (size_t m = 0; m < 3; ++m) {
+                                const auto p = roots.forward(index * (m + 1));
+                                w[offset + b * 6 * lanes + 2 * m * lanes + l] = p.c;
+                                w[offset + b * 6 * lanes + (2 * m + 1) * lanes + l] = p.s;
+                            }
                         }
                     }
-                }
-                if (stage.tile_width != 0) {
                     F* coarse = w.get() + offset + 6 * stage.tile_width;
-                    const twiddle::Stage<F> coarse_roots(sub_n / stage.tile_width, 3 * (width / stage.tile_width - 1));
-                    for (size_t q = 0; q < width / stage.tile_width; ++q) {
-                        for (size_t m = 0; m < 3; ++m) {
-                            const auto p = coarse_roots.forward(q * (m + 1));
-                            coarse[q * 6 + 2 * m] = p.c;
-                            coarse[q * 6 + 2 * m + 1] = p.s;
-                        }
-                    }
+                    generate_dense_radix4_w<F, 1>(width / stage.tile_width, coarse);
                 }
                 offset += stage.w_stride;
             }

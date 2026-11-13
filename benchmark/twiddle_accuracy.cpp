@@ -1,4 +1,4 @@
-// Independent MPFR coefficient audit.
+// independent MPFR coefficient audit
 #include "zldsp_fft_cfft.hpp"
 #include "zldsp_fft_rfft.hpp"
 
@@ -10,7 +10,6 @@
 #include <cmath>
 #include <cstdint>
 #include <iostream>
-#include <limits>
 #include <random>
 #include <stdexcept>
 #include <string>
@@ -34,7 +33,7 @@ namespace {
             for (mpfr_prec_t precision = 192; precision <= 3072; precision *= 2) {
                 mpfr_set_prec(lower_, precision);
                 mpfr_set_prec(upper_, precision);
-                // Indices below 2^30 are exactly representable.
+                // indices below 2^30 are exact
                 mpfr_set_d(x_, static_cast<double>(k), MPFR_RNDN);
                 mpfr_mul_2si(x_, x_, 1 - static_cast<long>(std::countr_zero(n)), MPFR_RNDN);
                 if (forward) {
@@ -64,7 +63,7 @@ namespace {
         void product(const double a, const double b, double& hi, double& lo) {
             mpfr_set_prec(lower_, 192);
             mpfr_set_d(x_, a, MPFR_RNDN);
-            mpfr_mul_d(lower_, x_, b, MPFR_RNDN); // Exact binary64 product at 192 bits.
+            mpfr_mul_d(lower_, x_, b, MPFR_RNDN); // exact binary64 product at 192 bits
             hi = mpfr_get_d(lower_, MPFR_RNDN);
             mpfr_sub_d(lower_, lower_, hi, MPFR_RNDN);
             lo = mpfr_get_d(lower_, MPFR_RNDN);
@@ -83,7 +82,7 @@ namespace {
         void check(const F actual, const F expected, const char* label, const size_t n, const size_t k,
                    const bool allow_float_rounding = false) {
             ++checked;
-            if (actual == expected) { // Accept either sign of zero.
+            if (actual == expected) { // accept either zero sign
                 return;
             }
             if (!std::isfinite(actual)) {
@@ -129,7 +128,7 @@ namespace {
         template <typename F, typename Expected>
         void coefficient(const F actual, const Expected expected, const char* label,
                          const size_t n, const size_t k) {
-            // Keep embedded grids, axes, and diagonals exact.
+            // keep embedded grids, axes, and diagonals exact
             const bool allow = std::is_same_v<F, float> && n > 1024 && (k & (n / 8 - 1)) != 0;
             check(actual, expected, label, n, k, allow);
         }
@@ -148,13 +147,6 @@ namespace {
             stats.check(p.hi, hi, "product high", 0, 0);
             stats.check(p.lo, lo, "product residual", 0, 0);
         }
-        // Check both sides of float midpoints, including signs and binade boundaries.
-        for (const float x : {0.5f, 0.75f, std::nextafter(1.0f, 0.0f), 1.0f, -0.5f, -1.0f}) {
-            const float y = std::nextafter(x, std::numeric_limits<float>::infinity());
-            const double midpoint = (static_cast<double>(x) + static_cast<double>(y)) * 0.5;
-            stats.check(tw::rounded<float>({midpoint, 0x1p-80}), y, "float midpoint above", 0, 0);
-            stats.check(tw::rounded<float>({midpoint, -0x1p-80}), x, "float midpoint below", 0, 0);
-        }
     }
 
     std::vector<size_t> sampled_indices(const unsigned order) {
@@ -171,13 +163,13 @@ namespace {
             indices.push_back(random() % (last + 1));
         }
         for (size_t j = 0; j <= 128; ++j) {
-            neighbors(last * j / 128); // Seed-anchor boundaries.
+            neighbors(last * j / 128); // seed boundaries
             neighbors(std::min(last, j * split));
             neighbors(last - std::min(last, j * split));
         }
-        // Order-28 regression from the compensated-split study.
+        // order-28 split regression
         if (order == 28) neighbors(n / 2 - 124806999);
-        // Float RFFT affine rounding midpoint.
+        // float RFFT rounding midpoint
         if (order == 30) neighbors(93157219);
         std::sort(indices.begin(), indices.end());
         indices.erase(std::unique(indices.begin(), indices.end()), indices.end());
@@ -196,8 +188,8 @@ namespace {
             const auto cf = tw::rfft_weights(f);
             const auto md = tw::rfft_weights(tw::Anchor{a.s, a.c});
             const auto mf = tw::rfft_weights(tw::Pair<double>{f.s, f.c});
-            stats.check(tw::rounded<double>(a.c), c, "cos", n, k);
-            stats.check(tw::rounded<double>(a.s), s, "sin", n, k);
+            stats.check(a.c.hi, c, "cos", n, k);
+            stats.check(a.s.hi, s, "sin", n, k);
             stats.coefficient(static_cast<float>(f.c), c, "cos", n, k);
             stats.coefficient(static_cast<float>(f.s), s, "sin", n, k);
             stats.check(cd.c, c.d * 0.5, "cos/2", n, k);
@@ -226,7 +218,21 @@ namespace {
             stats.coefficient(p.c, oracle.get(k, n, false, false, true), "fold cosine", n, k);
             stats.coefficient(p.s, oracle.get(k, n, true, false, true), "fold sine", n, k);
         }
-        // Exercise folded aliases of a partial octant.
+        // check single writes against folded roots
+        const size_t width = n / 4;
+        std::vector<unsigned char> written(3 * width);
+        tw::generate_radix4<F>(n, [&](const size_t m, const size_t k, const tw::Pair<F> p) {
+            if (m >= 3 || k >= width || written[m * width + k]++) {
+                throw std::runtime_error("Invalid or duplicate dense twiddle write");
+            }
+            const auto expected = roots.forward(k * (m + 1));
+            stats.check(p.c, expected.c, "dense cosine", n, k * (m + 1));
+            stats.check(p.s, expected.s, "dense sine", n, k * (m + 1));
+        });
+        if (std::find(written.begin(), written.end(), 0) != written.end()) {
+            throw std::runtime_error("Missing dense twiddle write");
+        }
+        // check partial-octant aliases
         const size_t last = std::min<size_t>(7, n / 8);
         const tw::Stage<F> prefix(n, last);
         for (size_t k = 0; k <= last; ++k) {

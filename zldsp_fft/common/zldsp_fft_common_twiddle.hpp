@@ -10,8 +10,6 @@
 #include <cassert>
 #include <cmath>
 #include <cstddef>
-#include <cstdint>
-#include <limits>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -96,34 +94,13 @@ namespace zldsp::fft::HWY_NAMESPACE::common::twiddle {
 #endif
     }
 
-    template <typename F>
-    [[nodiscard]] inline F rounded(const DoubleDouble a) noexcept {
-        static_assert(std::is_same_v<F, float> || std::is_same_v<F, double>);
-        if constexpr (std::is_same_v<F, double>) {
-            // normalized hi is already rounded to binary64
-            return a.hi;
-        } else {
-            const float hi = static_cast<float>(a.hi);
-            // use the residual to resolve binary32 midpoint ties
-            // nonzero twiddles are normal floats
-            constexpr std::uint64_t mask = (std::uint64_t{1} << 29) - 1;
-            constexpr std::uint64_t midpoint = std::uint64_t{1} << 28;
-            if ((std::bit_cast<std::uint64_t>(a.hi) & mask) == midpoint &&
-                ((a.lo > 0.0 && static_cast<double>(hi) < a.hi) ||
-                 (a.lo < 0.0 && static_cast<double>(hi) > a.hi))) {
-                return std::nextafter(hi, a.lo > 0.0 ? std::numeric_limits<float>::infinity()
-                                                   : -std::numeric_limits<float>::infinity());
-            }
-            return hi;
-        }
-    }
-
     [[nodiscard]] inline Pair<double> rfft_weights(const Anchor a) noexcept {
         // retain the residual through 1 + sin(theta), with 0 <= sin(theta) <= 1
         // final scaling by 0.5 is exact
         const auto sum = normalize(1.0, a.s.hi);
         const auto shifted = normalize(sum.hi, sum.lo + a.s.lo);
-        return {0.5 * rounded<double>(a.c), 0.5 * rounded<double>(shifted)};
+        // high words are already rounded
+        return {0.5 * a.c.hi, 0.5 * shifted.hi};
     }
 
     [[nodiscard]] inline Pair<float> rfft_weights(const Pair<double> a) noexcept {
@@ -213,6 +190,42 @@ namespace zldsp::fft::HWY_NAMESPACE::common::twiddle {
         std::vector<Anchor> anchors_;
     };
 
+    // write(m, k, p): forward root at (m + 1) * k
+    template <typename F, typename Write>
+    inline void generate_radix4(const size_t n, const Write& write) {
+        const size_t quarter = n / 4, half_n = n / 2, last = n / 8;
+        const SplitTable table(n, last, std::is_same_v<F, float>);
+        const auto emit = [&](const size_t index, const Pair<F> p) {
+            if (index < quarter) {
+                write(0, index, p);
+            }
+            if (index < half_n && (index & 1) == 0) {
+                write(1, index / 2, p);
+            }
+            if (index % 3 == 0) {
+                write(2, index / 3, p);
+            }
+        };
+        for (size_t k = 0; k <= last; ++k) {
+            const auto a = table.octant<F>(k);
+            Pair<F> p;
+            if constexpr (std::is_same_v<F, float>) {
+                p = {static_cast<float>(a.c), static_cast<float>(a.s)};
+            } else {
+                p = {a.c.hi, a.s.hi};
+            }
+            // emit each phase in [0, 3*n/4) once
+            emit(k, {p.c, -p.s});
+            emit(quarter + k, {-p.s, -p.c});
+            emit(half_n + k, {-p.c, p.s});
+            if (k != 0 && k != last) {
+                emit(quarter - k, {p.s, -p.c});
+                emit(half_n - k, {-p.c, -p.s});
+                emit(3 * quarter - k, {-p.s, p.c});
+            }
+        }
+    }
+
     template <typename F>
     class Stage {
     public:
@@ -226,7 +239,7 @@ namespace zldsp::fft::HWY_NAMESPACE::common::twiddle {
                 if constexpr (std::is_same_v<F, float>) {
                     roots_.push_back({static_cast<float>(a.c), static_cast<float>(a.s)});
                 } else {
-                    roots_.push_back({rounded<F>(a.c), rounded<F>(a.s)});
+                    roots_.push_back({a.c.hi, a.s.hi});
                 }
             }
         }
