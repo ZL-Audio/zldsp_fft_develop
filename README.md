@@ -74,6 +74,9 @@ Alternates `--current` (default `HEAD`) and `--previous` (default `HEAD^`) acros
 - **Caller-owned Dynamic Dispatch**: Compile multiple SIMD targets in a single translation unit via `<hwy/foreach_target.h>` and dispatch at plan creation. Recommended for **GCC and Clang** (`clang++` / `clang-cl`).
 - **Separately Compiled Dispatch**: Compile each x86-64 SIMD backend (`SSE2`, `SSE4`, `AVX2`) as a separate object library with dedicated ISA flags and dispatch at plan creation. Recommended for **MSVC** (and supported on GCC/Clang).
 
+> [!IMPORTANT]
+> Twiddle initialization relies on scoped pragmas in [`zldsp_fft_common_twiddle.hpp`](zldsp_fft/common/zldsp_fft_common_twiddle.hpp) to preserve intermediate IEEE 754 rounding. On **Clang / AppleClang / `clang-cl`**, do not use plain `-ffp-contract=fast` (or `-ffast-math` / `/fp:fast` without override), which can fuse operations in the LLVM backend despite local pragmas; use `-ffp-contract=fast-honor-pragmas` (or `/clang:-ffp-contract=fast-honor-pragmas` on `clang-cl`) instead. See [`tools/twiddle/README.md`](tools/twiddle/README.md#compiler-settings) for details.
+
 ### Static Dispatch
 
 Include [`zldsp_fft_cfft.hpp`](zldsp_fft/zldsp_fft_cfft.hpp) / [`zldsp_fft_rfft.hpp`](zldsp_fft/zldsp_fft_rfft.hpp), define `HWY_COMPILE_ONLY_STATIC`, and select the target ISA with compiler flags:
