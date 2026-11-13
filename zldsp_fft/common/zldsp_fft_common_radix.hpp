@@ -7,7 +7,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <numbers>
 #include <type_traits>
 #include <utility>
 
@@ -626,7 +625,7 @@ namespace zldsp::fft::HWY_NAMESPACE::common {
                                                const size_t in_offset5, const size_t in_offset6,
                                                const size_t in_offset7) noexcept {
         static constexpr size_t lanes = hn::MaxLanes(d);
-        static constexpr F kInvSqrt2 = static_cast<F>(1.0 / std::numbers::sqrt2);
+        static constexpr F kInvSqrt2 = static_cast<F>(detail::twiddle::kInvSqrt2);
         const auto inv_sqrt2 = hn::Set(d, kInvSqrt2);
 
         HWY_ALIGN F even_imag[4 * lanes];
@@ -731,7 +730,7 @@ namespace zldsp::fft::HWY_NAMESPACE::common {
         const size_t in_offset6 = in_offset2 + in_offset4;
         const size_t in_offset7 = in_offset1 + in_offset6;
 
-        static constexpr F kInvSqrt2 = static_cast<F>(1.0 / std::numbers::sqrt2);
+        static constexpr F kInvSqrt2 = static_cast<F>(detail::twiddle::kInvSqrt2);
         const auto inv_sqrt2 = hn::Set(d, kInvSqrt2);
 
         HWY_ASSUME(eighth_n >= lanes);
@@ -1375,7 +1374,7 @@ namespace zldsp::fft::HWY_NAMESPACE::common {
         const size_t in_offset6 = in_offset2 + in_offset4;
         const size_t in_offset7 = in_offset1 + in_offset6;
 
-        static constexpr F kInvSqrt2 = static_cast<F>(1.0 / std::numbers::sqrt2);
+        static constexpr F kInvSqrt2 = static_cast<F>(detail::twiddle::kInvSqrt2);
         const auto inv_sqrt2 = hn::Set(d, kInvSqrt2);
 
         HWY_ASSUME(eighth_n >= lanes);

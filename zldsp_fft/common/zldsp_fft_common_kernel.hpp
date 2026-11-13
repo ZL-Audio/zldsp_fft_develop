@@ -6,7 +6,6 @@
 #endif
 
 #include <cstddef>
-#include <numbers>
 
 #include <hwy/highway.h>
 
@@ -93,7 +92,7 @@ namespace zldsp::fft::HWY_NAMESPACE::common {
      */
     template <bool is_forward, typename F, typename InPtr, typename OutPtr>
     inline void execute_cfft_order_3(InPtr in, OutPtr out) noexcept {
-        static constexpr F kInvSqrt2 = static_cast<F>(1.0 / std::numbers::sqrt2);
+        static constexpr F kInvSqrt2 = static_cast<F>(detail::twiddle::kInvSqrt2);
 
         F x0_r, x0_i, x1_r, x1_i, x2_r, x2_i, x3_r, x3_i;
         F x4_r, x4_i, x5_r, x5_i, x6_r, x6_i, x7_r, x7_i;
@@ -305,7 +304,7 @@ namespace zldsp::fft::HWY_NAMESPACE::common {
         static constexpr hn::ScalableTag<F> d;
         static constexpr size_t lanes = hn::MaxLanes(d);
         static constexpr size_t vector_bytes = d.MaxBytes();
-        static constexpr F kInvSqrt2 = static_cast<F>(1.0 / std::numbers::sqrt2);
+        static constexpr F kInvSqrt2 = static_cast<F>(detail::twiddle::kInvSqrt2);
 
         HWY_ALIGN F tmp_r[32];
         HWY_ALIGN F tmp_i[32];

@@ -17,8 +17,8 @@
 #include <hwy/aligned_allocator.h>
 #include <hwy/highway.h>
 
-#include "zldsp_fft_common_math.hpp"
 #include "zldsp_fft_common_system.hpp"
+#include "zldsp_fft_common_twiddle.hpp"
 
 HWY_BEFORE_NAMESPACE();
 
@@ -137,13 +137,12 @@ namespace zldsp::fft::HWY_NAMESPACE::common {
         size_t offset = 0;
         size_t width = (order == 4 ? 4 : 8);
         for (size_t i = 0; i < 2; ++i) {
-            const double phase_step = -2.0 / static_cast<double>(width << 2);
+            const twiddle::Stage<F> roots(width << 2, 3 * (width - 1));
             for (int mul = 1; mul < 4; ++mul) {
-                const auto step = phase_step * static_cast<double>(mul);
                 for (size_t k = 0; k < width; ++k, ++offset) {
-                    const double phase = static_cast<double>(k) * step;
-                    w_r[offset] = static_cast<F>(math::cospi(phase));
-                    w_i[offset] = static_cast<F>(math::sinpi(phase));
+                    const auto p = roots.forward(k * static_cast<size_t>(mul));
+                    w_r[offset] = p.c;
+                    w_i[offset] = p.s;
                 }
             }
             width <<= 2;
@@ -189,30 +188,26 @@ namespace zldsp::fft::HWY_NAMESPACE::common {
             for (size_t i = 1; i < stages.size(); ++i) {
                 const auto stage = stages[i];
                 if (stage == StageType::kRadix4Width4) {
-                    const double phase_step = -2.0 / static_cast<double>(width << 2);
+                    const twiddle::Stage<F> roots(width << 2, 3 * (width - 1));
                     for (size_t l = 0; l < width4_size; ++l) {
-                        const auto phase = static_cast<double>(l % 4) * phase_step;
-                        static constexpr int kMultipliers[] = {1, 2, 3};
                         for (size_t m = 0; m < 3; ++m) {
-                            const auto a = phase * static_cast<double>(kMultipliers[m]);
-                            w[offset + 2 * m * width4_size + l] = static_cast<F>(math::cospi(a));
-                            w[offset + (2 * m + 1) * width4_size + l] = static_cast<F>(math::sinpi(a));
+                            const auto p = roots.forward((l % 4) * (m + 1));
+                            w[offset + 2 * m * width4_size + l] = p.c;
+                            w[offset + (2 * m + 1) * width4_size + l] = p.s;
                         }
                     }
                     offset += w_strides[i];
                     width <<= 2;
                 } else if (stage == StageType::kRadix4 || stage == StageType::kRadix4LastPass) {
                     const size_t num_blocks = std::max<size_t>(1, width / lanes);
-                    const double phase_step = -2.0 / static_cast<double>(width << 2);
+                    const twiddle::Stage<F> roots(width << 2, 3 * (width - 1));
                     for (size_t b = 0; b < num_blocks; ++b) {
                         for (size_t l = 0; l < lanes; ++l) {
                             const size_t index = (b * lanes + l) % width;
-                            const auto phase = static_cast<double>(index) * phase_step;
-                            static constexpr int kMultipliers[] = {1, 2, 3};
                             for (size_t m = 0; m < 3; ++m) {
-                                const auto a = phase * static_cast<double>(kMultipliers[m]);
-                                w[offset + 2 * m * lanes + l] = static_cast<F>(math::cospi(a));
-                                w[offset + (2 * m + 1) * lanes + l] = static_cast<F>(math::sinpi(a));
+                                const auto p = roots.forward(index * (m + 1));
+                                w[offset + 2 * m * lanes + l] = p.c;
+                                w[offset + (2 * m + 1) * lanes + l] = p.s;
                             }
                         }
                         offset += 6 * lanes;
@@ -326,27 +321,25 @@ namespace zldsp::fft::HWY_NAMESPACE::common {
                 const auto& stage = stages[i];
                 const size_t fine_width = stage.tile_width != 0 ? stage.tile_width : width;
                 const size_t num_blocks = std::max<size_t>(1, fine_width / lanes);
-                const double phase_step = -2.0 / static_cast<double>(sub_n);
+                const twiddle::Stage<F> roots(sub_n, 3 * (fine_width - 1));
                 for (size_t b = 0; b < num_blocks; ++b) {
                     for (size_t l = 0; l < lanes; ++l) {
                         const size_t index = (b * lanes + l) & (width - 1);
-                        const auto phase = static_cast<double>(index) * phase_step;
-                        static constexpr int kMultipliers[] = {1, 2, 3};
                         for (size_t m = 0; m < 3; ++m) {
-                            const auto a = phase * static_cast<double>(kMultipliers[m]);
-                            w[offset + b * 6 * lanes + 2 * m * lanes + l] = static_cast<F>(math::cospi(a));
-                            w[offset + b * 6 * lanes + (2 * m + 1) * lanes + l] = static_cast<F>(math::sinpi(a));
+                            const auto p = roots.forward(index * (m + 1));
+                            w[offset + b * 6 * lanes + 2 * m * lanes + l] = p.c;
+                            w[offset + b * 6 * lanes + (2 * m + 1) * lanes + l] = p.s;
                         }
                     }
                 }
                 if (stage.tile_width != 0) {
                     F* coarse = w.get() + offset + 6 * stage.tile_width;
+                    const twiddle::Stage<F> coarse_roots(sub_n / stage.tile_width, 3 * (width / stage.tile_width - 1));
                     for (size_t q = 0; q < width / stage.tile_width; ++q) {
-                        const double phase = static_cast<double>(q * stage.tile_width) * phase_step;
                         for (size_t m = 0; m < 3; ++m) {
-                            const double a = phase * static_cast<double>(m + 1);
-                            coarse[q * 6 + 2 * m] = static_cast<F>(math::cospi(a));
-                            coarse[q * 6 + 2 * m + 1] = static_cast<F>(math::sinpi(a));
+                            const auto p = coarse_roots.forward(q * (m + 1));
+                            coarse[q * 6 + 2 * m] = p.c;
+                            coarse[q * 6 + 2 * m + 1] = p.s;
                         }
                     }
                 }
@@ -462,19 +455,25 @@ namespace zldsp::fft::HWY_NAMESPACE::common {
         const size_t w_size = num_blocks * lanes * 2;
         w = common::allocate_aligned<F>(w_size);
 
-        const double phase_step = 2.0 / static_cast<double>(rfft_size);
-        for (size_t b = 0; b < num_blocks; ++b) {
-            for (size_t l = 0; l < lanes; ++l) {
-                const size_t index = b * lanes + l + 1;
-                if (index <= num_elements) {
-                    const auto a = static_cast<double>(index) * phase_step;
-                    w[b * lanes * 2 + l] = static_cast<F>(0.5 * math::cospi(a));
-                    w[b * lanes * 2 + lanes + l] = static_cast<F>(0.5 * math::sinpi(a) + 0.5);
-                } else {
-                    w[b * lanes * 2 + l] = static_cast<F>(0.0);
-                    w[b * lanes * 2 + lanes + l] = static_cast<F>(0.5);
-                }
+        const auto write = [&](const size_t index, const twiddle::Pair<F> p) {
+            const size_t i = index - 1;
+            // map into blocked real/imaginary storage; lanes is a power of two
+            const size_t offset = i + (i & (size_t{0} - lanes));
+            w[offset] = p.c;
+            w[offset + lanes] = p.s;
+        };
+        const twiddle::SplitTable roots(rfft_size, num_elements / 2);
+        for (size_t k = 0; k <= num_elements / 2; ++k) {
+            const auto a = roots.octant(k);
+            if (k != 0) {
+                write(k, twiddle::rfft_weights<F>(a));
             }
+            if (k != num_elements - k) {
+                write(num_elements - k, twiddle::rfft_weights<F>({a.s, a.c}));
+            }
+        }
+        for (size_t k = num_elements + 1; k <= num_blocks * lanes; ++k) {
+            write(k, {F{0}, F{0.5}});
         }
     }
 }
