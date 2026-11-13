@@ -14,6 +14,7 @@
 #include <random>
 #include <stdexcept>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 namespace fft = zldsp::fft::HWY_STATIC_NAMESPACE::common;
@@ -75,17 +76,15 @@ namespace {
 
     struct Stats {
         std::uint64_t checked = 0, wrong = 0, zero_wrong = 0, max_steps = 0;
+        std::uint64_t float_rounding_differences = 0;
         double max_abs = 0.0;
 
         template <typename F>
-        void check(const F actual, const F expected, const char* label, const size_t n, const size_t k) {
+        void check(const F actual, const F expected, const char* label, const size_t n, const size_t k,
+                   const bool allow_float_rounding = false) {
             ++checked;
             if (actual == expected) { // Accept either sign of zero.
                 return;
-            }
-            ++wrong;
-            if (expected == F{0}) {
-                ++zero_wrong;
             }
             if (!std::isfinite(actual)) {
                 throw std::runtime_error("Nonfinite coefficient");
@@ -97,8 +96,19 @@ namespace {
                 return bits & sign ? sign - (bits & (sign - 1)) : sign + bits;
             };
             const auto a = ordered(actual), b = ordered(expected);
-            max_steps = std::max(max_steps, a > b ? a - b : b - a);
+            const auto steps = a > b ? a - b : b - a;
+            max_steps = std::max(max_steps, steps);
             max_abs = std::max(max_abs, std::abs(static_cast<double>(actual) - static_cast<double>(expected)));
+            if constexpr (std::is_same_v<F, float>) {
+                if (allow_float_rounding && expected != 0.0f && steps <= 1) {
+                    ++float_rounding_differences;
+                    return;
+                }
+            }
+            ++wrong;
+            if (expected == F{0}) {
+                ++zero_wrong;
+            }
             if (wrong <= 8) {
                 std::cerr << label << ": N=" << n << " k=" << k << " bits=" << 8 * sizeof(F)
                           << " actual=" << std::hexfloat << actual << " expected=" << expected
@@ -107,12 +117,21 @@ namespace {
         }
 
         template <typename F>
-        void check(const F actual, const Reference r, const char* label, const size_t n, const size_t k) {
+        void check(const F actual, const Reference r, const char* label, const size_t n, const size_t k,
+                   const bool allow_float_rounding = false) {
             if constexpr (sizeof(F) == 4) {
-                check(actual, r.f, label, n, k);
+                check(actual, r.f, label, n, k, allow_float_rounding);
             } else {
-                check(actual, r.d, label, n, k);
+                check(actual, r.d, label, n, k, allow_float_rounding);
             }
+        }
+
+        template <typename F, typename Expected>
+        void coefficient(const F actual, const Expected expected, const char* label,
+                         const size_t n, const size_t k) {
+            // Keep embedded grids, axes, and diagonals exact.
+            const bool allow = std::is_same_v<F, float> && n > 1024 && (k & (n / 8 - 1)) != 0;
+            check(actual, expected, label, n, k, allow);
         }
     };
 
@@ -158,6 +177,8 @@ namespace {
         }
         // Order-28 regression from the compensated-split study.
         if (order == 28) neighbors(n / 2 - 124806999);
+        // Float RFFT affine rounding midpoint.
+        if (order == 30) neighbors(93157219);
         std::sort(indices.begin(), indices.end());
         indices.erase(std::unique(indices.begin(), indices.end()), indices.end());
         return indices;
@@ -167,25 +188,26 @@ namespace {
         const size_t n = size_t{1} << order;
         const tw::SplitTable table(n, n / 8);
         const auto check = [&](const size_t k) {
-            const auto a = table.octant(k);
+            const auto a = table.octant<double>(k);
+            const auto f = table.octant<float>(k);
             const auto c = oracle.get(k, n, false), s = oracle.get(k, n, true);
             const auto shifted_c = oracle.get(k, n, false, true), shifted_s = oracle.get(k, n, true, true);
-            const auto cd = tw::rfft_weights<double>(a);
-            const auto cf = tw::rfft_weights<float>(a);
-            const auto md = tw::rfft_weights<double>({a.s, a.c});
-            const auto mf = tw::rfft_weights<float>({a.s, a.c});
+            const auto cd = tw::rfft_weights(a);
+            const auto cf = tw::rfft_weights(f);
+            const auto md = tw::rfft_weights(tw::Anchor{a.s, a.c});
+            const auto mf = tw::rfft_weights(tw::Pair<double>{f.s, f.c});
             stats.check(tw::rounded<double>(a.c), c, "cos", n, k);
             stats.check(tw::rounded<double>(a.s), s, "sin", n, k);
-            stats.check(tw::rounded<float>(a.c), c, "cos", n, k);
-            stats.check(tw::rounded<float>(a.s), s, "sin", n, k);
+            stats.coefficient(static_cast<float>(f.c), c, "cos", n, k);
+            stats.coefficient(static_cast<float>(f.s), s, "sin", n, k);
             stats.check(cd.c, c.d * 0.5, "cos/2", n, k);
-            stats.check(cf.c, c.f * 0.5f, "cos/2", n, k);
+            stats.coefficient(cf.c, c.f * 0.5f, "cos/2", n, k);
             stats.check(md.c, s.d * 0.5, "mirror cos/2", n, k);
-            stats.check(mf.c, s.f * 0.5f, "mirror cos/2", n, k);
+            stats.coefficient(mf.c, s.f * 0.5f, "mirror cos/2", n, k);
             stats.check(cd.s, shifted_s, "(1+sin)/2", n, k);
-            stats.check(cf.s, shifted_s, "(1+sin)/2", n, k);
+            stats.coefficient(cf.s, shifted_s, "(1+sin)/2", n, k);
             stats.check(md.s, shifted_c, "mirror (1+sin)/2", n, k);
-            stats.check(mf.s, shifted_c, "mirror (1+sin)/2", n, k);
+            stats.coefficient(mf.s, shifted_c, "mirror (1+sin)/2", n, k);
         };
         if (exhaustive) {
             for (size_t k = 0; k <= n / 8; ++k) check(k);
@@ -201,8 +223,8 @@ namespace {
         const tw::Stage<F> roots(n, n / 8);
         for (size_t k = 0; k < n; ++k) {
             const auto p = roots.forward(k);
-            stats.check(p.c, oracle.get(k, n, false, false, true), "fold cosine", n, k);
-            stats.check(p.s, oracle.get(k, n, true, false, true), "fold sine", n, k);
+            stats.coefficient(p.c, oracle.get(k, n, false, false, true), "fold cosine", n, k);
+            stats.coefficient(p.s, oracle.get(k, n, true, false, true), "fold sine", n, k);
         }
         // Exercise folded aliases of a partial octant.
         const size_t last = std::min<size_t>(7, n / 8);
@@ -211,8 +233,8 @@ namespace {
             for (const size_t quadrant : {size_t{0}, n / 4, n / 2, 3 * n / 4}) {
                 for (const size_t j : {(quadrant + k) & (n - 1), (quadrant - k) & (n - 1)}) {
                     const auto p = prefix.forward(j);
-                    stats.check(p.c, oracle.get(j, n, false, false, true), "prefix cosine", n, j);
-                    stats.check(p.s, oracle.get(j, n, true, false, true), "prefix sine", n, j);
+                    stats.coefficient(p.c, oracle.get(j, n, false, false, true), "prefix cosine", n, j);
+                    stats.coefficient(p.s, oracle.get(j, n, true, false, true), "prefix sine", n, j);
                 }
             }
         }
@@ -227,7 +249,7 @@ namespace {
         state.cfft_size = n;
         fft::init_cfft_state(order, state);
         const auto component = [&](const F value, const size_t k, const size_t denominator, const bool sine) {
-            stats.check(value, oracle.get(k, denominator, sine, false, true), "stored CFFT", denominator, k);
+            stats.coefficient(value, oracle.get(k, denominator, sine, false, true), "stored CFFT", denominator, k);
         };
         const auto dense = [&](const F* values, const size_t width, const size_t span,
                                const size_t denominator, const size_t pack) {
@@ -296,8 +318,8 @@ namespace {
             const size_t k = i + 1, off = 2 * (i / real_lanes) * real_lanes + i % real_lanes;
             if (k <= n / 4) {
                 const auto c = oracle.get(k, n, false), s = oracle.get(k, n, true, true);
-                stats.check(weights[off], Reference{c.d * 0.5, c.f * 0.5f}, "stored RFFT cosine", n, k);
-                stats.check(weights[off + real_lanes], s, "stored RFFT affine", n, k);
+                stats.coefficient(weights[off], Reference{c.d * 0.5, c.f * 0.5f}, "stored RFFT cosine", n, k);
+                stats.coefficient(weights[off + real_lanes], s, "stored RFFT affine", n, k);
             } else {
                 stats.check(weights[off], F{0}, "RFFT padding", n, k);
                 stats.check(weights[off + real_lanes], F{0.5}, "RFFT padding", n, k);
@@ -334,7 +356,8 @@ int main(const int argc, const char* const argv[]) {
             emitted<double>(order, oracle, stats);
             std::cout << "stored tables order " << order << '\n' << std::flush;
         }
-        std::cout << "checked=" << stats.checked << " mismatches=" << stats.wrong
+        std::cout << "checked=" << stats.checked << " failures=" << stats.wrong
+                  << " float_rounding_differences=" << stats.float_rounding_differences
                   << " exact_zero_misses=" << stats.zero_wrong << " max_steps=" << stats.max_steps
                   << " max_abs=" << stats.max_abs << '\n';
         return stats.wrong == 0 ? 0 : 1;

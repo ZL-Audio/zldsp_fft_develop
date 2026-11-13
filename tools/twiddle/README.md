@@ -1,8 +1,9 @@
-# Compensated split twiddle generation
+# Split twiddle generation
 
-The FFT library uses the same compensated split generator for every stage size,
-for both `float` and `double`, and for the final RFFT pre/post-processing weights.
-There is no separate 4,096-point lookup table and no runtime dependency on MPFR.
+The FFT library shares high/low anchor generation between `float` and `double`.
+Double storage uses compensated rotation and RFFT weights. Float storage uses
+ordinary binary64 rotation and forms the final RFFT weights in double before
+narrowing. There is no additional lookup table or runtime dependency on MPFR.
 
 ## Generated data
 
@@ -32,29 +33,35 @@ C++ literals preserve those bits; regenerating does not depend on the host's
 Integer phase indices are folded into the first octant. For a stage of length
 `N`, the generator splits `k = q*B + r`, with a power-of-two `B` near the square
 root of the octant length. It constructs coarse anchors for `q*B` and fine
-anchors for `r`, then combines the two rotations with high/low arithmetic. The
-coarse/fine arrays are temporary runtime data. Compact macro fine tables request
-only a prefix; their coarse factors use the smaller `N/tile_width` grid.
+anchors for `r`. The coarse/fine arrays are temporary runtime data. Compact macro
+fine tables request only a prefix; their coarse factors use the smaller
+`N/tile_width` grid.
 
 To construct an anchor between embedded grid points, the remaining angle is
 less than `2*pi/1024`. Degree-11 sine and degree-10 cosine Taylor expansions, with
 two-word coefficients, evaluate this residual. TwoSum and TwoProduct retain
-rounding residuals through both the anchor construction and the final rotation.
+rounding residuals during anchor construction for both storage precisions.
 The FMA version uses Highway's native fused operation; SSE2/SSE4 use Dekker
 splitting instead of a software `fma` call.
 
+For double storage, the final rotation and RFFT affine addition retain both
+words. For float storage, the final rotation combines only the anchor high words
+using ordinary binary64 arithmetic. Grids through 1,024 read the existing
+embedded anchor high words directly and skip coarse/fine allocation. Neither
+precision adds a new static table.
+
 Each dense CFFT stage shares its first-octant results across the three radix-4
 harmonics using swaps and signs. RFFT emits mirrored positions directly into the
-existing blocked layout. It computes `cos(theta)/2` and `(1+sin(theta))/2` while
-the high/low parts are still available, so the sine is **not rounded before the
-addition**. Float conversion also uses the residual when the binary64 high word
-is exactly a binary32 rounding midpoint. The diagonal constant is generated
-directly; taking the reciprocal of rounded `sqrt(2)` gives a different binary64
-value.
+existing blocked layout. Its float path computes `cos(theta)/2` and
+`(1+sin(theta))/2` in double, then converts each final weight to float. There is
+no midpoint check or compensated fallback on this path; rare adjacent-float
+differences from correct rounding are accepted. The double path retains the
+sine residual through the addition. The diagonal constant is generated directly;
+taking the reciprocal of rounded `sqrt(2)` gives a different binary64 value.
 
-The arithmetic assumes IEEE binary32/binary64 and round-to-nearest. It is a
-compensated approximation, not a proof of correct rounding for every possible
-FFT order. The audit below checks actual stored coefficients independently.
+The arithmetic assumes IEEE binary32/binary64 and round-to-nearest. Correct
+rounding is not guaranteed for every coefficient. The audit below checks actual
+stored coefficients independently.
 Compact macro reconstruction during FFT execution still introduces its own
 rounding after the factors have been stored.
 
@@ -104,11 +111,17 @@ build_fft/twiddle-tools/zldsp_fft_twiddle_accuracy
 The default audit exhausts first-octant grids through order 16 and at orders 20
 and 22, checks both mirrored RFFT weights, and samples other orders through 30.
 Samples include seed/split boundaries, axes, diagonals, and the recorded order-28
-counterexample. It also checks both storage precisions, integer folding, small
-specialized tables, actual micro/macro tables, RFFT capped-lane layouts/padding,
-the diagonal constant, and float midpoint conversions. Directed MPFR intervals
+counterexample, plus the float RFFT midpoint at order 30, index 93,157,219.
+It also checks both storage precisions, integer folding, small specialized
+tables, actual micro/macro tables, RFFT capped-lane layouts/padding, the diagonal
+constant, and compensated float midpoint conversions. Directed MPFR intervals
 certify each reference; an inconclusive interval increases the reference
 precision instead of guessing. Zero signs are treated as equivalent.
+
+Double coefficients, embedded grids, axes, and diagonals must match the reference
+exactly. Other float coefficients may differ by one float ULP; the audit reports
+these as `float_rounding_differences` separately from failures. This threshold
+checks the chosen accuracy tradeoff and is not a correct-rounding proof.
 
 Use `-DUSE_AVX2=ON` or `-DUSE_SSE2=ON` on an x86 machine to exercise those native
 paths. The test obtains lane counts from Highway, including small RFFT capped
@@ -117,32 +130,15 @@ transform behavior, all APIs, independent-library comparisons, and round trips.
 
 ## References and provenance
 
-1. The local design study,
-   [`twiddle-study/README.md`](../../twiddle-study/README.md), motivated integer
-   folding, split tables, octant sharing, and carrying a sine residual through the
-   RFFT affine transform. This implementation strengthens its arithmetic to keep
-   two words through the residual polynomials and rotation products, and uses a
-   separately reproducible MPFR constant generator.
-2. Martin Reinecke, **PocketFFT**, `sincos_2pibyn` in
+1. Martin Reinecke, **PocketFFT**, `sincos_2pibyn` in
    [`pocketfft_hdronly.h`, revision 4d865cba](https://github.com/mreineck/pocketfft/blob/4d865cba24359b05b37da4e75aee24498c3b78e7/pocketfft_hdronly.h#L345).
-   Reference for the two-table angle-addition strategy. The code here implements
-   the elementary rotation identity with compensated arithmetic; it does not
-   vendor PocketFFT's implementation.
-3. Takeshi Ogita, Siegfried M. Rump, and Shin'ichi Oishi, **Accurate Sum and Dot
-   Product**, *SIAM Journal on Scientific Computing* 26(6), 1955–1988 (2005),
-   [doi:10.1137/030601818](https://doi.org/10.1137/030601818),
-   [author-hosted paper](https://ogilab.w.waseda.jp/ogita/math/doc/2005_OgRuOi.pdf).
+   Reference for the two-table angle-addition strategy.
+2. Takeshi Ogita, Siegfried M. Rump, and Shin'ichi Oishi, **Accurate Sum and Dot
+   Product**, *SIAM Journal on Scientific Computing* 26(6), 1955–1988 (2005).
    Reference for TwoSum, FastTwoSum, and TwoProduct, including the FMA variant.
-4. Laurent Fousse et al., **MPFR: A Multiple-Precision Binary Floating-Point
+3. Laurent Fousse et al., **MPFR: A Multiple-Precision Binary Floating-Point
    Library with Correct Rounding**, *ACM Transactions on Mathematical Software*
-   33(2), Article 13 (2007),
-   [doi:10.1145/1236463.1236468](https://doi.org/10.1145/1236463.1236468).
-   See also the [MPFR manual](https://www.mpfr.org/mpfr-current/mpfr.html) for
-   `mpfr_sinpi`, `mpfr_cospi`, and directed rounding semantics.
-5. [Clang floating-point pragmas](https://clang.llvm.org/docs/LanguageExtensions.html#extensions-to-specify-floating-point-flags),
-   [Clang contraction options](https://releases.llvm.org/17.0.1/tools/clang/docs/ClangCommandLineReference.html#cmdoption-clang-ffp-contract),
-   and [MSVC `float_control`](https://learn.microsoft.com/en-us/cpp/preprocessor/float-control)
-   document the compiler controls required by the error-free transformations.
+   33(2), Article 13 (2007).
 
 MPFR and GMP are offline tool/test dependencies and retain their own licenses.
 No third-party trigonometric implementation is included in the FFT headers.

@@ -118,24 +118,33 @@ namespace zldsp::fft::HWY_NAMESPACE::common::twiddle {
         }
     }
 
-    template <typename F>
-    [[nodiscard]] inline Pair<F> rfft_weights(const Anchor a) noexcept {
+    [[nodiscard]] inline Pair<double> rfft_weights(const Anchor a) noexcept {
         // retain the residual through 1 + sin(theta), with 0 <= sin(theta) <= 1
         // final scaling by 0.5 is exact
         const auto sum = normalize(1.0, a.s.hi);
         const auto shifted = normalize(sum.hi, sum.lo + a.s.lo);
-        return {F{0.5} * rounded<F>(a.c), F{0.5} * rounded<F>(shifted)};
+        return {0.5 * rounded<double>(a.c), 0.5 * rounded<double>(shifted)};
+    }
+
+    [[nodiscard]] inline Pair<float> rfft_weights(const Pair<double> a) noexcept {
+        // form the final weights in double before narrowing
+        return {static_cast<float>(0.5 * a.c), static_cast<float>(0.5 * (1.0 + a.s))};
     }
 
     class SplitTable {
     public:
         // n is a power of two >= 4; last bounds the requested first octant
-        explicit SplitTable(const size_t n, const size_t last)
+        // float_lookup skips small-grid setup for octant<float>
+        explicit SplitTable(const size_t n, const size_t last, const bool float_lookup = false)
             : order_(static_cast<unsigned>(std::countr_zero(n))),
               shift_(order_ > 3 ? (order_ - 3) / 2 : 0),
               mask_((size_t{1} << shift_) - 1), fine_offset_((last >> shift_) + 1),
               turns_scale_(std::ldexp(1.0, -static_cast<int>(order_))) {
             assert(n >= 4 && std::has_single_bit(n) && last <= n / 8);
+            // float uses the embedded grid directly through order 10
+            if (float_lookup && order_ <= 10) {
+                return;
+            }
             // store coarse and fine anchors in one allocation
             anchors_.reserve(fine_offset_ + std::min(mask_, last) + 1);
             for (size_t q = 0; q < fine_offset_; ++q) {
@@ -146,18 +155,32 @@ namespace zldsp::fft::HWY_NAMESPACE::common::twiddle {
             }
         }
 
-        [[nodiscard]] inline Anchor octant(const size_t index) const noexcept {
-            const auto& a = anchors_[index >> shift_];
-            const auto& b = anchors_[fine_offset_ + (index & mask_)];
-            // skip identity rotations
-            if ((index & mask_) == 0) {
-                return a;
+        template <typename F>
+        [[nodiscard]] inline auto octant(const size_t index) const noexcept {
+            static_assert(std::is_same_v<F, float> || std::is_same_v<F, double>);
+            if constexpr (std::is_same_v<F, float>) {
+                if (order_ <= 10) {
+                    const auto& a = detail::twiddle::kAnchors[index << (10 - order_)];
+                    return Pair<double>{a.c.hi, a.s.hi};
+                }
+                // combine anchor high words for float storage
+                const auto& a = anchors_[index >> shift_];
+                const auto& b = anchors_[fine_offset_ + (index & mask_)];
+                return Pair<double>{a.c.hi * b.c.hi - a.s.hi * b.s.hi,
+                                    a.s.hi * b.c.hi + a.c.hi * b.s.hi};
+            } else {
+                const auto& a = anchors_[index >> shift_];
+                const auto& b = anchors_[fine_offset_ + (index & mask_)];
+                // skip identity rotations
+                if ((index & mask_) == 0) {
+                    return a;
+                }
+                if ((index >> shift_) == 0) {
+                    return b;
+                }
+                return Anchor{add(multiply(a.c, b.c), negate(multiply(a.s, b.s))),
+                              add(multiply(a.s, b.c), multiply(a.c, b.s))};
             }
-            if ((index >> shift_) == 0) {
-                return b;
-            }
-            return {add(multiply(a.c, b.c), negate(multiply(a.s, b.s))),
-                    add(multiply(a.s, b.c), multiply(a.c, b.s))};
         }
 
     private:
@@ -196,11 +219,15 @@ namespace zldsp::fft::HWY_NAMESPACE::common::twiddle {
         // share octant roots across harmonics; max_index includes the multiplier
         explicit Stage(const size_t n, const size_t max_index) : n_(n) {
             const size_t last = std::min(n / 8, max_index);
-            const SplitTable table(n, last);
+            const SplitTable table(n, last, std::is_same_v<F, float>);
             roots_.reserve(last + 1);
             for (size_t k = 0; k <= last; ++k) {
-                const auto a = table.octant(k);
-                roots_.push_back({rounded<F>(a.c), rounded<F>(a.s)});
+                const auto a = table.octant<F>(k);
+                if constexpr (std::is_same_v<F, float>) {
+                    roots_.push_back({static_cast<float>(a.c), static_cast<float>(a.s)});
+                } else {
+                    roots_.push_back({rounded<F>(a.c), rounded<F>(a.s)});
+                }
             }
         }
 

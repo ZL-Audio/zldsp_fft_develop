@@ -11,6 +11,7 @@
 #include <cstddef>
 #include <new>
 #include <numeric>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -462,14 +463,14 @@ namespace zldsp::fft::HWY_NAMESPACE::common {
             w[offset] = p.c;
             w[offset + lanes] = p.s;
         };
-        const twiddle::SplitTable roots(rfft_size, num_elements / 2);
+        const twiddle::SplitTable roots(rfft_size, num_elements / 2, std::is_same_v<F, float>);
         for (size_t k = 0; k <= num_elements / 2; ++k) {
-            const auto a = roots.octant(k);
+            const auto a = roots.octant<F>(k);
             if (k != 0) {
-                write(k, twiddle::rfft_weights<F>(a));
+                write(k, twiddle::rfft_weights(a));
             }
             if (k != num_elements - k) {
-                write(num_elements - k, twiddle::rfft_weights<F>({a.s, a.c}));
+                write(num_elements - k, twiddle::rfft_weights(decltype(a){a.s, a.c}));
             }
         }
         for (size_t k = num_elements + 1; k <= num_blocks * lanes; ++k) {
