@@ -51,7 +51,7 @@ endif()
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${GLOBAL_ARCH_FLAGS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${GLOBAL_ARCH_FLAGS}")
 
-set(ZLDSP_BENCHMARKS accuracy_cfft accuracy_rfft accuracy_mid_cfft accuracy_mid_rfft
+set(ZLDSP_BENCHMARKS accuracy_cfft accuracy_rfft accuracy_library_cfft accuracy_library_rfft
     throughput_cfft throughput_rfft throughput_zldsp_cfft throughput_zldsp_rfft)
 set(ZLDSP_BENCHMARK_TARGETS)
 set(ZLDSP_THROUGHPUT_TARGETS)
@@ -80,8 +80,8 @@ endforeach()
 
 set(ZLDSP_LIBRARY_ACCURACY_TARGETS)
 foreach(kind cfft rfft)
-    if(TARGET zldsp_fft_accuracy_mid_${kind})
-        list(APPEND ZLDSP_LIBRARY_ACCURACY_TARGETS zldsp_fft_accuracy_mid_${kind})
+    if(TARGET zldsp_fft_accuracy_library_${kind})
+        list(APPEND ZLDSP_LIBRARY_ACCURACY_TARGETS zldsp_fft_accuracy_library_${kind})
     endif()
 endforeach()
 
@@ -224,7 +224,7 @@ if (ENABLE_ARMPL OR ENABLE_ARMPL_ESTIMATE)
 endif ()
 
 
-# Library accuracy only compares FFTW estimate, KFR and zldsp.
+# Library accuracy exports FFTW estimate, KFR and zldsp samples for FLINT/Arb.
 if(ENABLE_KFR OR ZLDSP_LIBRARY_ACCURACY_TARGETS)
     set(KFR_USE_BOOST_MATH OFF CACHE BOOL "" FORCE)
     set(KFR_USE_BOOST OFF CACHE BOOL "" FORCE)
@@ -356,8 +356,24 @@ endif()
 
 if(BENCHMARK_SELF_TESTS)
     enable_testing()
+    if(ZLDSP_LIBRARY_ACCURACY_TARGETS)
+        find_package(Python3 3.10 REQUIRED COMPONENTS Interpreter)
+        set(zldsp_reference_precision)
+        if(USE_DOUBLE)
+            list(APPEND zldsp_reference_precision --double)
+        endif()
+        add_test(NAME flint_reference COMMAND ${Python3_EXECUTABLE} -m unittest discover
+            -s ${CMAKE_CURRENT_SOURCE_DIR}/benchmark -p test_flint_reference.py)
+    endif()
     foreach(target IN LISTS ZLDSP_ACCURACY_TARGETS)
-        add_test(NAME ${target} COMMAND ${target} 5)
+        if(target IN_LIST ZLDSP_LIBRARY_ACCURACY_TARGETS)
+            string(REGEX REPLACE ".*_(cfft|rfft)$" "\\1" kind ${target})
+            add_test(NAME ${target} COMMAND ${Python3_EXECUTABLE}
+                ${CMAKE_CURRENT_SOURCE_DIR}/benchmark/flint_reference.py
+                $<TARGET_FILE:${target}> ${kind} 5 ${zldsp_reference_precision})
+        else()
+            add_test(NAME ${target} COMMAND ${target} 5)
+        endif()
     endforeach()
     if(TARGET zldsp_fft_twiddle_accuracy)
         add_test(NAME twiddle_coefficients COMMAND zldsp_fft_twiddle_accuracy --quick)

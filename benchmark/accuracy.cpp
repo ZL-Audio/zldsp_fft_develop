@@ -1,3 +1,5 @@
+#include <bit>
+#include <cstdio>
 #include <functional>
 #include <iomanip>
 #include <iostream>
@@ -9,9 +11,14 @@
 #include "../kfr_impl/kfr_impl.hpp"
 #include "../zldsp_fft/zldsp_fft_cfft.hpp"
 #include "../zldsp_fft/zldsp_fft_rfft.hpp"
+#ifdef _WIN32
+#include <fcntl.h>
+#include <io.h>
+#endif
 #endif
 
 namespace zlbenchmark {
+#ifdef ZLB_ALL_APIS
     using WideComplex = std::complex<long double>;
     using WideVector = std::vector<WideComplex>;
 
@@ -74,7 +81,6 @@ namespace zlbenchmark {
         }
     };
 
-#ifdef ZLB_ALL_APIS
     template <typename Case>
     WideVector case_output(const Case& test) {
         WideVector out(test.output_size());
@@ -300,13 +306,12 @@ namespace zlbenchmark {
 #else
     struct Library {
         const char* name;
-        long double inverse_scale;
+        double inverse_scale;
         std::function<AlignedVector<C>(const AlignedVector<C>&, bool)> run;
-        Errors forward, backward, roundtrip;
     };
 
     template <typename FFT, bool Real>
-    Library make_library(const char* name, int order, long double inverse_scale = 1) {
+    Library make_library(const char* name, int order, double inverse_scale = 1) {
         const size_t n = fft_size(order);
         auto fft = std::make_shared<FFT>(order);
         return {name, inverse_scale, [fft, n](const AlignedVector<C>& input, bool backward) {
@@ -332,29 +337,36 @@ namespace zlbenchmark {
                             fft->forward(in.data(), out.data());
                     }
                     return out;
-                },
-                {}, {}, {}};
+                }};
     }
 
-    inline WideVector component_median(const std::vector<WideVector>& outputs) {
-        if (outputs.size() < 3)
-            throw std::runtime_error("accuracy requires at least three libraries");
-        WideVector median(outputs.front().size());
-        std::vector<long double> re(outputs.size()), im(outputs.size());
-        for (size_t i = 0; i < median.size(); ++i) {
-            for (size_t j = 0; j < outputs.size(); ++j) {
-                re[j] = outputs[j][i].real();
-                im[j] = outputs[j][i].imag();
+    // Binary64 represents every float/double test value exactly. Scales are
+    // powers of two and applied after promotion, matching conventional DFTs.
+    // Stream small blocks so the Python reference runner can consume one case
+    // at a time without retaining all patterns or serializing decimal floats.
+    inline void write_values(const AlignedVector<C>& values, double scale = 1) {
+        static_assert(sizeof(double) == 8 && std::numeric_limits<double>::is_iec559);
+        std::array<double, 2048> block;
+        for (size_t start = 0; start < values.size(); start += block.size() / 2) {
+            const auto count = std::min(values.size() - start, block.size() / 2);
+            for (size_t i = 0; i < count; ++i) {
+                block[2 * i] = static_cast<double>(values[start + i].real()) * scale;
+                block[2 * i + 1] = static_cast<double>(values[start + i].imag()) * scale;
+                if (!std::isfinite(block[2 * i]) || !std::isfinite(block[2 * i + 1]))
+                    throw std::runtime_error("non-finite accuracy result");
             }
-            std::sort(re.begin(), re.end());
-            std::sort(im.begin(), im.end());
-            const size_t lo = (outputs.size() - 1) / 2, hi = outputs.size() / 2;
-            median[i] = WideComplex((re[lo] + re[hi]) / 2, (im[lo] + im[hi]) / 2);
+            std::cout.write(reinterpret_cast<const char*>(block.data()),
+                            static_cast<std::streamsize>(2 * count * sizeof(double)));
+            if (!std::cout)
+                throw std::runtime_error("could not write accuracy samples");
         }
-        return median;
     }
 
-    inline void check_libraries(int order, int repetitions, unsigned seed, Reporter& reporter) {
+    inline void export_libraries(int order, int repetitions, unsigned seed) {
+#ifdef _WIN32
+        if (_setmode(_fileno(stdout), _O_BINARY) == -1)
+            throw std::runtime_error("could not enable binary accuracy output");
+#endif
         const size_t n = fft_size(order);
         std::vector<Library> libraries;
 #ifdef ZLB_REAL_FFT
@@ -368,28 +380,32 @@ namespace zlbenchmark {
         libraries.push_back(make_library<KFRFFT<F>, false>("kfr", order));
         libraries.push_back(make_library<zldsp::fft::CFFT<F>, false>("zldsp", order));
 #endif
+        // Protocol: one JSON header, then for each pattern and direction:
+        // input; each library's output and (forward only) normalized round trip.
+        // Every vector contains interleaved binary64 real/imaginary components.
+        std::cout << "{\"format\":\"zldsp-fft-accuracy-v1\",\"order\":" << order
+                  << ",\"kind\":\"" << (real ? "rfft" : "cfft")
+                  << "\",\"precision\":\"" << (sizeof(F) == 4 ? "float" : "double")
+                  << "\",\"byte_order\":\"" << (std::endian::native == std::endian::little ? "little" : "big")
+                  << "\",\"repetitions\":" << repetitions << ",\"seed\":" << seed
+                  << ",\"libraries\":[";
+        for (size_t i = 0; i < libraries.size(); ++i) {
+            if (i)
+                std::cout << ',';
+            std::cout << '"' << libraries[i].name << '"';
+        }
+        std::cout << "]}\n";
         for (int pattern = 0; pattern < 5 + repetitions; ++pattern) {
             for (bool backward : {false, true}) {
                 const auto input = make_input(n, real, backward, pattern, seed + pattern);
-                std::vector<WideVector> outputs;
+                write_values(input);
                 for (auto& library : libraries) {
                     auto output = library.run(input, backward);
-                    outputs.push_back(widen(output, backward ? library.inverse_scale : 1));
-                    if (!backward) {
-                        library.roundtrip.add(widen(input),
-                                              widen(library.run(output, true), library.inverse_scale / n));
-                    }
-                }
-                const auto median = component_median(outputs);
-                for (size_t i = 0; i < libraries.size(); ++i) {
-                    (backward ? libraries[i].backward : libraries[i].forward).add(median, outputs[i]);
+                    write_values(output, backward ? library.inverse_scale : 1);
+                    if (!backward)
+                        write_values(library.run(output, true), library.inverse_scale / n);
                 }
             }
-        }
-        for (const auto& library : libraries) {
-            reporter.report(library.name, "forward", "median", library.forward);
-            reporter.report(library.name, "backward", "median", library.backward);
-            reporter.report(library.name, "roundtrip", "aos", library.roundtrip);
         }
     }
 #endif
@@ -397,6 +413,15 @@ namespace zlbenchmark {
 
 int main(int argc, char** argv) {
     try {
+#ifndef ZLB_ALL_APIS
+        if (argc != 5 || std::string_view(argv[1]) != "--export")
+            throw std::invalid_argument("Use benchmark/run.py accuracy for FLINT/Arb validation; "
+                                        "sample export: executable --export <order> <repetitions> <seed>");
+        zlbenchmark::export_libraries(zlbenchmark::parse_integer(argv[2], 1, 30),
+                                     zlbenchmark::parse_integer(argv[3], 1, 1000),
+                                     zlbenchmark::parse_integer(argv[4], 0, std::numeric_limits<int>::max()));
+        return 0;
+#else
         if (argc < 2 || argc > 5)
             throw std::invalid_argument("usage: executable <order> [repetitions] [seed] [relative-rmse-limit]");
         const int order = zlbenchmark::parse_integer(argv[1], 1, 30);
@@ -409,16 +434,13 @@ int main(int argc, char** argv) {
         }
         std::cout << std::setprecision(12);
         zlbenchmark::Reporter reporter(order, threshold);
-#ifdef ZLB_ALL_APIS
         zlbenchmark::for_each_case([&]<typename Case>() {
             reporter.report("zldsp", Case::direction, Case::api,
                             zlbenchmark::check_api<Case>(order, repetitions, seed));
         });
         reporter.report("zldsp", "roundtrip", "aos", zlbenchmark::check_roundtrip(order, repetitions, seed));
-#else
-        zlbenchmark::check_libraries(order, repetitions, seed, reporter);
-#endif
         return reporter.passed() ? 0 : 1;
+#endif
     }
     catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

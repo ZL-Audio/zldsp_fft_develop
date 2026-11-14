@@ -29,14 +29,18 @@ python3 benchmark/run.py <accuracy|throughput|compare> <cfft|rfft> <n0> <n1> [op
 
 ### Accuracy
 
+Default library accuracy requires **Python 3.10+** and `python-flint` (`--apis` does not):
+
 ```console
+python3 -m pip install --only-binary=:all: -r benchmark/requirements-accuracy.txt
 python3 benchmark/run.py accuracy cfft 2 20
 python3 benchmark/run.py accuracy rfft 2 20 --apis --double
+python3 -m unittest discover -s benchmark -p test_flint_reference.py -v
 ```
 
-- **Library agreement (default)**: Compares `fftw3_estimate`, `kfr`, and `zldsp` against their component-wise median and checks normalized round trips (`1/N` for CFFT; `2/N` for RFFT since backward RFFT scales by `N/2`).
-- **API consistency (`--apis`)**: Validates all `zldsp` AoS/SoA layouts, `forward_sqr_mag`, and `convolve` overloads against the AoS reference path and direct DFT.
-- **Metrics**: Reports worst relative RMSE and max absolute error across deterministic and random signals; fails above `--threshold` (`2e-5` for `float`, `2e-12` for `double`).
+- **Library accuracy (default)**: Streams exact `binary64` samples from `fftw3_estimate`, `kfr`, and `zldsp` to compare against arbitrary-precision FLINT/Arb DFTs (`192`/`384`/`768`-bit ball arithmetic with relative uncertainty `<= min(2^-80, threshold/1024)`), and checks normalized round trips (`1/N` for CFFT; `2/N` for `zldsp` RFFT since backward scales by `N/2`).
+- **API consistency (`--apis`)**: Validates all `zldsp` AoS/SoA layouts, `forward_sqr_mag`, and `convolve` overloads against the AoS reference path and small direct DFTs.
+- **Metrics**: Reports worst relative RMSE and max absolute error (conservative upper bounds including reference uncertainty in library mode) across deterministic and random signals; fails above `--threshold` (`2e-5` for `float`, `2e-12` for `double`).
 
 ### Throughput
 

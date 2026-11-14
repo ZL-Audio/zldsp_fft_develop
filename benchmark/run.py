@@ -39,6 +39,7 @@ DISPLAY_NAMES = {
     "complex_aos": "complex AoS fused", "complex_soa": "complex SoA fused", "real": "real fused",
     "complex_aos_separate": "complex AoS separate", "complex_soa_separate": "complex SoA separate",
     "real_separate": "real separate",
+    "flint": "FLINT/Arb",
 }
 
 
@@ -320,7 +321,7 @@ def parse_accuracy(output, kind, order, all_apis, threshold):
                 raise ValueError(f"Non-finite or negative accuracy error: {key}")
         if row["status"] == "failed" or row["relative_rmse"] > threshold:
             raise ValueError(f"Accuracy tolerance exceeded: {row}")
-    cases = case_keys(kind, True) if all_apis else {("forward", "median"), ("backward", "median")}
+    cases = case_keys(kind, True) if all_apis else {("forward", "flint"), ("backward", "flint")}
     cases = cases | {("roundtrip", "aos")}
     expected = {(library, direction, api) for library in libraries for direction, api in cases}
     if seen != expected:
@@ -331,22 +332,31 @@ def parse_accuracy(output, kind, order, all_apis, threshold):
 def accuracy(args):
     kind, all_apis = args.kind, args.apis
     rows = []
-    scope = "zldsp APIs" if all_apis else "library agreement"
+    reference_metadata = dict(reference="aos API")
+    if not all_apis:
+        # Import before building so missing reference dependencies fail promptly.
+        import flint_reference
+        reference_metadata = flint_reference.metadata(args.threshold)
+    elif kind == "rfft":
+        reference_metadata["reference"] += "; convolution: separate path and small direct DFT"
+    scope = "zldsp APIs" if all_apis else "libraries against FLINT/Arb"
     print(f"Checking {kind.upper()} {scope}, orders {args.n0}-{args.n1}...", file=sys.stderr, flush=True)
-    executable = build_benchmark("zldsp", f"accuracy_{'' if all_apis else 'mid_'}{kind}",
+    executable = build_benchmark("zldsp", f"accuracy_{'' if all_apis else 'library_'}{kind}",
                                  args.avx2, args.double, use_sse2=args.sse2, artifacts_dir=args.artifacts_dir)
     for order in range(args.n0, args.n1 + 1):
-        result = run_command([executable, order, args.repeats, 42, args.threshold])
-        results = parse_accuracy(result.stdout, kind, order, all_apis, args.threshold)
+        if all_apis:
+            output = run_command([executable, order, args.repeats, 42, args.threshold]).stdout
+        else:
+            samples = flint_reference.check_libraries(executable, kind, order, args.repeats,
+                                                       42, args.threshold, args.double)
+            output = "\n".join(json.dumps(row, allow_nan=False) for row in samples)
+        results = parse_accuracy(output, kind, order, all_apis, args.threshold)
         rows.extend(results)
         print(f"Order {order}: passed", file=sys.stderr, flush=True)
     print_tables(args, rows)
     print("All accuracy checks passed.")
-    reference = "aos API" if all_apis else "component-wise library median"
-    if all_apis and kind == "rfft":
-        reference += "; convolution: separate path and small direct DFT"
     save_results(args, kind, "accuracy", rows, threshold=args.threshold,
-                 reference=reference)
+                 **reference_metadata)
 
 
 def git_output(repo, *args):
@@ -480,7 +490,7 @@ def parse_args(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="operation", required=True)
     for operation, handler, description in (
-        ("accuracy", accuracy, "Check library median agreement or zldsp API agreement"),
+        ("accuracy", accuracy, "Check libraries against FLINT/Arb or check zldsp API agreement"),
         ("throughput", throughput, "Measure libraries or zldsp APIs in both directions"),
         ("compare", compare, "Compare throughput before/after a commit"),
     ):
