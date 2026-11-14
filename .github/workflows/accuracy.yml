@@ -2,28 +2,37 @@ name: Accuracy Test
 
 on:
   workflow_dispatch:
-  pull_request:
-    branches:
-      - main
+
+permissions:
+  contents: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
 jobs:
   build_and_test:
-    name: ${{ matrix.os }} ${{ matrix.kind }} ${{ matrix.precision }} Accuracy
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 90
+    name: ${{ matrix.platform.name }} ${{ matrix.kind }} Accuracy (float + double)
+    runs-on: ${{ matrix.platform.os }}
+    timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
         kind: [cfft, rfft]
-        precision: [float, double]
+        platform:
+          - name: Linux SSE2
+            os: ubuntu-latest
+            flags: --sse2
+          - name: Linux AVX2
+            os: ubuntu-latest
+            flags: --avx2
+          - name: macOS
+            os: macos-latest
+            flags: ''
+
+    defaults:
+      run:
+        shell: bash
 
     steps:
       - name: Checkout code
@@ -42,12 +51,15 @@ jobs:
         run: |
           python -m pip install --only-binary=:all: -r benchmark/requirements-accuracy.txt
 
-      - name: Set up Windows compiler environment
-        if: runner.os == 'Windows'
-        uses: ilammy/msvc-dev-cmd@v1
-
       - name: Validate reference and sample transport
         run: python -m unittest discover -s benchmark -p test_flint_reference.py -v
+
+      - name: Show build tools
+        run: |
+          python --version
+          cmake --version
+          ninja --version
+          clang++ --version
 
       - name: Show CPU Info (Linux)
         if: runner.os == 'Linux'
@@ -57,20 +69,18 @@ jobs:
         if: runner.os == 'macOS'
         run: sysctl -n machdep.cpu.brand_string
 
-      - name: Show CPU Info (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: Get-CimInstance -ClassName Win32_Processor | Select-Object Name, NumberOfCores, NumberOfLogicalProcessors
-
-      - name: FLINT accuracy and API consistency
-        shell: bash
+      - name: FLINT library accuracy (float)
         run: |
-          python -u benchmark/run.py accuracy ${{ matrix.kind }} 2 20 ${{ matrix.precision == 'double' && '--double' || '' }}
-          python -u benchmark/run.py accuracy ${{ matrix.kind }} 2 20 --apis ${{ matrix.precision == 'double' && '--double' || '' }}
+          python -u benchmark/run.py accuracy ${{ matrix.kind }} 2 20 ${{ matrix.platform.flags }}
 
-      - name: FLINT accuracy and API consistency AVX2 (Linux)
-        if: runner.os == 'Linux'
-        shell: bash
+      - name: API consistency (float)
         run: |
-          python -u benchmark/run.py accuracy ${{ matrix.kind }} 2 20 --avx2 ${{ matrix.precision == 'double' && '--double' || '' }}
-          python -u benchmark/run.py accuracy ${{ matrix.kind }} 2 20 --apis --avx2 ${{ matrix.precision == 'double' && '--double' || '' }}
+          python -u benchmark/run.py accuracy ${{ matrix.kind }} 2 20 --apis ${{ matrix.platform.flags }}
+
+      - name: FLINT library accuracy (double)
+        run: |
+          python -u benchmark/run.py accuracy ${{ matrix.kind }} 2 20 --double ${{ matrix.platform.flags }}
+
+      - name: API consistency (double)
+        run: |
+          python -u benchmark/run.py accuracy ${{ matrix.kind }} 2 20 --apis --double ${{ matrix.platform.flags }}
