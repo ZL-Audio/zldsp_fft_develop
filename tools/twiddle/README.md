@@ -4,7 +4,7 @@
 
 ## Generated Constants
 
-[`generate.cpp`](generate.cpp) emits [`zldsp_fft_common_twiddle_constants.hpp`](../../zldsp_fft/common/zldsp_fft_common_twiddle_constants.hpp) in `zldsp::fft::detail::twiddle` (outside Highway's per-target namespaces so all precisions and SIMD targets share one copy per linked image):
+[`generate.cpp`](https://github.com/ZL-Audio/zldsp_fft_develop/blob/main/tools/twiddle/generate.cpp) emits [`zldsp_fft_common_twiddle_constants.hpp`](https://github.com/ZL-Audio/zldsp_fft_develop/blob/main/zldsp_fft/common/zldsp_fft_common_twiddle_constants.hpp) in `zldsp::fft::detail::twiddle` (outside Highway's per-target namespaces so all precisions and SIMD targets share one copy per linked image):
 
 - **`kAnchors[129]` (4,128 bytes)**: First-octant anchors $(\cos(2\pi j/1024),\; \sin(2\pi j/1024))$ for $0 \le j \le 128$, stored as `{hi, lo}` binary64 pairs.
 - **Auxiliary constants (184 bytes)**:
@@ -16,7 +16,7 @@ Each constant is certified with outward-rounded MPFR bounds (`MPFR_RNDD` / `MPFR
 
 ## Algorithm and Rounding
 
-Implemented in [`zldsp_fft_common_twiddle.hpp`](../../zldsp_fft/common/zldsp_fft_common_twiddle.hpp) and [`zldsp_fft_common_init.hpp`](../../zldsp_fft/common/zldsp_fft_common_init.hpp), assuming IEEE 754 binary32/binary64 round-to-nearest:
+Implemented in [`zldsp_fft_common_twiddle.hpp`](https://github.com/ZL-Audio/zldsp_fft_develop/blob/main/zldsp_fft/common/zldsp_fft_common_twiddle.hpp) and [`zldsp_fft_common_init.hpp`](https://github.com/ZL-Audio/zldsp_fft_develop/blob/main/zldsp_fft/common/zldsp_fft_common_init.hpp), assuming IEEE 754 binary32/binary64 round-to-nearest:
 
 - **Two-table split (`SplitTable`)**: For a power-of-two size $N = 2^{\text{order}} \ge 4$ and first-octant bound $\text{last} \le N/8$, each index $k$ is split as $k = qB + r$ with $B = 2^{\lfloor(\text{order}-3)/2\rfloor} \approx \sqrt{N/8}$ ($B = 1$ for $\text{order} \le 3$). Temporary coarse ($qB$) and fine ($r$) anchors are built in a single `std::vector<Anchor>`.
 - **Anchor construction (`SplitTable::anchor`)**: Maps an index to the nearest lower point in `kAnchors`. If the residual angle $|t| < 2\pi/1024$ is nonzero, evaluates the degree-11/10 Taylor series in `DoubleDouble` (`two_sum`, FastTwoSum `normalize`, and TwoProduct `product`) and rotates the grid anchor. `product` uses a scalar Highway native FMA (`HWY_NATIVE_FMA`) when available, or Dekker splitting ($2^{27} + 1$) on SSE2/SSE4 to avoid software `fma` calls.
@@ -31,7 +31,7 @@ Implemented in [`zldsp_fft_common_twiddle.hpp`](../../zldsp_fft/common/zldsp_fft
 
 ## Compiler Settings
 
-Compensated arithmetic (`two_sum`, `normalize`, and Dekker `product`) requires uncontracted intermediate rounding while preserving explicit Highway intrinsic FMAs. [`zldsp_fft_common_twiddle.hpp`](../../zldsp_fft/common/zldsp_fft_common_twiddle.hpp) applies scoped pragmas and restores the surrounding settings afterward:
+Compensated arithmetic (`two_sum`, `normalize`, and Dekker `product`) requires uncontracted intermediate rounding while preserving explicit Highway intrinsic FMAs. [`zldsp_fft_common_twiddle.hpp`](https://github.com/ZL-Audio/zldsp_fft_develop/blob/main/zldsp_fft/common/zldsp_fft_common_twiddle.hpp) applies scoped pragmas and restores the surrounding settings afterward:
 
 - **Clang / AppleClang**: Uses `float_control(precise, on, push)` and `clang fp contract(off)`. Supports default contraction, `-ffp-contract=off`, or `-ffp-contract=fast-honor-pragmas` (used by this repository's Release builds). **Do not use plain `-ffp-contract=fast`**, which can fuse operations in the backend despite IR pragmas.
 - **GCC**: Uses scoped `GCC optimize("no-fast-math", "fp-contract=off")`.
@@ -62,7 +62,7 @@ ctest --test-dir build_fft/twiddle-tools --output-on-failure
 build_fft/twiddle-tools/zldsp_fft_twiddle_accuracy
 ```
 
-[`benchmark/twiddle_accuracy.cpp`](../../benchmark/twiddle_accuracy.cpp) certifies reference values with outward-rounded MPFR intervals (doubling precision on ties) and checks:
+[`benchmark/twiddle_accuracy.cpp`](https://github.com/ZL-Audio/zldsp_fft_develop/blob/main/benchmark/twiddle_accuracy.cpp) certifies reference values with outward-rounded MPFR intervals (doubling precision on ties) and checks:
 
 - **Primitives**: `kInvSqrt2` and `product` high/residual words.
 - **First-octant grids & RFFT weights**: Exhaustive through order 16 and at orders 20 and 22 (`2..12` with `--quick`), and sampled through order 30 (2,048 random indices plus neighbors of seed-anchor boundaries, coarse/fine split boundaries, axes, diagonals, the order-28 regression index $N/2 - 124{,}806{,}999$, and the order-30 float RFFT midpoint index $93{,}157{,}219$).

@@ -75,11 +75,11 @@ Alternates `--current` (default `HEAD`) and `--previous` (default `HEAD^`) acros
 - **Separately Compiled Dispatch**: Compile each x86-64 SIMD backend (`SSE2`, `SSE4`, `AVX2`) as a separate object library with dedicated ISA flags and dispatch at plan creation. Recommended for **MSVC** (and supported on GCC/Clang).
 
 > [!IMPORTANT]
-> Twiddle initialization relies on scoped pragmas in [`zldsp_fft_common_twiddle.hpp`](zldsp_fft/common/zldsp_fft_common_twiddle.hpp) to preserve intermediate IEEE 754 rounding. On **Clang / AppleClang / `clang-cl`**, do not use plain `-ffp-contract=fast` (or `-ffast-math` / `/fp:fast` without override), which can fuse operations in the LLVM backend despite local pragmas; use `-ffp-contract=fast-honor-pragmas` (or `/clang:-ffp-contract=fast-honor-pragmas` on `clang-cl`) instead. See [`tools/twiddle/README.md`](tools/twiddle/README.md#compiler-settings) for details.
+> Twiddle initialization relies on scoped pragmas to preserve intermediate IEEE 754 rounding. On **Clang / AppleClang / `clang-cl`**, do not use plain `-ffp-contract=fast` (or `-ffast-math` / `/fp:fast` without override), which can fuse operations in the LLVM backend despite local pragmas; use `-ffp-contract=fast-honor-pragmas` (or `/clang:-ffp-contract=fast-honor-pragmas` on `clang-cl`) instead. See [`tools/twiddle/README.md`](https://github.com/ZL-Audio/zldsp_fft_develop/blob/main/tools/twiddle/README.md#compiler-settings) for details.
 
 ### Static Dispatch
 
-Include [`zldsp_fft_cfft.hpp`](zldsp_fft/zldsp_fft_cfft.hpp) / [`zldsp_fft_rfft.hpp`](zldsp_fft/zldsp_fft_rfft.hpp), define `HWY_COMPILE_ONLY_STATIC`, and select the target ISA with compiler flags:
+Include [`zldsp_fft_cfft.hpp`](https://github.com/ZL-Audio/zldsp_fft_develop/blob/main/zldsp_fft/zldsp_fft_cfft.hpp) / [`zldsp_fft_rfft.hpp`](https://github.com/ZL-Audio/zldsp_fft_develop/blob/main/zldsp_fft/zldsp_fft_rfft.hpp), define `HWY_COMPILE_ONLY_STATIC`, and select the target ISA with compiler flags:
 
 ```cmake
 target_compile_definitions(my_static_target PRIVATE HWY_COMPILE_ONLY_STATIC)
@@ -92,11 +92,11 @@ target_compile_definitions(my_static_target PRIVATE HWY_COMPILE_ONLY_STATIC)
 | AVX2        | `-march=x86-64-v3 -maes -mpclmul` | `/arch:AVX2`     |
 | NEON        | `-march=armv8-a+simd`             | `/arch:armv8.0`  |
 
-See [`static_dispatch_caller.cpp`](examples/static_dispatch_caller.cpp) for complete examples.
+See [`static_dispatch_caller.cpp`](https://github.com/ZL-Audio/zldsp_fft_develop/blob/main/examples/static_dispatch_caller.cpp) for complete examples.
 
 ### Caller-owned Dynamic Dispatch
 
-Re-include [`zldsp_fft_cfft-inl.hpp`](zldsp_fft/zldsp_fft_cfft-inl.hpp) and [`zldsp_fft_rfft-inl.hpp`](zldsp_fft/zldsp_fft_rfft-inl.hpp) with `<hwy/foreach_target.h>` in a wrapper translation unit to instantiate `zldsp::fft::HWY_NAMESPACE::CFFT<F>` / `RFFT<F>` per target and dispatch plan creation with `HWY_DYNAMIC_DISPATCH`.
+Re-include [`zldsp_fft_cfft-inl.hpp`](https://github.com/ZL-Audio/zldsp_fft_develop/blob/main/zldsp_fft/zldsp_fft_cfft-inl.hpp) and [`zldsp_fft_rfft-inl.hpp`](https://github.com/ZL-Audio/zldsp_fft_develop/blob/main/zldsp_fft/zldsp_fft_rfft-inl.hpp) with `<hwy/foreach_target.h>` in a wrapper translation unit to instantiate `zldsp::fft::HWY_NAMESPACE::CFFT<F>` / `RFFT<F>` per target and dispatch plan creation with `HWY_DYNAMIC_DISPATCH`.
 
 Because `zldsp::fft` only supports 128-bit and 256-bit fixed-width SIMD, you must define `HWY_DISABLED_TARGETS` to disable unsupported targets (such as AVX-512 or SVE) and compile for your oldest supported baseline (e.g., `-march=x86-64` for SSE2):
 
@@ -104,14 +104,14 @@ Because `zldsp::fft` only supports 128-bit and 256-bit fixed-width SIMD, you mus
 target_compile_definitions(my_dynamic_target PRIVATE "HWY_DISABLED_TARGETS=~(HWY_SSE2|HWY_AVX2)")
 ```
 
-See [`dynamic_dispatch_wrapper.hpp`](examples/dynamic_dispatch_wrapper.hpp), [`dynamic_dispatch_wrapper.cpp`](examples/dynamic_dispatch_wrapper.cpp), and [`dynamic_dispatch_caller.cpp`](examples/dynamic_dispatch_caller.cpp).
+See [`dynamic_dispatch_wrapper.hpp`](https://github.com/ZL-Audio/zldsp_fft_develop/blob/main/examples/dynamic_dispatch_wrapper.hpp), [`dynamic_dispatch_wrapper.cpp`](https://github.com/ZL-Audio/zldsp_fft_develop/blob/main/examples/dynamic_dispatch_wrapper.cpp), and [`dynamic_dispatch_caller.cpp`](https://github.com/ZL-Audio/zldsp_fft_develop/blob/main/examples/dynamic_dispatch_caller.cpp).
 
 > [!WARNING]
 > MSVC may cause **severe performance degradation** when the dispatch target is AVX2 and the baseline is SSE2. Use **Separately Compiled Dispatch** for runtime dispatch with MSVC.
 
 ### Separately Compiled Dispatch
 
-With Highway available as the `hwy` target, [`separate_dispatch.cmake`](examples/separate_dispatch.cmake) compiles [`dynamic_dispatch_wrapper.cpp`](examples/dynamic_dispatch_wrapper.cpp) once per x86-64 backend with `HWY_COMPILE_ONLY_STATIC` and matching ISA flags, then links them into `zldsp_fft_separate_dispatch`:
+With Highway available as the `hwy` target, [`separate_dispatch.cmake`](https://github.com/ZL-Audio/zldsp_fft_develop/blob/main/examples/separate_dispatch.cmake) compiles [`dynamic_dispatch_wrapper.cpp`](https://github.com/ZL-Audio/zldsp_fft_develop/blob/main/examples/dynamic_dispatch_wrapper.cpp) once per x86-64 backend with `HWY_COMPILE_ONLY_STATIC` and matching ISA flags, then links them into `zldsp_fft_separate_dispatch`:
 
 ```cmake
 set(ZLDSP_FFT_SEPARATE_TARGETS SSE2 SSE4 AVX2)
@@ -121,11 +121,11 @@ target_link_libraries(my_separate_target PRIVATE zldsp_fft_separate_dispatch)
 
 - **Backends**: Choose from `SSE2`, `SSE4`, and `AVX2` (`SSE4` is not supported by MSVC). Include `SSE2` for a baseline fallback; plan creation throws `std::runtime_error` if no compiled backend supports the CPU.
 - **Build settings**: The helper sets ISA flags only on the per-backend object libraries; your application, `hwy`, and the dispatcher inherit your own baseline, optimization, PIC, and IPO settings.
-- **Integration**: Link `zldsp_fft_separate_dispatch` instead of compiling [`dynamic_dispatch_wrapper.cpp`](examples/dynamic_dispatch_wrapper.cpp) directly. See [`separate_dispatch_wrapper.cpp`](examples/separate_dispatch_wrapper.cpp), [`dynamic_dispatch_wrapper.hpp`](examples/dynamic_dispatch_wrapper.hpp), and [`dynamic_dispatch_caller.cpp`](examples/dynamic_dispatch_caller.cpp).
+- **Integration**: Link `zldsp_fft_separate_dispatch` instead of compiling [`dynamic_dispatch_wrapper.cpp`](https://github.com/ZL-Audio/zldsp_fft_develop/blob/main/examples/dynamic_dispatch_wrapper.cpp) directly. See [`separate_dispatch_wrapper.cpp`](https://github.com/ZL-Audio/zldsp_fft_develop/blob/main/examples/separate_dispatch_wrapper.cpp), [`dynamic_dispatch_wrapper.hpp`](https://github.com/ZL-Audio/zldsp_fft_develop/blob/main/examples/dynamic_dispatch_wrapper.hpp), and [`dynamic_dispatch_caller.cpp`](https://github.com/ZL-Audio/zldsp_fft_develop/blob/main/examples/dynamic_dispatch_caller.cpp).
 
 ## License
 
-`zldsp_fft` is licensed under the Apache-2.0 license ([LICENSE.md](LICENSE.md)). External submodules retain their respective licenses:
+`zldsp_fft` is licensed under the Apache-2.0 license ([LICENSE.md](https://github.com/ZL-Audio/zldsp_fft_develop/blob/main/LICENSE.md)). External submodules retain their respective licenses:
 
 - FFTW3: `fftw3_impl/fftw3` (GPL-2.0)
 - KFR: `kfr_impl/kfr` (GPL-2.0)
