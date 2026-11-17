@@ -270,16 +270,13 @@ namespace {
         };
         size_t offset = 0;
         if (state.micro_order == 4 || state.micro_order == 5) {
-            size_t width = state.micro_order == 4 ? 4 : 8;
-            const size_t imaginary = state.micro_order == 4 ? 60 : 120;
-            for (unsigned pass = 0; pass < 2; ++pass) {
-                for (size_t m = 1; m <= 3; ++m) {
-                    for (size_t k = 0; k < width; ++k, ++offset) {
-                        component(state.micro_w[offset], k * m, width * 4, false);
-                        component(state.micro_w[imaginary + offset], k * m, width * 4, true);
-                    }
+            const size_t micro_size = size_t{1} << state.micro_order;
+            const size_t width = micro_size / 4;
+            for (size_t m = 1; m <= 3; ++m) {
+                for (size_t k = 0; k < width; ++k, ++offset) {
+                    component(state.micro_w[offset], k * m, micro_size, false);
+                    component(state.micro_w[3 * width + offset], k * m, micro_size, true);
                 }
-                width *= 4;
             }
         } else {
             size_t width = state.micro_order % 2 == 0 ? 4 : 8;

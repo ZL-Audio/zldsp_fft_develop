@@ -129,22 +129,17 @@ namespace zldsp::fft::HWY_NAMESPACE::common {
      */
     template <typename F>
     inline void generate_order_4_5_w(const size_t order, hwy::AlignedFreeUniquePtr<F[]>& w) {
-        const size_t w_size = (order == 4 ? 60 : 120);
-
-        w = common::allocate_aligned<F>(w_size << 1);
+        const size_t n = size_t{1} << order;
+        const size_t width = n / 4;
+        const size_t component_size = 3 * width;
+        w = common::allocate_aligned<F>(2 * component_size);
         F* HWY_RESTRICT w_r = w.get();
-        F* HWY_RESTRICT w_i = w.get() + w_size;
+        F* HWY_RESTRICT w_i = w.get() + component_size;
 
-        size_t offset = 0;
-        size_t width = (order == 4 ? 4 : 8);
-        for (size_t i = 0; i < 2; ++i) {
-            twiddle::generate_radix4<F>(width << 2, [&](const size_t m, const size_t k, const twiddle::Pair<F> p) {
-                w_r[offset + m * width + k] = p.c;
-                w_i[offset + m * width + k] = p.s;
-            });
-            offset += 3 * width;
-            width <<= 2;
-        }
+        twiddle::generate_radix4<F>(n, [&](const size_t m, const size_t k, const twiddle::Pair<F> p) {
+            w_r[m * width + k] = p.c;
+            w_i[m * width + k] = p.s;
+        });
     }
 
     // emit directly into SIMD blocks

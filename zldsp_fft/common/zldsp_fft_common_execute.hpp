@@ -164,11 +164,11 @@ namespace zldsp::fft::HWY_NAMESPACE::common {
             return;
         }
         case 4: {
-            common::execute_cfft_order_4<is_forward, F>(in, out, w, w + 60);
+            common::execute_cfft_order_4<is_forward, F>(in, out, w, w + 3 * 4);
             return;
         }
         case 5: {
-            common::execute_cfft_order_5<is_forward, F>(in, out, w, w + 120);
+            common::execute_cfft_order_5<is_forward, F>(in, out, w, w + 3 * 8);
             return;
         }
         case 6:
